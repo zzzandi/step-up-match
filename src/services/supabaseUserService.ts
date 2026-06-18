@@ -1,9 +1,22 @@
-import { supabase } from "@/lib/supabase";
+import {
+  isSupabaseConfigured,
+  supabase,
+} from "@/lib/supabase";
 
 const SESSION_ID =
   "c3112be7-3e3d-4db4-9850-2ff305095a76";
 
+function ensureSupabaseConfigured() {
+  if (!isSupabaseConfigured) {
+    throw new Error(
+      "Supabase environment variables are missing."
+    );
+  }
+}
+
 export async function getUsers() {
+  ensureSupabaseConfigured();
+
   const { data, error } =
     await supabase
       .from("users")
@@ -19,6 +32,8 @@ export async function getUsers() {
 }
 
 export async function getTodayAttendances() {
+  ensureSupabaseConfigured();
+
   const today =
     new Date()
       .toISOString()
@@ -47,6 +62,8 @@ export async function getTodayAttendances() {
 export async function checkIn(
   userId: string
 ) {
+  ensureSupabaseConfigured();
+
   const today =
     new Date()
       .toISOString()

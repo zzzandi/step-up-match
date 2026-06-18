@@ -11,5 +11,7 @@ export interface MatchHistory {
   
     endedAt: Date;
   
-    score?: number;
+    teamAScore?: number;
+
+    teamBScore?: number;
   }

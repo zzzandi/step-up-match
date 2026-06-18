@@ -26,3 +26,22 @@ export async function getTodayAttendanceList() {
 
   return data ?? [];
 }
+
+export async function getUserAttendanceHistory(
+  userId: string
+) {
+  const { data, error } =
+    await supabase
+      .from("attendances")
+      .select("*")
+      .eq("user_id", userId)
+      .order("attendance_date", {
+        ascending: false,
+      });
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? [];
+}

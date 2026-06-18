@@ -1,21 +1,31 @@
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 
 import type { Player } from "@/types/player";
-
 import {
   useMatchStore,
 } from "@/store/useMatchStore";
-
 import {
   getRestMinutes,
 } from "@/utils/time";
+import {
+  publishLiveSessionEvent,
+} from "@/services/liveSessionService";
 
 interface WaitingListProps {
   players: Player[];
+  readOnly?: boolean;
+  leaveablePlayerIds?: string[];
+  onLeave?: (player: Player) => void;
 }
 
 export default function WaitingList({
   players,
+  readOnly = false,
+  leaveablePlayerIds = [],
+  onLeave,
 }: WaitingListProps) {
   const allPlayers =
     useMatchStore(
@@ -47,32 +57,47 @@ export default function WaitingList({
 
   const handleLeave =
     (
-      playerId: string
+      targetPlayer: Player
     ) => {
+      const confirmed =
+        window.confirm(
+          `${targetPlayer.name}님을 퇴장 처리하시겠습니까?`
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
       const updated =
         allPlayers.map(
           (player) => {
             if (
               player.id !==
-              playerId
+              targetPlayer.id
             ) {
               return player;
             }
 
             return {
               ...player,
-
-              status:
-                "LEFT",
-
-              isPresent:
-                false,
+              status: "LEFT" as const,
+              isPresent: false,
             };
           }
         );
 
       setPlayers(
         updated
+      );
+
+      publishLiveSessionEvent({
+        type: "FORCE_LOGOUT",
+        userId: targetPlayer.id,
+        reason: "LEFT",
+      });
+
+      onLeave?.(
+        targetPlayer
       );
     };
 
@@ -106,9 +131,7 @@ export default function WaitingList({
             index
           ) => (
             <div
-              key={
-                player.id
-              }
+              key={player.id}
               className="
                 flex
                 items-center
@@ -146,9 +169,7 @@ export default function WaitingList({
                     등급
                     {" · "}
                     경기{" "}
-                    {
-                      player.matchCount
-                    }
+                    {player.matchCount}
                     회
                   </div>
                 </div>
@@ -168,23 +189,28 @@ export default function WaitingList({
                   </div>
                 </div>
 
-                <button
-                  onClick={() =>
-                    handleLeave(
-                      player.id
-                    )
-                  }
-                  className="
-                    px-3
-                    py-2
-                    rounded-xl
-                    bg-red-500
-                    text-white
-                    text-sm
-                  "
-                >
-                  퇴장
-                </button>
+                {(!readOnly ||
+                  leaveablePlayerIds.includes(
+                    player.id
+                  )) && (
+                  <button
+                    onClick={() =>
+                      handleLeave(
+                        player
+                      )
+                    }
+                    className="
+                      px-3
+                      py-2
+                      rounded-xl
+                      bg-red-500
+                      text-white
+                      text-sm
+                    "
+                  >
+                    퇴장
+                  </button>
+                )}
               </div>
             </div>
           )

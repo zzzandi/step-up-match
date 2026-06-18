@@ -33,6 +33,8 @@ export function createMatchHistory(
     endedAt:
       new Date(),
 
-    score: undefined,
+    teamAScore: undefined,
+
+    teamBScore: undefined,
   };
 }

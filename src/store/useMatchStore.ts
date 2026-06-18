@@ -15,11 +15,39 @@ import {
 import {
   createMatchHistory,
 } from "@/engine/historyManager";
+import {
+  uniquePlayers,
+} from "@/utils/participants";
+
+export interface FixedPartnerRequest {
+  id: string;
+  requesterId: string;
+  requesterName: string;
+  partnerId: string;
+  partnerName: string;
+  createdAt: string;
+}
+
+export interface AppNotification {
+  id: string;
+  audience:
+    | "ADMIN"
+    | "PLAYER";
+  recipientId?: string;
+  message: string;
+  createdAt: string;
+}
 
 interface MatchStore {
   players: Player[];
 
   courts: Court[];
+
+  fixedPartnerRequests:
+    FixedPartnerRequest[];
+
+  notifications:
+    AppNotification[];
 
   matchHistory: MatchHistory[];
 
@@ -42,6 +70,42 @@ interface MatchStore {
     playerBId: string
   ) => void;
 
+  requestFixedPartner: (
+    requesterId: string,
+    partnerId: string
+  ) => void;
+
+  approveFixedPartnerRequest: (
+    requestId: string
+  ) => void;
+
+  rejectFixedPartnerRequest: (
+    requestId: string
+  ) => void;
+
+  addNotification: (
+    notification: Omit<
+      AppNotification,
+      "id" | "createdAt"
+    >
+  ) => void;
+
+  dismissNotification: (
+    notificationId: string
+  ) => void;
+
+  dismissNotifications: (
+    notificationIds: string[]
+  ) => void;
+
+  endTodaySession: () => void;
+
+  updateMatchScore: (
+    matchId: string,
+    teamAScore: number,
+    teamBScore: number
+  ) => void;
+
   addCourt: () => void;
 
   removeCourt: (
@@ -50,6 +114,12 @@ interface MatchStore {
 
   finishCourtMatch: (
     courtId: number
+  ) => void;
+
+  replaceCourtPlayer: (
+    courtId: number,
+    outgoingPlayerId: string,
+    incomingPlayerId: string
   ) => void;
 
   selectRecommendation: (
@@ -73,6 +143,10 @@ export const useMatchStore =
 
       courts: [],
 
+      fixedPartnerRequests: [],
+
+      notifications: [],
+
       matchHistory: [],
 
       recommendations: [],
@@ -84,7 +158,10 @@ export const useMatchStore =
         players
       ) =>
         set({
-          players,
+          players:
+            uniquePlayers(
+              players
+            ),
         }),
 
       setCourts: (
@@ -127,12 +204,310 @@ export const useMatchStore =
                 };
               }
 
+              if (
+                player.fixedPartner ===
+                  playerAId ||
+                player.fixedPartner ===
+                  playerBId
+              ) {
+                return {
+                  ...player,
+                  fixedPartner:
+                    undefined,
+                };
+              }
+
               return player;
             }
           );
 
         set({
           players: updated,
+        });
+      },
+
+      requestFixedPartner: (
+        requesterId,
+        partnerId
+      ) => {
+        const {
+          players,
+          fixedPartnerRequests,
+        } = get();
+
+        if (
+          requesterId ===
+          partnerId
+        ) {
+          return;
+        }
+
+        const requester =
+          players.find(
+            (player) =>
+              player.id ===
+              requesterId
+          );
+
+        const partner =
+          players.find(
+            (player) =>
+              player.id ===
+              partnerId
+          );
+
+        if (
+          !requester ||
+          !partner
+        ) {
+          return;
+        }
+
+        const alreadyRequested =
+          fixedPartnerRequests.some(
+            (request) =>
+              (request.requesterId ===
+                requesterId &&
+                request.partnerId ===
+                  partnerId) ||
+              (request.requesterId ===
+                partnerId &&
+                request.partnerId ===
+                  requesterId)
+          );
+
+        if (alreadyRequested) {
+          return;
+        }
+
+        set({
+          fixedPartnerRequests: [
+            ...fixedPartnerRequests,
+            {
+              id:
+                crypto.randomUUID(),
+              requesterId,
+              requesterName:
+                requester.name,
+              partnerId,
+              partnerName:
+                partner.name,
+              createdAt:
+                new Date().toISOString(),
+            },
+          ],
+          notifications: [
+            ...get().notifications,
+            {
+              id:
+                crypto.randomUUID(),
+              audience: "ADMIN",
+              message: `${requester.name}님이 ${partner.name}님에게 고정 파트너를 신청했습니다.`,
+              createdAt:
+                new Date().toISOString(),
+            },
+            {
+              id:
+                crypto.randomUUID(),
+              audience: "PLAYER",
+              recipientId: partner.id,
+              message: `${requester.name}님이 고정 파트너를 신청했습니다.`,
+              createdAt:
+                new Date().toISOString(),
+            },
+          ],
+        });
+      },
+
+      approveFixedPartnerRequest:
+        (requestId) => {
+          const {
+            fixedPartnerRequests,
+            setFixedPartner,
+          } = get();
+
+          const request =
+            fixedPartnerRequests.find(
+              (item) =>
+                item.id === requestId
+            );
+
+          if (!request) {
+            return;
+          }
+
+          setFixedPartner(
+            request.requesterId,
+            request.partnerId
+          );
+
+          set({
+            fixedPartnerRequests:
+              fixedPartnerRequests.filter(
+                (item) =>
+                  item.id !==
+                  requestId
+              ),
+            notifications: [
+              ...get().notifications,
+              {
+                id:
+                  crypto.randomUUID(),
+                audience: "PLAYER",
+                recipientId:
+                  request.requesterId,
+                message: `${request.partnerName}님과의 고정 파트너 신청이 승인되었습니다.`,
+                createdAt:
+                  new Date().toISOString(),
+              },
+              {
+                id:
+                  crypto.randomUUID(),
+                audience: "PLAYER",
+                recipientId:
+                  request.partnerId,
+                message: `${request.requesterName}님과의 고정 파트너 신청이 승인되었습니다.`,
+                createdAt:
+                  new Date().toISOString(),
+              },
+            ],
+          });
+        },
+
+      rejectFixedPartnerRequest:
+        (requestId) => {
+          const {
+            fixedPartnerRequests,
+          } = get();
+
+          const request =
+            fixedPartnerRequests.find(
+              (item) =>
+                item.id === requestId
+            );
+
+          set({
+            fixedPartnerRequests:
+              fixedPartnerRequests.filter(
+                (item) =>
+                  item.id !==
+                  requestId
+              ),
+            notifications: request
+              ? [
+                  ...get().notifications,
+                  {
+                    id:
+                      crypto.randomUUID(),
+                    audience: "PLAYER",
+                    recipientId:
+                      request.requesterId,
+                    message: `${request.partnerName}님과의 고정 파트너 신청이 거절되었습니다.`,
+                    createdAt:
+                      new Date().toISOString(),
+                  },
+                  {
+                    id:
+                      crypto.randomUUID(),
+                    audience: "PLAYER",
+                    recipientId:
+                      request.partnerId,
+                    message: `${request.requesterName}님과의 고정 파트너 신청이 거절되었습니다.`,
+                    createdAt:
+                      new Date().toISOString(),
+                  },
+                ]
+              : get().notifications,
+          });
+        },
+
+      addNotification:
+        (notification) => {
+          const {
+            notifications,
+          } = get();
+
+          set({
+            notifications: [
+              ...notifications,
+              {
+                ...notification,
+                id:
+                  crypto.randomUUID(),
+                createdAt:
+                  new Date().toISOString(),
+              },
+            ],
+          });
+        },
+
+      dismissNotification:
+        (notificationId) => {
+          const {
+            notifications,
+          } = get();
+
+          set({
+            notifications:
+              notifications.filter(
+                (notification) =>
+                  notification.id !==
+                  notificationId
+              ),
+          });
+        },
+
+      dismissNotifications:
+        (notificationIds) => {
+          const {
+            notifications,
+          } = get();
+          const targetIds =
+            new Set(
+              notificationIds
+            );
+
+          set({
+            notifications:
+              notifications.filter(
+                (notification) =>
+                  !targetIds.has(
+                    notification.id
+                  )
+              ),
+          });
+        },
+
+      endTodaySession: () => {
+        set({
+          players: [],
+          courts: [],
+          fixedPartnerRequests:
+            [],
+          notifications: [],
+          recommendations: [],
+          selectedRecommendation:
+            null,
+        });
+      },
+
+      updateMatchScore: (
+        matchId,
+        teamAScore,
+        teamBScore
+      ) => {
+        set({
+          matchHistory:
+            get().matchHistory.map(
+              (history) =>
+                history.id === matchId
+                  ? {
+                      ...history,
+                      teamAScore,
+                      teamBScore,
+                    }
+                  : history
+            ),
         });
       },
 
@@ -414,6 +789,201 @@ export const useMatchStore =
           });
         },
 
+      replaceCourtPlayer: (
+        courtId,
+        outgoingPlayerId,
+        incomingPlayerId
+      ) => {
+        const {
+          courts,
+          players,
+          notifications,
+        } = get();
+
+        const court =
+          courts.find(
+            (item) =>
+              item.id === courtId
+          );
+
+        const incomingPlayer =
+          players.find(
+            (player) =>
+              player.id ===
+              incomingPlayerId
+          );
+
+        const outgoingPlayer =
+          players.find(
+            (player) =>
+              player.id ===
+              outgoingPlayerId
+          );
+
+        if (
+          !court ||
+          !court.teamA ||
+          !court.teamB ||
+          !incomingPlayer ||
+          !outgoingPlayer
+        ) {
+          return;
+        }
+
+        const priorityWaitingAt =
+          new Date(
+            Date.now() -
+              60 * 60 * 1000
+          );
+
+        const updatedPlayers =
+          players.map(
+            (player) => {
+              if (
+                player.id ===
+                outgoingPlayerId
+              ) {
+                return {
+                  ...player,
+                  status:
+                    "WAITING" as const,
+                  waitingStartedAt:
+                    priorityWaitingAt,
+                  playingStartedAt:
+                    undefined,
+                  consecutiveMatches: 0,
+                };
+              }
+
+              if (
+                player.id ===
+                incomingPlayerId
+              ) {
+                return {
+                  ...player,
+                  status:
+                    "PLAYING" as const,
+                  playingStartedAt:
+                    new Date(),
+                  waitingStartedAt:
+                    undefined,
+                };
+              }
+
+              return player;
+            }
+          );
+
+        const replacementPlayer =
+          updatedPlayers.find(
+            (player) =>
+              player.id ===
+              incomingPlayerId
+          );
+
+        if (!replacementPlayer) {
+          return;
+        }
+
+        const replaceTeamPlayer =
+          (
+            team: [Player, Player]
+          ): [Player, Player] =>
+            team.map((player) =>
+              player.id ===
+              outgoingPlayerId
+                ? replacementPlayer
+                : player
+            ) as [Player, Player];
+
+        const updatedCourts =
+          courts.map((item) => {
+            if (
+              item.id !==
+                courtId ||
+              !item.teamA ||
+              !item.teamB
+            ) {
+              return item;
+            }
+
+            return {
+              ...item,
+              teamA:
+                replaceTeamPlayer(
+                  item.teamA
+                ),
+              teamB:
+                replaceTeamPlayer(
+                  item.teamB
+                ),
+            };
+          });
+
+        const updatedCourt =
+          updatedCourts.find(
+            (item) =>
+              item.id === courtId
+          );
+
+        const teamAText =
+          updatedCourt?.teamA
+            ?.map(
+              (player) =>
+                player.name
+            )
+            .join(" + ") ?? "";
+
+        const teamBText =
+          updatedCourt?.teamB
+            ?.map(
+              (player) =>
+                player.name
+            )
+            .join(" + ") ?? "";
+
+        const message =
+          `Court ${courtId} 교체: ${outgoingPlayer.name}님 대신 ${incomingPlayer.name}님이 배정되었습니다. ${teamAText} vs ${teamBText}`;
+
+        set({
+          players: updatedPlayers,
+          courts: updatedCourts,
+          notifications: [
+            ...notifications,
+            {
+              id:
+                crypto.randomUUID(),
+              audience: "ADMIN",
+              message,
+              createdAt:
+                new Date().toISOString(),
+            },
+            {
+              id:
+                crypto.randomUUID(),
+              audience: "PLAYER",
+              recipientId:
+                incomingPlayer.id,
+              message:
+                `Court ${courtId}에 교체 배정되었습니다.`,
+              createdAt:
+                new Date().toISOString(),
+            },
+            {
+              id:
+                crypto.randomUUID(),
+              audience: "PLAYER",
+              recipientId:
+                outgoingPlayer.id,
+              message:
+                `Court ${courtId} 배정에서 빠졌습니다. 다음 대진에 우선 배정됩니다.`,
+              createdAt:
+                new Date().toISOString(),
+            },
+          ],
+        });
+      },
+
         rerollRecommendations:
         (
           courtId
@@ -536,6 +1106,45 @@ export const useMatchStore =
                 new Date(),
             };
 
+          const teamAText =
+            selectedRecommendation.teamA
+              .map(
+                (player) =>
+                  player.name
+              )
+              .join(" + ");
+
+          const teamBText =
+            selectedRecommendation.teamB
+              .map(
+                (player) =>
+                  player.name
+              )
+              .join(" + ");
+
+          const assignmentMessage =
+            `Court ${selectedRecommendation.courtId}에 배정되었습니다. ${teamAText} vs ${teamBText}`;
+
+          const assignedNotifications =
+            selectedRecommendation.teamA
+              .concat(
+                selectedRecommendation.teamB
+              )
+              .flatMap((player) => [
+                {
+                  id:
+                    crypto.randomUUID(),
+                  audience:
+                    "PLAYER" as const,
+                  recipientId:
+                    player.id,
+                  message:
+                    assignmentMessage,
+                  createdAt:
+                    new Date().toISOString(),
+                },
+              ]);
+
           set({
             players:
               updatedPlayers,
@@ -551,6 +1160,19 @@ export const useMatchStore =
               [],
             selectedRecommendation:
               null,
+            notifications: [
+              ...get().notifications,
+              {
+                id:
+                  crypto.randomUUID(),
+                audience: "ADMIN",
+                message:
+                  assignmentMessage,
+                createdAt:
+                  new Date().toISOString(),
+              },
+              ...assignedNotifications,
+            ],
           });
         },
       }),

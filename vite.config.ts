@@ -4,6 +4,11 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 
 export default defineConfig({
+  base:
+    process.env.GITHUB_ACTIONS
+      ? "/step-up-match/"
+      : "/",
+
   plugins: [
     react(),
     tailwindcss(),
@@ -13,5 +18,11 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+  },
+
+  server: {
+    allowedHosts: [
+      ".trycloudflare.com",
+    ],
   },
 });

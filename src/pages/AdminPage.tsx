@@ -9,12 +9,21 @@ import MatchRecommendModal from "@/components/match/MatchRecommendModal";
 import AddPlayerModal from "@/components/player/AddPlayerModal";
 import FixedPartnerModal from "@/components/player/FixedPartnerModal";
 import MatchHistoryPanel from "@/components/history/MatchHistoryPanel";
+import {
+  useAccessSession,
+} from "@/auth/access";
 
 import type { Player } from "@/types/player";
 
 import { useMatchStore } from "@/store/useMatchStore";
+import {
+  uniqueByUserId,
+} from "@/utils/participants";
 
 export default function AdminPage() {
+  const session =
+    useAccessSession();
+
   const [isAddModalOpen, setIsAddModalOpen] =
     useState(false);
 
@@ -24,7 +33,7 @@ export default function AdminPage() {
   ] = useState(false);
 
   const [
-    attendanceList,
+    ,
     setAttendanceList,
   ] = useState<any[]>([]);
 
@@ -59,6 +68,48 @@ console.log(
         state.setFixedPartner
     );
 
+  const fixedPartnerRequests =
+    useMatchStore(
+      (state) =>
+        state.fixedPartnerRequests
+    );
+
+  const approveFixedPartnerRequest =
+    useMatchStore(
+      (state) =>
+        state.approveFixedPartnerRequest
+    );
+
+  const rejectFixedPartnerRequest =
+    useMatchStore(
+      (state) =>
+        state.rejectFixedPartnerRequest
+    );
+
+  const notifications =
+    useMatchStore(
+      (state) =>
+        state.notifications
+    );
+
+  const addNotification =
+    useMatchStore(
+      (state) =>
+        state.addNotification
+    );
+
+  const dismissNotification =
+    useMatchStore(
+      (state) =>
+        state.dismissNotification
+    );
+
+  const dismissNotifications =
+    useMatchStore(
+      (state) =>
+        state.dismissNotifications
+    );
+
   const addCourt =
     useMatchStore(
       (state) =>
@@ -82,7 +133,9 @@ console.log(
         data
       );
 
-      setAttendanceList(data);
+      setAttendanceList(
+        uniqueByUserId(data)
+      );
     } catch (error) {
       console.error(error);
     }
@@ -92,7 +145,12 @@ console.log(
         getTodayAttendanceList()
           .then((data) => {
       
-            setAttendanceList(data);
+            const uniqueAttendance =
+              uniqueByUserId(data);
+
+            setAttendanceList(
+              uniqueAttendance
+            );
       
             if (players.length > 0) {
 
@@ -104,7 +162,7 @@ console.log(
                   );
               
                 const newPlayers =
-                  data
+                  uniqueAttendance
                     .filter(
                       (attendance: any) =>
                         !existingIds.has(
@@ -160,7 +218,7 @@ console.log(
               }
       
             const playerList: Player[] =
-  data.map((attendance: any) => ({
+  uniqueAttendance.map((attendance: any) => ({
     id: attendance.users.id,
     name: attendance.users.name,
     gender:
@@ -289,6 +347,27 @@ console.log(
       playerId: string,
       partnerId: string
     ) => {
+      const player =
+        players.find(
+          (item) =>
+            item.id === playerId
+        );
+
+      const partner =
+        players.find(
+          (item) =>
+            item.id === partnerId
+        );
+
+      const confirmed =
+        window.confirm(
+          `${player?.name ?? "선수"}님과 ${partner?.name ?? "선수"}님의 고정 파트너를 해제하시겠습니까?`
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
       const updated =
         players.map(
           (player) => {
@@ -311,14 +390,86 @@ console.log(
         );
 
       setPlayers(updated);
+
+      if (player) {
+        addNotification({
+          audience: "PLAYER",
+          recipientId: player.id,
+          message: `${partner?.name ?? "파트너"}님과의 고정 파트너가 해제되었습니다.`,
+        });
+      }
+
+      if (partner) {
+        addNotification({
+          audience: "PLAYER",
+          recipientId: partner.id,
+          message: `${player?.name ?? "파트너"}님과의 고정 파트너가 해제되었습니다.`,
+        });
+      }
     };
+
+  const handleSaveFixedPartner =
+    (
+      playerAId: string,
+      playerBId: string
+    ) => {
+      const playerA =
+        players.find(
+          (player) =>
+            player.id === playerAId
+        );
+
+      const playerB =
+        players.find(
+          (player) =>
+            player.id === playerBId
+        );
+
+      setFixedPartner(
+        playerAId,
+        playerBId
+      );
+
+      if (playerA) {
+        addNotification({
+          audience: "PLAYER",
+          recipientId: playerA.id,
+          message: `${playerB?.name ?? "선수"}님과 고정 파트너로 설정되었습니다.`,
+        });
+      }
+
+      if (playerB) {
+        addNotification({
+          audience: "PLAYER",
+          recipientId: playerB.id,
+          message: `${playerA?.name ?? "선수"}님과 고정 파트너로 설정되었습니다.`,
+        });
+      }
+    };
+
+  const adminNotifications =
+    notifications.filter(
+      (notification) =>
+        notification.audience ===
+          "ADMIN" &&
+        (!notification.recipientId ||
+          notification.recipientId ===
+            session?.userId)
+    );
+
+  const currentAdmin =
+    players.find(
+      (player) =>
+        player.id ===
+        session?.userId
+    );
 
   return (
     <>
-      <div className="min-h-screen bg-slate-950 text-white p-6">
-        <div className="flex items-center justify-between mb-8">
+      <div className="min-h-screen bg-slate-950 p-4 text-white sm:p-6">
+        <div className="mb-6 lg:flex lg:items-start lg:justify-between lg:gap-6">
           <div>
-            <h1 className="text-4xl font-bold">
+            <h1 className="text-3xl font-bold sm:text-4xl">
               STEP UP MATCH
             </h1>
 
@@ -327,7 +478,11 @@ console.log(
             </p>
           </div>
 
-          <div className="flex gap-3 flex-wrap">
+          <details className="mt-5 lg:mt-0 lg:min-w-[520px]">
+            <summary className="cursor-pointer rounded-xl bg-slate-800 px-4 py-3 text-center font-bold">
+              관리 기능
+            </summary>
+          <div className="mt-2 grid grid-cols-2 gap-2 text-sm sm:gap-3 sm:text-base lg:mt-0 lg:flex lg:flex-wrap lg:justify-end [&>button]:w-full [&>button]:whitespace-nowrap lg:[&>button]:w-auto">
           <button
   onClick={
     refreshAttendance
@@ -419,9 +574,10 @@ console.log(
               참가자 추가
             </button>
           </div>
+          </details>
         </div>
 
-        <div className="grid md:grid-cols-4 gap-4 mb-8">
+        <div className="mb-6 grid grid-cols-4 gap-2 overflow-x-auto [&>div]:min-w-[76px] [&>div]:rounded-xl [&>div]:p-3 [&>div>div:last-child]:mt-1 [&>div>div:last-child]:text-2xl">
           <div className="rounded-3xl bg-slate-900 p-5 border border-slate-800">
             <div className="text-slate-400 text-sm">
               참석자
@@ -463,6 +619,96 @@ console.log(
           </div>
         </div>
 
+        <div className="mb-6 flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900 px-4 py-3">
+          <span className="text-sm text-slate-400">
+            현재 내 상태
+          </span>
+          <span className="rounded-lg bg-cyan-400/15 px-3 py-1 text-sm font-bold text-cyan-300">
+            {currentAdmin?.status ===
+            "PLAYING"
+              ? "경기 중"
+              : currentAdmin?.status ===
+                  "WAITING"
+                ? "대기 중"
+                : "운동 종료"}
+          </span>
+        </div>
+
+        {adminNotifications.length > 0 && (
+          <div className="mb-8 rounded-3xl bg-slate-900 p-6 border border-cyan-500/30">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="text-xl font-bold">
+                Admin 알림
+              </h2>
+
+              <button
+                type="button"
+                onClick={() =>
+                  dismissNotifications(
+                    adminNotifications.map(
+                      (notification) =>
+                        notification.id
+                    )
+                  )
+                }
+                className="
+                  rounded-lg
+                  bg-cyan-500
+                  px-3
+                  py-2
+                  text-sm
+                  font-bold
+                  text-slate-950
+                "
+              >
+                전체 확인
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {adminNotifications.map(
+                (notification) => (
+                  <div
+                    key={notification.id}
+                    className="
+                      flex
+                      items-center
+                      justify-between
+                      gap-3
+                      rounded-xl
+                      bg-slate-800
+                      px-4
+                      py-3
+                    "
+                  >
+                    <div className="text-slate-200">
+                      {notification.message}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        dismissNotification(
+                          notification.id
+                        )
+                      }
+                      className="
+                        rounded-lg
+                        bg-slate-700
+                        px-3
+                        py-1
+                        text-sm
+                      "
+                    >
+                      확인
+                    </button>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="grid lg:grid-cols-2 gap-6">
           {courts.map(
             (court) => (
@@ -485,31 +731,97 @@ console.log(
         </div>
 
         <div className="mt-8 rounded-3xl bg-slate-900 p-6 border border-slate-800">
-  <h2 className="text-xl font-bold mb-4">
-    오늘 참가자
-  </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">
+              고정 파트너 신청 알림
+            </h2>
 
-  <div className="grid md:grid-cols-3 gap-3">
-    {attendanceList.map(
-      (attendance) => (
-        <div
-          key={
-            attendance.id
-          }
-          className="
-            rounded-xl
-            bg-slate-800
-            px-4
-            py-3
-          "
-        >
-          {attendance.users?.name ??
-            attendance.user_id}
+            <span className="rounded-full bg-cyan-500/20 px-3 py-1 text-xs font-bold text-cyan-300">
+              {fixedPartnerRequests.length}
+            </span>
+          </div>
+
+          {fixedPartnerRequests.length === 0 ? (
+            <div className="text-slate-500">
+              대기 중인 신청이 없습니다.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {fixedPartnerRequests.map(
+                (request) => (
+                  <div
+                    key={request.id}
+                    className="
+                      flex
+                      flex-wrap
+                      items-center
+                      justify-between
+                      gap-3
+                      rounded-xl
+                      bg-slate-800
+                      px-4
+                      py-3
+                    "
+                  >
+                    <div>
+                      <div className="font-bold">
+                        {request.requesterName}
+                        {" ↔ "}
+                        {request.partnerName}
+                      </div>
+
+                      <div className="text-xs text-slate-400">
+                        Player 신청
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          approveFixedPartnerRequest(
+                            request.id
+                          )
+                        }
+                        className="
+                          rounded-xl
+                          bg-lime-400
+                          px-4
+                          py-2
+                          text-sm
+                          font-bold
+                          text-black
+                        "
+                      >
+                        승인
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          rejectFixedPartnerRequest(
+                            request.id
+                          )
+                        }
+                        className="
+                          rounded-xl
+                          bg-slate-700
+                          px-4
+                          py-2
+                          text-sm
+                          font-bold
+                          text-white
+                        "
+                      >
+                        거절
+                      </button>
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+          )}
         </div>
-      )
-    )}
-  </div>
-</div>
 
         <div className="mt-8 rounded-3xl bg-slate-900 p-6 border border-slate-800">
           <h2 className="text-xl font-bold mb-4">
@@ -614,7 +926,7 @@ console.log(
           playerA,
           playerB
         ) =>
-          setFixedPartner(
+          handleSaveFixedPartner(
             playerA,
             playerB
           )
