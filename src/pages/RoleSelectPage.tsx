@@ -2,11 +2,17 @@ import {
   Navigate,
   useNavigate,
 } from "react-router-dom";
+import { useEffect, useState } from "react";
+import QRCode from "qrcode";
 
 import {
   getRolePath,
   useAccessSession,
 } from "@/auth/access";
+
+const PUBLIC_APP_URL =
+  import.meta.env.VITE_PUBLIC_APP_URL ??
+  "https://zzzandi.github.io/step-up-match/";
 
 const roles = [
   {
@@ -39,6 +45,38 @@ export default function RoleSelectPage() {
   const navigate = useNavigate();
   const session =
     useAccessSession();
+  const [qrCodeUrl, setQrCodeUrl] =
+    useState("");
+  const [copied, setCopied] =
+    useState(false);
+
+  useEffect(() => {
+    QRCode.toDataURL(
+      PUBLIC_APP_URL,
+      {
+        width: 320,
+        margin: 2,
+        color: {
+          dark: "#0f172a",
+          light: "#ffffff",
+        },
+        errorCorrectionLevel: "H",
+      }
+    )
+      .then(setQrCodeUrl)
+      .catch(console.error);
+  }, []);
+
+  async function copyAddress() {
+    await navigator.clipboard.writeText(
+      PUBLIC_APP_URL
+    );
+    setCopied(true);
+    window.setTimeout(
+      () => setCopied(false),
+      1600
+    );
+  }
 
   if (session) {
     return (
@@ -104,6 +142,68 @@ export default function RoleSelectPage() {
             </button>
           ))}
         </div>
+
+        <section className="mt-8 overflow-hidden rounded-3xl border border-slate-800 bg-slate-900">
+          <div className="grid items-center gap-8 p-6 md:grid-cols-[1fr_auto] md:p-8">
+            <div>
+              <div className="mb-3 inline-flex rounded-full bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-300">
+                고정 접속 주소
+              </div>
+
+              <h2 className="text-2xl font-bold">
+                주소를 입력하거나 QR을 찍어 접속하세요
+              </h2>
+
+              <p className="mt-2 text-slate-400">
+                이 주소는 저장소 이름이나 GitHub 계정을 바꾸지 않는 한
+                그대로 유지됩니다.
+              </p>
+
+              <a
+                href={PUBLIC_APP_URL}
+                className="mt-5 block break-all rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-cyan-300 hover:border-cyan-500"
+              >
+                {PUBLIC_APP_URL}
+              </a>
+
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={copyAddress}
+                  className="rounded-xl bg-cyan-500 px-4 py-2 font-bold text-slate-950 transition hover:bg-cyan-400"
+                >
+                  {copied
+                    ? "복사 완료"
+                    : "주소 복사"}
+                </button>
+
+                {qrCodeUrl && (
+                  <a
+                    href={qrCodeUrl}
+                    download="step-up-match-qr.png"
+                    className="rounded-xl bg-slate-800 px-4 py-2 font-bold text-slate-200 transition hover:bg-slate-700"
+                  >
+                    QR 이미지 저장
+                  </a>
+                )}
+              </div>
+            </div>
+
+            <div className="mx-auto rounded-3xl bg-white p-4 shadow-2xl shadow-cyan-950/40">
+              {qrCodeUrl ? (
+                <img
+                  src={qrCodeUrl}
+                  alt="STEP UP MATCH 고정 접속 주소 QR 코드"
+                  className="h-56 w-56"
+                />
+              ) : (
+                <div className="flex h-56 w-56 items-center justify-center text-slate-500">
+                  QR 생성 중...
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   );
