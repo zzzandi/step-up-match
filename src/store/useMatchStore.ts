@@ -1179,6 +1179,31 @@ export const useMatchStore =
       {
         name:
           "step-up-match-storage",
+        version: 3,
+        migrate: (
+          persistedState,
+          version
+        ) => {
+          const state =
+            persistedState as MatchStore;
+
+          if (version < 3) {
+            return {
+              ...state,
+              players: [],
+              courts: [],
+              fixedPartnerRequests:
+                [],
+              notifications: [],
+              matchHistory: [],
+              recommendations: [],
+              selectedRecommendation:
+                null,
+            };
+          }
+
+          return state;
+        },
       }
     )
   );

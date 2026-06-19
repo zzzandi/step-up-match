@@ -31,9 +31,15 @@ type AttendanceRecord = {
 function dateKey(
   value: Date | string
 ) {
-  return new Date(value)
-    .toISOString()
-    .slice(0, 10);
+  return new Intl.DateTimeFormat(
+    "en-CA",
+    {
+      timeZone: "Asia/Seoul",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }
+  ).format(new Date(value));
 }
 
 function monthKey(
@@ -154,6 +160,15 @@ function MatchScoreRow({
       history.teamBScore?.toString() ??
         ""
     );
+  const [isEditing, setIsEditing] =
+    useState(
+      history.teamAScore ===
+        undefined ||
+        history.teamBScore ===
+          undefined
+    );
+  const [saved, setSaved] =
+    useState(false);
   const partnerId =
     partnerIdFor(
       history,
@@ -185,6 +200,8 @@ function MatchScoreRow({
       scoreA,
       scoreB
     );
+    setSaved(true);
+    setIsEditing(false);
   }
 
   return (
@@ -222,50 +239,81 @@ function MatchScoreRow({
         )}
       </div>
 
-      <div className="mt-4 grid grid-cols-[1fr_auto_1fr_auto] items-end gap-2">
-        <label>
-          <span className="mb-1 block text-xs text-slate-400">
-            Team A
+      {isEditing ? (
+        <div className="mt-4 grid grid-cols-[1fr_auto_1fr_auto] items-end gap-2">
+          <label>
+            <span className="mb-1 block text-xs text-slate-400">
+              Team A
+            </span>
+            <input
+              type="number"
+              min="0"
+              value={teamAScore}
+              onChange={(event) =>
+                setTeamAScore(
+                  event.target.value
+                )
+              }
+              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-center"
+            />
+          </label>
+          <span className="pb-2 text-slate-500">
+            :
           </span>
-          <input
-            type="number"
-            min="0"
-            value={teamAScore}
-            onChange={(event) =>
-              setTeamAScore(
-                event.target.value
-              )
-            }
-            className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-center"
-          />
-        </label>
-        <span className="pb-2 text-slate-500">
-          :
-        </span>
-        <label>
-          <span className="mb-1 block text-xs text-slate-400">
-            Team B
-          </span>
-          <input
-            type="number"
-            min="0"
-            value={teamBScore}
-            onChange={(event) =>
-              setTeamBScore(
-                event.target.value
-              )
-            }
-            className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-center"
-          />
-        </label>
-        <button
-          type="button"
-          onClick={saveScore}
-          className="rounded-lg bg-cyan-400 px-3 py-2 font-bold text-slate-950"
-        >
-          저장
-        </button>
-      </div>
+          <label>
+            <span className="mb-1 block text-xs text-slate-400">
+              Team B
+            </span>
+            <input
+              type="number"
+              min="0"
+              value={teamBScore}
+              onChange={(event) =>
+                setTeamBScore(
+                  event.target.value
+                )
+              }
+              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-center"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={saveScore}
+            className="rounded-lg bg-cyan-400 px-3 py-2 font-bold text-slate-950"
+          >
+            저장
+          </button>
+        </div>
+      ) : (
+        <div className="mt-4 flex items-center justify-between rounded-xl bg-slate-800 px-4 py-3">
+          <div>
+            <div className="text-xs text-slate-400">
+              저장된 점수
+            </div>
+            <div className="mt-1 text-xl font-bold">
+              {teamAScore} :{" "}
+              {teamBScore}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {saved && (
+              <span className="rounded-lg bg-emerald-400/15 px-3 py-2 text-xs font-bold text-emerald-300">
+                저장 완료
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setSaved(false);
+                setIsEditing(true);
+              }}
+              className="rounded-lg bg-slate-700 px-3 py-2 text-sm font-bold"
+            >
+              수정
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -450,12 +498,78 @@ export default function MyPage() {
           b.games - a.games
       );
 
+    const scoredHistories =
+      histories.filter(
+        (history) =>
+          resultFor(
+            history,
+            userId
+          ) !== "NONE"
+      );
+    const wins =
+      scoredHistories.filter(
+        (history) =>
+          resultFor(
+            history,
+            userId
+          ) === "WIN"
+      ).length;
+    const losses =
+      scoredHistories.length -
+      wins;
+    const totalMinutes =
+      histories.reduce(
+        (total, history) =>
+          total +
+          durationMinutes(history),
+        0
+      );
+    const favoritePartner =
+      [...partnerMap.entries()]
+        .sort(
+          (
+            [, a],
+            [, b]
+          ) =>
+            b.games -
+            a.games
+        )[0]?.[0];
+
     return {
       histories,
       monthDates,
       todayMatches,
       monthMatches,
       partnerRanking,
+      totalGames:
+        histories.length,
+      scoredGames:
+        scoredHistories.length,
+      wins,
+      losses,
+      winRate:
+        scoredHistories.length >
+        0
+          ? Math.round(
+              (wins /
+                scoredHistories.length) *
+                100
+            )
+          : 0,
+      averageMinutes:
+        histories.length > 0
+          ? Math.round(
+              totalMinutes /
+                histories.length
+            )
+          : 0,
+      favoritePartnerName:
+        favoritePartner
+          ? playerName(
+              players,
+              favoritePartner
+            )
+          : "-",
       monthMinutes:
         monthMatches.reduce(
           (total, history) =>
@@ -520,6 +634,54 @@ export default function MyPage() {
                 stats.monthMinutes
               )}
             </div>
+          </div>
+        </section>
+
+        <section className="mb-6">
+          <h2 className="mb-3 text-lg font-bold">
+            선수 리포트
+          </h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {[
+              [
+                "전체 경기",
+                `${stats.totalGames}경기`,
+              ],
+              [
+                "승 / 패",
+                `${stats.wins}승 ${stats.losses}패`,
+              ],
+              [
+                "전체 승률",
+                `${stats.winRate}%`,
+              ],
+              [
+                "점수 입력",
+                `${stats.scoredGames}경기`,
+              ],
+              [
+                "평균 경기시간",
+                `${stats.averageMinutes}분`,
+              ],
+              [
+                "최다 파트너",
+                stats.favoritePartnerName,
+              ],
+            ].map(
+              ([label, value]) => (
+                <div
+                  key={label}
+                  className="rounded-xl border border-slate-800 bg-slate-900 p-4"
+                >
+                  <div className="text-xs text-slate-400">
+                    {label}
+                  </div>
+                  <div className="mt-2 truncate text-lg font-bold">
+                    {value}
+                  </div>
+                </div>
+              )
+            )}
           </div>
         </section>
 

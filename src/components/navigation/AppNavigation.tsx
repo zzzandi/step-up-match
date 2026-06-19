@@ -11,9 +11,11 @@ import {
 } from "react-router-dom";
 
 import {
+  adminNames,
   canManage,
   clearAccessSession,
   getRolePath,
+  setAccessSession,
   useAccessSession,
 } from "@/auth/access";
 import {
@@ -49,15 +51,28 @@ export default function AppNavigation() {
       (state) =>
         state.endTodaySession
     );
+  const addNotification =
+    useMatchStore(
+      (state) =>
+        state.addNotification
+    );
 
   if (!session) {
     return null;
   }
 
+  const activeSession =
+    session;
   const homePath =
-    getRolePath(session.role);
+    getRolePath(
+      activeSession.role
+    );
   const currentUserId =
-    session.userId;
+    activeSession.userId;
+  const isParticipant =
+    (activeSession.participationMode ??
+      "PARTICIPANT") ===
+    "PARTICIPANT";
 
   function logout() {
     clearAccessSession();
@@ -65,7 +80,46 @@ export default function AppNavigation() {
     navigate("/");
   }
 
-  function endPlayerWorkout() {
+  function notifyPlayerLeft() {
+    if (
+      activeSession.role !==
+        "PLAYER" ||
+      !currentUserId
+    ) {
+      return;
+    }
+
+    const message =
+      `${activeSession.userName ?? "회원"}님이 개인 운동을 종료했습니다.`;
+
+    players
+      .filter(
+        (player) =>
+          player.id !==
+          currentUserId &&
+          player.status !== "LEFT" &&
+          !adminNames.includes(
+            player.name ===
+              "큰영진"
+              ? "김영진"
+              : player.name
+          )
+      )
+      .forEach((player) => {
+        addNotification({
+          audience: "PLAYER",
+          recipientId: player.id,
+          message,
+        });
+      });
+
+    addNotification({
+      audience: "ADMIN",
+      message,
+    });
+  }
+
+  function endPersonalWorkout() {
     if (!currentUserId) {
       return;
     }
@@ -90,6 +144,27 @@ export default function AppNavigation() {
           : player
       )
     );
+    notifyPlayerLeft();
+
+    if (
+      canManage(
+        activeSession.role
+      )
+    ) {
+      setAccessSession({
+        role:
+          activeSession.role,
+        userId:
+          activeSession.userId,
+        userName:
+          activeSession.userName,
+        participationMode:
+          "VIEWER",
+      });
+      setIsOpen(false);
+      return;
+    }
+
     publishLiveSessionEvent({
       type: "FORCE_LOGOUT",
       userId: currentUserId,
@@ -145,6 +220,8 @@ export default function AppNavigation() {
               {session.userName}
               <span className="ml-2 text-xs font-medium text-cyan-300">
                 {roleLabels[session.role]}
+                {!isParticipant &&
+                  " · 조회 전용"}
               </span>
             </div>
           </div>
@@ -255,16 +332,15 @@ export default function AppNavigation() {
             </nav>
 
             <div className="mt-auto space-y-2">
-              {session.role ===
-                "PLAYER" && (
+              {isParticipant && (
                 <button
                   type="button"
                   onClick={
-                    endPlayerWorkout
+                    endPersonalWorkout
                   }
                   className="w-full rounded-xl bg-amber-400 px-4 py-4 text-left font-bold text-black"
                 >
-                  오늘 운동 종료
+                  개인 운동 종료
                 </button>
               )}
 
@@ -278,7 +354,7 @@ export default function AppNavigation() {
                   }
                   className="w-full rounded-xl bg-amber-400 px-4 py-4 text-left font-bold text-black"
                 >
-                  전체 오늘 운동 종료
+                  오늘 모임 전체 운동 종료
                 </button>
               )}
 

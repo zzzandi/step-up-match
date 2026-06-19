@@ -12,6 +12,9 @@ export interface AccessSession {
   role: AccessRole;
   userId?: string;
   userName?: string;
+  participationMode?:
+    | "PARTICIPANT"
+    | "VIEWER";
 }
 
 const ACCESS_SESSION_KEY =

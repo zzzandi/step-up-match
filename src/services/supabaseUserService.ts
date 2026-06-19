@@ -14,6 +14,18 @@ function ensureSupabaseConfigured() {
   }
 }
 
+function getKstDateKey() {
+  return new Intl.DateTimeFormat(
+    "en-CA",
+    {
+      timeZone: "Asia/Seoul",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }
+  ).format(new Date());
+}
+
 export async function getUsers() {
   ensureSupabaseConfigured();
 
@@ -35,9 +47,7 @@ export async function getTodayAttendances() {
   ensureSupabaseConfigured();
 
   const today =
-    new Date()
-      .toISOString()
-      .split("T")[0];
+    getKstDateKey();
 
   const { data, error } =
     await supabase
@@ -65,9 +75,7 @@ export async function checkIn(
   ensureSupabaseConfigured();
 
   const today =
-    new Date()
-      .toISOString()
-      .split("T")[0];
+    getKstDateKey();
 
   const { data, error } =
     await supabase

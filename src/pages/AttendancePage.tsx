@@ -26,7 +26,7 @@ interface AttendanceRecord {
   id: string;
   user_id: string;
   attendance_date?: string;
-  created_at?: string;
+  arrival_time?: string;
   users:
     | AttendanceUser
     | AttendanceUser[]
@@ -114,7 +114,7 @@ export default function AttendancePage() {
         (record) => {
           const date =
             record.attendance_date ??
-            record.created_at?.slice(
+            record.arrival_time?.slice(
               0,
               10
             );

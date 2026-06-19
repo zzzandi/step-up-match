@@ -1,6 +1,17 @@
 import { supabase } from "@/lib/supabase";
 
 export async function getTodayAttendanceList() {
+  const today =
+    new Intl.DateTimeFormat(
+      "en-CA",
+      {
+        timeZone: "Asia/Seoul",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }
+    ).format(new Date());
+
   const { data, error } =
     await supabase
       .from("attendances")
@@ -13,7 +24,11 @@ export async function getTodayAttendanceList() {
           grade,
           hidden_skill
         )
-      `);
+      `)
+      .eq(
+        "attendance_date",
+        today
+      );
 
   console.log(
     "ATTENDANCE QUERY RESULT",
@@ -72,7 +87,7 @@ export async function getMonthlyAttendanceList(
         id,
         user_id,
         attendance_date,
-        created_at,
+        arrival_time,
         users (
           id,
           name,

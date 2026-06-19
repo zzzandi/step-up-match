@@ -139,15 +139,32 @@ export default function JoinPage() {
           : masterNames;
 
       return allowedNames
-        .map((name) =>
-          users.find(
-            (user) =>
-              user.name === name
-          )
-        )
+        .map((name) => {
+          const sourceNames =
+            name === "김영진"
+              ? [
+                  "김영진",
+                  "큰영진",
+                ]
+              : [name];
+          const user =
+            users.find(
+              (item) =>
+                sourceNames.includes(
+                  item.name
+                )
+            );
+
+          return user
+            ? {
+                ...user,
+                name,
+              }
+            : undefined;
+        })
         .filter(
-          (user): user is User =>
-            Boolean(user)
+          (user) =>
+            user !== undefined
         );
     }, [role, users]);
 
@@ -156,28 +173,34 @@ export default function JoinPage() {
     Boolean(config?.password);
 
   useEffect(() => {
-    loadUsers();
+    let cancelled = false;
+
+    getUsers()
+      .then((data) => {
+        if (!cancelled) {
+          setUsers(data ?? []);
+        }
+      })
+      .catch((error) => {
+        console.error(error);
+
+        if (!cancelled) {
+          setUsers([]);
+          setMessage(
+            "회원 목록을 불러오지 못했습니다. Supabase 설정을 확인해주세요."
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
-
-  async function loadUsers() {
-    try {
-      setLoading(true);
-      setMessage("");
-
-      const data =
-        await getUsers();
-
-      setUsers(data ?? []);
-    } catch (error) {
-      console.error(error);
-      setUsers([]);
-      setMessage(
-        "회원 목록을 불러오지 못했습니다. Supabase 설정을 확인해주세요."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function markAttendance(
     userId: string
@@ -187,7 +210,9 @@ export default function JoinPage() {
 
     const alreadyJoined =
       attendances?.some(
-        (attendance: any) =>
+        (attendance: {
+          user_id?: string;
+        }) =>
           attendance.user_id ===
           userId
       );
@@ -226,7 +251,11 @@ export default function JoinPage() {
       });
   }
 
-  async function handleJoin() {
+  async function handleJoin(
+    participationMode:
+      | "PARTICIPANT"
+      | "VIEWER"
+  ) {
     if (!role || !config) {
       return;
     }
@@ -272,13 +301,9 @@ export default function JoinPage() {
       setSubmitting(true);
       setMessage("");
 
-      const canRecordAttendance =
-        role !== "ADMIN" ||
-        selectedUser.id !==
-          selectedUser.name;
-
       const didJoinToday =
-        canRecordAttendance
+        participationMode ===
+        "PARTICIPANT"
           ? await markAttendance(
               selectedUser.id
             )
@@ -294,6 +319,7 @@ export default function JoinPage() {
         role,
         userId: selectedUser.id,
         userName: selectedUser.name,
+        participationMode,
       });
 
       navigate(
@@ -457,26 +483,68 @@ export default function JoinPage() {
                 </div>
               )}
 
-              <button
-                onClick={handleJoin}
-                disabled={
-                  submitting ||
-                  visibleUsers.length === 0
-                }
-                className="
-                  w-full
-                  py-3
-                  rounded-xl
-                  font-bold
-                  bg-emerald-600
-                  hover:bg-emerald-500
-                  disabled:opacity-50
-                "
-              >
-                {submitting
-                  ? "참가 처리 중..."
-                  : config.submitLabel}
-              </button>
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleJoin(
+                      "PARTICIPANT"
+                    )
+                  }
+                  disabled={
+                    submitting ||
+                    visibleUsers.length ===
+                      0
+                  }
+                  className="
+                    w-full
+                    rounded-xl
+                    bg-emerald-600
+                    py-3
+                    font-bold
+                    hover:bg-emerald-500
+                    disabled:opacity-50
+                  "
+                >
+                  {submitting
+                    ? "처리 중..."
+                    : "오늘 운동 참가하기"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleJoin(
+                      "VIEWER"
+                    )
+                  }
+                  disabled={
+                    submitting ||
+                    visibleUsers.length ===
+                      0
+                  }
+                  className="
+                    w-full
+                    rounded-xl
+                    border
+                    border-slate-700
+                    bg-slate-800
+                    py-3
+                    font-bold
+                    text-slate-200
+                    hover:bg-slate-700
+                    disabled:opacity-50
+                  "
+                >
+                  조회 전용 로그인
+                </button>
+
+                <p className="text-center text-xs leading-5 text-slate-500">
+                  조회 전용 로그인은 오늘
+                  대기자와 출석현황에 영향을
+                  주지 않습니다.
+                </p>
+              </div>
             </>
           )}
         </div>
