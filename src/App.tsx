@@ -26,6 +26,9 @@ import {
   subscribeLiveSessionEvents,
 } from "@/services/liveSessionService";
 import {
+  getTestModeState,
+} from "@/services/testModeService";
+import {
   useMatchStore,
 } from "@/store/useMatchStore";
 import {
@@ -342,6 +345,13 @@ function App() {
       subscribeLiveSessionEvents(
         (event) => {
           if (
+            getTestModeState()
+              .active
+          ) {
+            return;
+          }
+
+          if (
             event.type ===
             "WORKOUT_OPENED"
           ) {
@@ -432,6 +442,9 @@ function App() {
         (state) => {
           if (
             applyingRemoteSnapshot
+            ||
+            getTestModeState()
+              .active
           ) {
             return;
           }
@@ -457,9 +470,13 @@ function App() {
         }
       );
 
-    publishLiveSessionEvent({
-      type: "REQUEST_SNAPSHOT",
-    });
+    if (
+      !getTestModeState().active
+    ) {
+      publishLiveSessionEvent({
+        type: "REQUEST_SNAPSHOT",
+      });
+    }
 
     return () => {
       unsubscribeLive();

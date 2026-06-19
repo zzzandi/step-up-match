@@ -31,14 +31,25 @@ import {
 import {
   ensureTodayCheckIn,
   getOrCreateUser,
+  getUsers,
 } from "@/services/supabaseUserService";
+import {
+  saveTestSnapshot,
+  setTestMode,
+  setTestWorkoutOpen,
+  takeTestSnapshot,
+  useTestMode,
+} from "@/services/testModeService";
 
 export default function AdminPage() {
   const session =
     useAccessSession();
+  const testMode =
+    useTestMode();
   const isMaster =
     session?.role === "MASTER";
   const isReadOnly =
+    !testMode.active &&
     !isMaster &&
     session?.participationMode ===
     "VIEWER";
@@ -164,6 +175,16 @@ console.log(
     );
 
   useEffect(() => {
+    if (testMode.active) {
+      setWorkoutOpen(
+        testMode.workoutOpen
+      );
+      setWorkoutStatusLoading(
+        false
+      );
+      return;
+    }
+
     let cancelled = false;
 
     async function refreshStatus() {
@@ -206,9 +227,44 @@ console.log(
         timer
       );
     };
-  }, [workoutDate]);
+  }, [
+    workoutDate,
+    testMode.active,
+    testMode.workoutOpen,
+  ]);
 
   async function handleOpenWorkout() {
+    if (testMode.active) {
+      setTestWorkoutOpen(true);
+      setWorkoutOpen(true);
+      if (courts.length === 0) {
+        setCourts([
+          {
+            id: 1,
+            status: "EMPTY",
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          },
+          {
+            id: 2,
+            status: "EMPTY",
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          },
+          {
+            id: 3,
+            status: "EMPTY",
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          },
+        ]);
+      }
+      return;
+    }
+
     if (!session?.userId) {
       window.alert(
         "운영진 회원 정보를 찾을 수 없습니다."
@@ -291,8 +347,12 @@ console.log(
     );
   }
 
-    const refreshAttendance =
+  const refreshAttendance =
   async () => {
+    if (testMode.active) {
+      return;
+    }
+
     try {
       const data =
         await getActiveWorkoutAttendanceList();
@@ -578,6 +638,32 @@ console.log(
     };
 
     try {
+      if (testMode.active) {
+        const newPlayer: Player = {
+          id: `test-${crypto.randomUUID()}`,
+          name: name.trim(),
+          gender,
+          grade,
+          hiddenSkill:
+            skillMap[grade],
+          isPresent: true,
+          arrivalTime: new Date(),
+          matchCount: 0,
+          consecutiveMatches: 0,
+          status: "WAITING",
+          waitingStartedAt:
+            new Date(),
+          lastPartners: [],
+          lastOpponents: [],
+        };
+        setPlayers([
+          ...useMatchStore.getState()
+            .players,
+          newPlayer,
+        ]);
+        return;
+      }
+
       const user =
         await getOrCreateUser({
           name,
@@ -681,9 +767,25 @@ console.log(
       hidden_skill?: number | null;
     }) => {
       try {
+        if (testMode.active) {
+          const userData =
+            await getUsers();
+          const user =
+            userData?.find(
+              (item) =>
+                item.id === member.id
+            );
+
+          if (!user) {
+            throw new Error(
+              "Member not found"
+            );
+          }
+        } else {
         await ensureTodayCheckIn(
           member.id
         );
+        }
 
         const currentPlayers =
           useMatchStore.getState()
@@ -746,6 +848,77 @@ console.log(
         throw error;
       }
     };
+
+  function toggleTestMode() {
+    if (!testMode.active) {
+      if (
+        !window.confirm(
+          "테스트 모드를 시작하시겠습니까? 테스트 중 출석과 경기 결과는 실제 통계에 반영되지 않습니다."
+        )
+      ) {
+        return;
+      }
+
+      setTestMode(true);
+      setTestWorkoutOpen(false);
+      const state =
+        useMatchStore.getState();
+      saveTestSnapshot({
+        players: state.players,
+        courts: state.courts,
+        fixedPartnerRequests:
+          state.fixedPartnerRequests,
+        notifications:
+          state.notifications,
+        matchHistory:
+          state.matchHistory,
+        recommendations:
+          state.recommendations,
+        selectedRecommendation:
+          state.selectedRecommendation,
+      });
+      useMatchStore.setState({
+        players: [],
+        courts: [],
+        fixedPartnerRequests: [],
+        notifications: [],
+        matchHistory: [],
+        recommendations: [],
+        selectedRecommendation:
+          null,
+      });
+      setWorkoutOpen(false);
+      return;
+    }
+
+    if (
+      !window.confirm(
+        "테스트 모드를 종료하고 테스트 데이터를 모두 삭제하시겠습니까?"
+      )
+    ) {
+      return;
+    }
+
+    const snapshot =
+      takeTestSnapshot();
+    useMatchStore.setState(
+      snapshot ?? {
+        players: [],
+        courts: [],
+        fixedPartnerRequests: [],
+        notifications: [],
+        matchHistory: [],
+        recommendations: [],
+        selectedRecommendation:
+          null,
+      }
+    );
+    setTestMode(false);
+    setWorkoutOpen(false);
+    publishLiveSessionEvent({
+      type: "REQUEST_SNAPSHOT",
+    });
+  }
 
   const handleRemoveFixedPartner =
     (
@@ -879,6 +1052,11 @@ console.log(
               : "border-amber-400/30 bg-amber-400/10"
           }`}
         >
+          {testMode.active && (
+            <div className="mb-4 rounded-xl border border-fuchsia-400/40 bg-fuchsia-400/10 px-4 py-3 font-bold text-fuchsia-200">
+              테스트 모드 · 출석과 경기 결과가 실제 통계에 저장되지 않습니다.
+            </div>
+          )}
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <p
@@ -970,6 +1148,21 @@ console.log(
               관리 기능
             </summary>
           <div className="mt-2 grid grid-cols-2 gap-2 text-sm sm:gap-3 sm:text-base lg:mt-0 lg:flex lg:flex-wrap lg:justify-end [&>button]:w-full [&>button]:whitespace-nowrap lg:[&>button]:w-auto">
+          <button
+            type="button"
+            onClick={
+              toggleTestMode
+            }
+            className={`rounded-2xl px-6 py-3 font-bold ${
+              testMode.active
+                ? "bg-fuchsia-500 text-white"
+                : "bg-slate-700 text-white"
+            }`}
+          >
+            {testMode.active
+              ? "테스트 모드 종료"
+              : "테스트 모드 시작"}
+          </button>
           <button
   onClick={
     refreshAttendance

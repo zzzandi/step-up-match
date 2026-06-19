@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useState,
 } from "react";
 import {
@@ -27,7 +28,14 @@ import {
 import {
   closeWorkout,
   getKstDateKey,
+  isWorkoutOpen,
 } from "@/services/workoutSessionService";
+import {
+  setTestMode,
+  setTestWorkoutOpen,
+  takeTestSnapshot,
+  useTestMode,
+} from "@/services/testModeService";
 
 const roleLabels = {
   ADMIN: "Admin",
@@ -40,6 +48,12 @@ export default function AppNavigation() {
     useNavigate();
   const session =
     useAccessSession();
+  const testMode =
+    useTestMode();
+  const [
+    actualWorkoutOpen,
+    setActualWorkoutOpen,
+  ] = useState(false);
   const [isOpen, setIsOpen] =
     useState(false);
   const players =
@@ -60,6 +74,49 @@ export default function AppNavigation() {
       (state) =>
         state.addNotification
     );
+
+  useEffect(() => {
+    if (
+      !session ||
+      !canManage(session.role) ||
+      testMode.active
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function refresh() {
+      try {
+        const open =
+          await isWorkoutOpen();
+        if (!cancelled) {
+          setActualWorkoutOpen(
+            open
+          );
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    void refresh();
+    const timer =
+      window.setInterval(
+        refresh,
+        5000
+      );
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(
+        timer
+      );
+    };
+  }, [
+    session,
+    testMode.active,
+  ]);
 
   if (!session) {
     return null;
@@ -93,6 +150,25 @@ export default function AppNavigation() {
 
     if (!confirmed) {
       return;
+    }
+
+    if (testMode.active) {
+      const snapshot =
+        takeTestSnapshot();
+      useMatchStore.setState(
+        snapshot ?? {
+          players: [],
+          courts: [],
+          fixedPartnerRequests:
+            [],
+          notifications: [],
+          matchHistory: [],
+          recommendations: [],
+          selectedRecommendation:
+            null,
+        }
+      );
+      setTestMode(false);
     }
 
     clearAccessSession();
@@ -194,6 +270,15 @@ export default function AppNavigation() {
   }
 
   async function endAdminWorkout() {
+    const canEndWorkout =
+      testMode.active
+        ? testMode.workoutOpen
+        : actualWorkoutOpen;
+
+    if (!canEndWorkout) {
+      return;
+    }
+
     const confirmed =
       window.confirm(
         "오늘 운동을 종료하시겠습니까? 모든 참가자가 로그아웃되고 오늘 대시보드가 초기화됩니다."
@@ -204,6 +289,13 @@ export default function AppNavigation() {
     }
 
     try {
+      if (testMode.active) {
+        endTodaySession();
+        setTestWorkoutOpen(false);
+        setIsOpen(false);
+        return;
+      }
+
       await closeWorkout();
       endTodaySession();
       publishLiveSessionEvent({
@@ -399,7 +491,12 @@ export default function AppNavigation() {
                   onClick={
                     endAdminWorkout
                   }
-                  className="w-full rounded-xl bg-amber-400 px-4 py-4 text-left font-bold text-black"
+                  disabled={
+                    testMode.active
+                      ? !testMode.workoutOpen
+                      : !actualWorkoutOpen
+                  }
+                  className="w-full rounded-xl bg-amber-400 px-4 py-4 text-left font-bold text-black disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
                 >
                   오늘 모임 전체 운동 종료
                 </button>

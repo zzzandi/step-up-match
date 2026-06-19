@@ -8,6 +8,12 @@ import {
   getTodayAttendances,
   getUsers,
 } from "@/services/supabaseUserService";
+import {
+  useTestMode,
+} from "@/services/testModeService";
+import {
+  useMatchStore,
+} from "@/store/useMatchStore";
 
 interface Member {
   id: string;
@@ -52,13 +58,21 @@ export default function MasterAddParticipantModal({
     useState(true);
   const [adding, setAdding] =
     useState(false);
+  const testMode =
+    useTestMode();
+  const players =
+    useMatchStore(
+      (state) => state.players
+    );
 
   useEffect(() => {
     if (!open) return;
 
     Promise.all([
       getUsers(),
-      getTodayAttendances(),
+      testMode.active
+        ? Promise.resolve([])
+        : getTodayAttendances(),
     ])
       .then(
         ([
@@ -84,7 +98,7 @@ export default function MasterAddParticipantModal({
       .finally(() =>
         setLoading(false)
       );
-  }, [open]);
+  }, [open, testMode.active]);
 
   const availableMembers =
     useMemo(
@@ -95,9 +109,20 @@ export default function MasterAddParticipantModal({
               false &&
             !attendingUserIds.has(
               member.id
+            ) &&
+            !players.some(
+              (player) =>
+                player.id ===
+                  member.id &&
+                player.status !==
+                  "LEFT"
             )
         ),
-      [members, attendingUserIds]
+      [
+        members,
+        attendingUserIds,
+        players,
+      ]
     );
 
   if (!open) return null;
