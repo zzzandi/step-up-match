@@ -86,10 +86,6 @@ export default function AdminPage() {
     setOpeningWorkout,
   ] = useState(false);
   const [
-    testSourceDate,
-    setTestSourceDate,
-  ] = useState(getKstDateKey);
-  const [
     importingTestRoster,
     setImportingTestRoster,
   ] = useState(false);
@@ -261,32 +257,16 @@ console.log(
 
   async function handleOpenWorkout() {
     if (testMode.active) {
+      setOpeningWorkout(true);
       setTestWorkoutOpen(true);
       setWorkoutOpen(true);
-      if (courts.length === 0) {
-        setCourts([
-          {
-            id: 1,
-            status: "EMPTY",
-            teamA: null,
-            teamB: null,
-            startedAt: null,
-          },
-          {
-            id: 2,
-            status: "EMPTY",
-            teamA: null,
-            teamB: null,
-            startedAt: null,
-          },
-          {
-            id: 3,
-            status: "EMPTY",
-            teamA: null,
-            teamB: null,
-            startedAt: null,
-          },
-        ]);
+      try {
+        await importTestRoster(
+          workoutDate,
+          false
+        );
+      } finally {
+        setOpeningWorkout(false);
       }
       return;
     }
@@ -329,15 +309,18 @@ console.log(
     }
   }
 
-  async function importTestRoster() {
+  async function importTestRoster(
+    sourceDate = workoutDate,
+    confirmReplacement = true
+  ) {
     if (
-      !testMode.active ||
-      !workoutOpen
+      !testMode.active
     ) {
       return;
     }
 
     if (
+      confirmReplacement &&
       players.length > 0 &&
       !window.confirm(
         "현재 테스트 참가자와 경기 상태를 지우고 선택한 날짜의 참석자 명단으로 교체하시겠습니까?"
@@ -351,7 +334,7 @@ console.log(
       setTestRosterMessage("");
       const rows =
         await getAttendanceListByDate(
-          testSourceDate
+          sourceDate
         ) as TestAttendanceRow[];
       const uniqueUsers =
         new Map<
@@ -449,7 +432,9 @@ console.log(
         getKstDateKey(),
       ]);
       setTestRosterMessage(
-        `${testSourceDate} 참석자 ${importedPlayers.length}명을 테스트 대기열에 불러왔습니다. 휴식시간은 서로 다르게 설정되었습니다.`
+        importedPlayers.length > 0
+          ? `${sourceDate} 참석자 ${importedPlayers.length}명을 테스트 대기열에 불러왔습니다. 휴식시간은 서로 다르게 설정되었습니다.`
+          : `${sourceDate}에는 저장된 참석자가 없습니다.`
       );
     } catch (error) {
       console.error(error);
@@ -1147,27 +1132,13 @@ console.log(
                 테스트 모드 · 출석과 경기 결과가 실제 통계에 저장되지 않습니다.
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
-                <label className="text-xs text-fuchsia-200">
-                  참가자를 불러올 과거 운동 날짜
-                  <input
-                    type="date"
-                    value={
-                      testSourceDate
-                    }
-                    max={
-                      getKstDateKey()
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      setTestSourceDate(
-                        event.target
-                          .value
-                      )
-                    }
-                    className="mt-1 block min-w-0 max-w-full box-border w-full rounded-xl border border-fuchsia-400/30 bg-slate-900 px-3 py-2 text-white"
-                  />
-                </label>
+                <div className="self-center text-sm text-fuchsia-100">
+                  현재 선택한 운동 날짜{" "}
+                  <strong>
+                    {workoutDate}
+                  </strong>
+                  의 참석자를 불러옵니다.
+                </div>
                 <button
                   type="button"
                   disabled={
@@ -1175,7 +1146,9 @@ console.log(
                     importingTestRoster
                   }
                   onClick={() =>
-                    void importTestRoster()
+                    void importTestRoster(
+                      workoutDate
+                    )
                   }
                   className="self-end rounded-xl bg-fuchsia-500 px-4 py-2.5 font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
                 >
@@ -1184,11 +1157,6 @@ console.log(
                     : "참석자 전체 불러오기"}
                 </button>
               </div>
-              {!workoutOpen && (
-                <p className="mt-2 text-xs text-fuchsia-200">
-                  테스트 운동을 먼저 열어주세요.
-                </p>
-              )}
               {testRosterMessage && (
                 <p className="mt-3 text-sm text-fuchsia-100">
                   {testRosterMessage}
