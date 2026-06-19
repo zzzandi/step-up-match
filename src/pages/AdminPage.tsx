@@ -25,6 +25,9 @@ export default function AdminPage() {
     useAccessSession();
   const isMaster =
     session?.role === "MASTER";
+  const isReadOnly =
+    session?.participationMode ===
+    "VIEWER";
 
   const [isAddModalOpen, setIsAddModalOpen] =
     useState(false);
@@ -123,6 +126,50 @@ console.log(
       (state) =>
         state.removeCourt
     );
+
+  function handleRemoveCourt() {
+    if (isReadOnly) {
+      window.alert(
+        "조회 전용 로그인에서는 코트를 삭제할 수 없습니다."
+      );
+      return;
+    }
+
+    if (courts.length <= 1) {
+      window.alert(
+        "코트는 최소 1개를 유지해야 합니다."
+      );
+      return;
+    }
+
+    const lastCourt =
+      courts[
+        courts.length - 1
+      ];
+
+    if (
+      lastCourt.status ===
+      "PLAYING"
+    ) {
+      window.alert(
+        `경기 중인 ${lastCourt.id}번 코트는 삭제할 수 없습니다.`
+      );
+      return;
+    }
+
+    const confirmed =
+      window.confirm(
+        `${lastCourt.id}번 코트를 삭제하시겠습니까?`
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    removeCourt(
+      lastCourt.id
+    );
+  }
 
     const refreshAttendance =
   async () => {
@@ -482,6 +529,12 @@ console.log(
             </p>
           </div>
 
+          {isReadOnly && (
+            <div className="mt-4 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm font-bold text-amber-200 lg:mt-0">
+              조회 전용 로그인: 관리 기능은 사용할 수 없습니다.
+            </div>
+          )}
+
           <details className="mt-5 lg:mt-0 lg:min-w-[520px]">
             <summary className="cursor-pointer rounded-xl bg-slate-800 px-4 py-3 text-center font-bold">
               관리 기능
@@ -504,7 +557,16 @@ console.log(
 
 
             <button
-              onClick={addCourt}
+              onClick={() => {
+                if (isReadOnly) {
+                  window.alert(
+                    "조회 전용 로그인에서는 코트를 추가할 수 없습니다."
+                  );
+                  return;
+                }
+
+                addCourt();
+              }}
               className="
                 rounded-2xl
                 bg-purple-500
@@ -517,21 +579,9 @@ console.log(
             </button>
 
             <button
-              onClick={() => {
-                const lastCourt =
-                  courts[
-                    courts.length -
-                      1
-                  ];
-
-                if (
-                  lastCourt
-                ) {
-                  removeCourt(
-                    lastCourt.id
-                  );
-                }
-              }}
+              onClick={
+                handleRemoveCourt
+              }
               className="
                 rounded-2xl
                 bg-red-500
@@ -544,11 +594,18 @@ console.log(
             </button>
 
             <button
-              onClick={() =>
+              onClick={() => {
+                if (isReadOnly) {
+                  window.alert(
+                    "조회 전용 로그인에서는 고정 파트너를 변경할 수 없습니다."
+                  );
+                  return;
+                }
+
                 setIsFixedPartnerOpen(
                   true
-                )
-              }
+                );
+              }}
               className="
                 rounded-2xl
                 bg-blue-500
@@ -561,11 +618,18 @@ console.log(
             </button>
 
             <button
-              onClick={() =>
+              onClick={() => {
+                if (isReadOnly) {
+                  window.alert(
+                    "조회 전용 로그인에서는 참가자를 추가할 수 없습니다."
+                  );
+                  return;
+                }
+
                 setIsAddModalOpen(
                   true
-                )
-              }
+                );
+              }}
               className="
                 rounded-2xl
                 bg-lime-400
@@ -719,6 +783,9 @@ console.log(
               <CourtCard
                 key={court.id}
                 court={court}
+                readOnly={
+                  isReadOnly
+                }
               />
             )
           )}
@@ -731,6 +798,9 @@ console.log(
             }
             showGrade={
               isMaster
+            }
+            readOnly={
+              isReadOnly
             }
           />
 
@@ -883,11 +953,20 @@ console.log(
                     <div className="flex gap-2">
                       <button
                         type="button"
-                        onClick={() =>
+                        onClick={() => {
+                          if (
+                            isReadOnly
+                          ) {
+                            window.alert(
+                              "조회 전용 로그인에서는 신청을 승인할 수 없습니다."
+                            );
+                            return;
+                          }
+
                           approveFixedPartnerRequest(
                             request.id
-                          )
-                        }
+                          );
+                        }}
                         className="
                           rounded-xl
                           bg-lime-400
@@ -903,11 +982,20 @@ console.log(
 
                       <button
                         type="button"
-                        onClick={() =>
+                        onClick={() => {
+                          if (
+                            isReadOnly
+                          ) {
+                            window.alert(
+                              "조회 전용 로그인에서는 신청을 거절할 수 없습니다."
+                            );
+                            return;
+                          }
+
                           rejectFixedPartnerRequest(
                             request.id
-                          )
-                        }
+                          );
+                        }}
                         className="
                           rounded-xl
                           bg-slate-700

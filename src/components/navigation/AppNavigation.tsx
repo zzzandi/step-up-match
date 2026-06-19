@@ -75,6 +75,15 @@ export default function AppNavigation() {
     "PARTICIPANT";
 
   function logout() {
+    const confirmed =
+      window.confirm(
+        "로그아웃하시겠습니까?"
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
     clearAccessSession();
     setIsOpen(false);
     navigate("/");
