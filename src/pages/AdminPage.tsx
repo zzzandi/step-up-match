@@ -34,10 +34,7 @@ import {
   getUsers,
 } from "@/services/supabaseUserService";
 import {
-  saveTestSnapshot,
-  setTestMode,
   setTestWorkoutOpen,
-  takeTestSnapshot,
   useTestMode,
 } from "@/services/testModeService";
 
@@ -849,77 +846,6 @@ console.log(
       }
     };
 
-  function toggleTestMode() {
-    if (!testMode.active) {
-      if (
-        !window.confirm(
-          "테스트 모드를 시작하시겠습니까? 테스트 중 출석과 경기 결과는 실제 통계에 반영되지 않습니다."
-        )
-      ) {
-        return;
-      }
-
-      setTestMode(true);
-      setTestWorkoutOpen(false);
-      const state =
-        useMatchStore.getState();
-      saveTestSnapshot({
-        players: state.players,
-        courts: state.courts,
-        fixedPartnerRequests:
-          state.fixedPartnerRequests,
-        notifications:
-          state.notifications,
-        matchHistory:
-          state.matchHistory,
-        recommendations:
-          state.recommendations,
-        selectedRecommendation:
-          state.selectedRecommendation,
-      });
-      useMatchStore.setState({
-        players: [],
-        courts: [],
-        fixedPartnerRequests: [],
-        notifications: [],
-        matchHistory: [],
-        recommendations: [],
-        selectedRecommendation:
-          null,
-      });
-      setWorkoutOpen(false);
-      return;
-    }
-
-    if (
-      !window.confirm(
-        "테스트 모드를 종료하고 테스트 데이터를 모두 삭제하시겠습니까?"
-      )
-    ) {
-      return;
-    }
-
-    const snapshot =
-      takeTestSnapshot();
-    useMatchStore.setState(
-      snapshot ?? {
-        players: [],
-        courts: [],
-        fixedPartnerRequests: [],
-        notifications: [],
-        matchHistory: [],
-        recommendations: [],
-        selectedRecommendation:
-          null,
-      }
-    );
-    setTestMode(false);
-    setWorkoutOpen(false);
-    publishLiveSessionEvent({
-      type: "REQUEST_SNAPSHOT",
-    });
-  }
-
   const handleRemoveFixedPartner =
     (
       playerId: string,
@@ -1148,21 +1074,6 @@ console.log(
               관리 기능
             </summary>
           <div className="mt-2 grid grid-cols-2 gap-2 text-sm sm:gap-3 sm:text-base lg:mt-0 lg:flex lg:flex-wrap lg:justify-end [&>button]:w-full [&>button]:whitespace-nowrap lg:[&>button]:w-auto">
-          <button
-            type="button"
-            onClick={
-              toggleTestMode
-            }
-            className={`rounded-2xl px-6 py-3 font-bold ${
-              testMode.active
-                ? "bg-fuchsia-500 text-white"
-                : "bg-slate-700 text-white"
-            }`}
-          >
-            {testMode.active
-              ? "테스트 모드 종료"
-              : "테스트 모드 시작"}
-          </button>
           <button
   onClick={
     refreshAttendance

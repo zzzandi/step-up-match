@@ -12,6 +12,7 @@ export interface AccessSession {
   role: AccessRole;
   userId?: string;
   userName?: string;
+  testMode?: boolean;
   participationMode?:
     | "PARTICIPANT"
     | "VIEWER"
@@ -72,9 +73,24 @@ export function getAccessSession():
   }
 
   try {
-    return JSON.parse(
+    const session =
+      JSON.parse(
       stored
     ) as AccessSession;
+
+    if (
+      session.testMode &&
+      window.sessionStorage.getItem(
+        "step-up-match-test-mode"
+      ) !== "true"
+    ) {
+      window.localStorage.removeItem(
+        ACCESS_SESSION_KEY
+      );
+      return null;
+    }
+
+    return session;
   } catch {
     window.localStorage.removeItem(
       ACCESS_SESSION_KEY

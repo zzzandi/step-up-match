@@ -29,6 +29,11 @@ import {
   getKstDateKey,
   isWorkoutOpen,
 } from "@/services/workoutSessionService";
+import {
+  saveTestSnapshot,
+  setTestMode,
+  setTestWorkoutOpen,
+} from "@/services/testModeService";
 
 interface User {
   id: string;
@@ -264,6 +269,7 @@ export default function JoinPage() {
     participationMode:
       | "PARTICIPANT"
       | "VIEWER"
+      | "TEST"
   ) {
     if (!role || !config) {
       return;
@@ -309,6 +315,58 @@ export default function JoinPage() {
     try {
       setSubmitting(true);
       setMessage("");
+
+      if (
+        participationMode ===
+        "TEST"
+      ) {
+        const state =
+          useMatchStore.getState();
+
+        saveTestSnapshot({
+          players: state.players,
+          courts: state.courts,
+          fixedPartnerRequests:
+            state.fixedPartnerRequests,
+          notifications:
+            state.notifications,
+          matchHistory:
+            state.matchHistory,
+          recommendations:
+            state.recommendations,
+          selectedRecommendation:
+            state.selectedRecommendation,
+        });
+        useMatchStore.setState({
+          players: [],
+          courts: [],
+          fixedPartnerRequests: [],
+          notifications: [],
+          matchHistory: [],
+          recommendations: [],
+          selectedRecommendation:
+            null,
+        });
+        setTestMode(true);
+        setTestWorkoutOpen(false);
+        setAccessSession({
+          role,
+          userId:
+            selectedUser.id,
+          userName:
+            selectedUser.name,
+          testMode: true,
+          participationMode:
+            "VIEWER",
+        });
+        navigate(
+          getRolePath(role),
+          {
+            replace: true,
+          }
+        );
+        return;
+      }
 
       const workoutOpen =
         participationMode ===
@@ -603,6 +661,38 @@ export default function JoinPage() {
                 >
                   조회 전용 로그인
                 </button>
+
+                {(role === "ADMIN" ||
+                  role ===
+                    "MASTER") && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleJoin(
+                        "TEST"
+                      )
+                    }
+                    disabled={
+                      submitting ||
+                      visibleUsers.length ===
+                        0
+                    }
+                    className="
+                      w-full
+                      rounded-xl
+                      border
+                      border-fuchsia-400/40
+                      bg-fuchsia-500/15
+                      py-3
+                      font-bold
+                      text-fuchsia-200
+                      hover:bg-fuchsia-500/25
+                      disabled:opacity-50
+                    "
+                  >
+                    테스트 모드로 로그인
+                  </button>
+                )}
 
                 <p className="text-center text-xs leading-5 text-slate-500">
                   조회 전용 로그인은 오늘
