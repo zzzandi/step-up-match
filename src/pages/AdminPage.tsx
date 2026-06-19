@@ -26,6 +26,7 @@ export default function AdminPage() {
   const isMaster =
     session?.role === "MASTER";
   const isReadOnly =
+    !isMaster &&
     session?.participationMode ===
     "VIEWER";
 
