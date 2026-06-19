@@ -20,6 +20,7 @@ import {
 } from "@/services/supabaseUserService";
 import {
   getTestAttendanceDates,
+  getTestWorkoutDate,
   useTestMode,
 } from "@/services/testModeService";
 import {
@@ -490,9 +491,16 @@ export default function MyPage() {
     const userId =
       session?.userId ?? "";
     const today =
-      dateKey(new Date());
+      testMode.active
+        ? (
+            getTestWorkoutDate() ||
+            dateKey(new Date())
+          )
+        : dateKey(new Date());
     const thisMonth =
-      monthKey(new Date());
+      testMode.active
+        ? today.slice(0, 7)
+        : monthKey(new Date());
     const histories =
       matchHistory
         .filter(
@@ -536,19 +544,23 @@ export default function MyPage() {
           )
       );
     const todayMatches =
-      histories.filter(
-        (history) =>
-          dateKey(
-            history.endedAt
-          ) === today
-      );
+      testMode.active
+        ? histories
+        : histories.filter(
+            (history) =>
+              dateKey(
+                history.endedAt
+              ) === today
+          );
     const monthMatches =
-      histories.filter(
-        (history) =>
-          monthKey(
-            history.endedAt
-          ) === thisMonth
-      );
+      testMode.active
+        ? histories
+        : histories.filter(
+            (history) =>
+              monthKey(
+                history.endedAt
+              ) === thisMonth
+          );
 
     const partnerMap =
       new Map<
@@ -720,6 +732,7 @@ export default function MyPage() {
     matchHistory,
     players,
     session?.userId,
+    testMode.active,
   ]);
 
   if (!session?.userId) {

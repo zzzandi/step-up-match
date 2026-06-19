@@ -36,6 +36,7 @@ import {
 } from "@/services/supabaseUserService";
 import {
   setTestAttendanceDates,
+  setTestWorkoutDate,
   setTestWorkoutOpen,
   useTestMode,
 } from "@/services/testModeService";
@@ -85,6 +86,10 @@ export default function AdminPage() {
     openingWorkout,
     setOpeningWorkout,
   ] = useState(false);
+  const [
+    testRosterDate,
+    setTestRosterDate,
+  ] = useState(getKstDateKey);
   const [
     importingTestRoster,
     setImportingTestRoster,
@@ -260,9 +265,12 @@ console.log(
       setOpeningWorkout(true);
       setTestWorkoutOpen(true);
       setWorkoutOpen(true);
+      setTestWorkoutDate(
+        workoutDate
+      );
       try {
         await importTestRoster(
-          workoutDate,
+          testRosterDate,
           false
         );
       } finally {
@@ -336,6 +344,9 @@ console.log(
         setTestWorkoutOpen(true);
         setWorkoutOpen(true);
       }
+      setTestWorkoutDate(
+        workoutDate
+      );
       const rows =
         await getAttendanceListByDate(
           sourceDate
@@ -433,7 +444,7 @@ console.log(
           null,
       });
       setTestAttendanceDates([
-        getKstDateKey(),
+        workoutDate,
       ]);
       setTestRosterMessage(
         importedPlayers.length > 0
@@ -1141,7 +1152,7 @@ console.log(
                   <input
                     type="date"
                     value={
-                      workoutDate
+                      testRosterDate
                     }
                     max={
                       getKstDateKey()
@@ -1149,7 +1160,7 @@ console.log(
                     onChange={(
                       event
                     ) => {
-                      setWorkoutDate(
+                      setTestRosterDate(
                         event.target
                           .value
                       );
@@ -1164,11 +1175,11 @@ console.log(
                   type="button"
                   disabled={
                     importingTestRoster ||
-                    !workoutDate
+                    !testRosterDate
                   }
                   onClick={() =>
                     void importTestRoster(
-                      workoutDate
+                      testRosterDate
                     )
                   }
                   className="self-end rounded-xl bg-fuchsia-500 px-4 py-2.5 font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
@@ -1183,6 +1194,9 @@ console.log(
                   {testRosterMessage}
                 </p>
               )}
+              <p className="mt-3 text-xs text-fuchsia-200">
+                테스트 운동 날짜는 상단의 운동 날짜를 사용하며, 참석자 명단은 여기에서 선택한 다른 날짜의 실제 출석 데이터를 사용할 수 있습니다.
+              </p>
             </div>
           )}
           <div className="flex flex-wrap items-end justify-between gap-4">

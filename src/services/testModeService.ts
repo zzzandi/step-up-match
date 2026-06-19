@@ -13,6 +13,8 @@ const TEST_SNAPSHOT_KEY =
   "step-up-match-test-snapshot";
 const TEST_ATTENDANCE_DATES_KEY =
   "step-up-match-test-attendance-dates";
+const TEST_WORKOUT_DATE_KEY =
+  "step-up-match-test-workout-date";
 
 export interface TestModeState {
   active: boolean;
@@ -52,6 +54,9 @@ export function setTestMode(
     );
     window.sessionStorage.removeItem(
       TEST_ATTENDANCE_DATES_KEY
+    );
+    window.sessionStorage.removeItem(
+      TEST_WORKOUT_DATE_KEY
     );
   }
 
@@ -97,6 +102,24 @@ export function getTestAttendanceDates() {
   } catch {
     return [];
   }
+}
+
+export function setTestWorkoutDate(
+  date: string
+) {
+  window.sessionStorage.setItem(
+    TEST_WORKOUT_DATE_KEY,
+    date
+  );
+  notifyChange();
+}
+
+export function getTestWorkoutDate() {
+  return (
+    window.sessionStorage.getItem(
+      TEST_WORKOUT_DATE_KEY
+    ) ?? ""
+  );
 }
 
 export function saveTestSnapshot(
