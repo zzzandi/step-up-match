@@ -356,9 +356,19 @@ console.log(
                 };
           }
         );
+      const manuallyAddedPlayers =
+        currentPlayers.filter(
+          (player) =>
+            player.id.startsWith(
+              "manual-"
+            )
+        );
 
       setPlayers(
-        refreshedPlayers
+        [
+          ...refreshedPlayers,
+          ...manuallyAddedPlayers,
+        ]
       );
     } catch (error) {
       console.error(error);
@@ -552,8 +562,8 @@ console.log(
       F: 35,
     };
 
-    const newPlayer = {
-      id: crypto.randomUUID(),
+    const newPlayer: Player = {
+      id: `manual-${crypto.randomUUID()}`,
 
       name,
 
@@ -583,8 +593,12 @@ console.log(
       lastOpponents: [],
     };
 
+    const currentPlayers =
+      useMatchStore.getState()
+        .players;
+
     setPlayers([
-      ...players,
+      ...currentPlayers,
       newPlayer,
     ]);
   };
