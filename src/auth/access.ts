@@ -73,10 +73,38 @@ export function getAccessSession():
   }
 
   try {
-    const session =
-      JSON.parse(
+    const parsed = JSON.parse(
       stored
-    ) as AccessSession;
+    ) as Partial<AccessSession> & {
+      role?: string;
+    };
+    const normalizedRole =
+      parsed.role?.toUpperCase();
+
+    if (
+      normalizedRole !== "ADMIN" &&
+      normalizedRole !== "PLAYER" &&
+      normalizedRole !== "MASTER"
+    ) {
+      window.localStorage.removeItem(
+        ACCESS_SESSION_KEY
+      );
+      return null;
+    }
+
+    const session: AccessSession = {
+      ...parsed,
+      role: normalizedRole,
+    };
+
+    if (
+      parsed.role !== normalizedRole
+    ) {
+      window.localStorage.setItem(
+        ACCESS_SESSION_KEY,
+        JSON.stringify(session)
+      );
+    }
 
     return session;
   } catch {

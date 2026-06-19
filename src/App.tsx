@@ -53,8 +53,6 @@ const FixedPartnerPage =
   lazy(() => import("@/pages/FixedPartnerPage"));
 const JoinPage =
   lazy(() => import("@/pages/JoinPage"));
-const MasterPage =
-  lazy(() => import("@/pages/MasterPage"));
 const MyPage =
   lazy(() => import("@/pages/MyPage"));
 const PlayerPage =
@@ -640,7 +638,7 @@ function App() {
           path="/master"
           element={
             <ProtectedRoute role="MASTER">
-              <MasterPage />
+              <AdminPage />
             </ProtectedRoute>
           }
         />
