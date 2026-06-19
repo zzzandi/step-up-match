@@ -11,33 +11,56 @@ import {
 } from "@/auth/access";
 import {
   deleteAttendanceRecord,
-  getUserAttendanceHistory,
+  getAttendanceListByDate,
   updateAttendanceDate,
 } from "@/services/attendanceService";
-import {
-  getUsers,
-} from "@/services/supabaseUserService";
 
-interface UserOption {
+interface AttendanceUser {
   id: string;
   name: string;
-  grade?: string;
+  gender?: "M" | "F" | null;
+  grade?: string | null;
 }
 
 interface AttendanceRecord {
   id: string;
+  user_id: string;
   attendance_date: string;
+  arrival_time?: string | null;
+  status?: string | null;
+  users:
+    | AttendanceUser
+    | AttendanceUser[]
+    | null;
+}
+
+function getKstDateKey() {
+  return new Intl.DateTimeFormat(
+    "en-CA",
+    {
+      timeZone: "Asia/Seoul",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }
+  ).format(new Date());
+}
+
+function getAttendanceUser(
+  record: AttendanceRecord
+) {
+  return Array.isArray(record.users)
+    ? record.users[0]
+    : record.users;
 }
 
 export default function RecordsManagementPage() {
   const session =
     useAccessSession();
-  const [users, setUsers] =
-    useState<UserOption[]>([]);
   const [
-    selectedUserId,
-    setSelectedUserId,
-  ] = useState("");
+    selectedDate,
+    setSelectedDate,
+  ] = useState(getKstDateKey);
   const [
     attendanceRecords,
     setAttendanceRecords,
@@ -45,41 +68,41 @@ export default function RecordsManagementPage() {
     AttendanceRecord[]
   >([]);
   const [loading, setLoading] =
-    useState(false);
+    useState(true);
   const [message, setMessage] =
     useState("");
 
   useEffect(() => {
-    getUsers()
-      .then((data) =>
-        setUsers(
-          (data ?? []) as UserOption[]
-        )
-      )
-      .catch(console.error);
-  }, []);
+    let cancelled = false;
 
-  useEffect(() => {
-    if (!selectedUserId) return;
-
-    getUserAttendanceHistory(
-      selectedUserId
+    getAttendanceListByDate(
+      selectedDate
     )
-      .then((data) =>
-        setAttendanceRecords(
-          data as AttendanceRecord[]
-        )
-      )
+      .then((data) => {
+        if (!cancelled) {
+          setAttendanceRecords(
+            data as AttendanceRecord[]
+          );
+        }
+      })
       .catch((error) => {
         console.error(error);
-        setMessage(
-          "참가이력을 불러오지 못했습니다."
-        );
+        if (!cancelled) {
+          setMessage(
+            "참가이력을 불러오지 못했습니다."
+          );
+        }
       })
-      .finally(() =>
-        setLoading(false)
-      );
-  }, [selectedUserId]);
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDate]);
 
   if (!session) {
     return (
@@ -107,28 +130,41 @@ export default function RecordsManagementPage() {
   }
 
   async function handleAttendanceDate(
-    recordId: string,
-    date: string
+    record: AttendanceRecord,
+    newDate: string
   ) {
+    if (
+      !newDate ||
+      newDate ===
+        record.attendance_date
+    ) {
+      return;
+    }
+
+    const user =
+      getAttendanceUser(record);
+
+    if (
+      !window.confirm(
+        `${user?.name ?? "회원"}님의 참가일을 ${newDate}(으)로 변경하시겠습니까?`
+      )
+    ) {
+      return;
+    }
+
     try {
       await updateAttendanceDate(
-        recordId,
-        date
+        record.id,
+        newDate
       );
       setAttendanceRecords(
-        attendanceRecords.map(
-          (record) =>
-            record.id === recordId
-              ? {
-                  ...record,
-                  attendance_date:
-                    date,
-                }
-              : record
+        attendanceRecords.filter(
+          (item) =>
+            item.id !== record.id
         )
       );
       setMessage(
-        "운동 참가일을 수정했습니다."
+        `${user?.name ?? "회원"}님의 참가일을 ${newDate}(으)로 변경했습니다.`
       );
     } catch (error) {
       console.error(error);
@@ -139,11 +175,14 @@ export default function RecordsManagementPage() {
   }
 
   async function handleDeleteAttendance(
-    recordId: string
+    record: AttendanceRecord
   ) {
+    const user =
+      getAttendanceUser(record);
+
     if (
       !window.confirm(
-        "이 운동 참가이력을 삭제하시겠습니까?"
+        `${user?.name ?? "회원"}님의 ${selectedDate} 참가이력을 삭제하시겠습니까?`
       )
     ) {
       return;
@@ -151,16 +190,16 @@ export default function RecordsManagementPage() {
 
     try {
       await deleteAttendanceRecord(
-        recordId
+        record.id
       );
       setAttendanceRecords(
         attendanceRecords.filter(
-          (record) =>
-            record.id !== recordId
+          (item) =>
+            item.id !== record.id
         )
       );
       setMessage(
-        "운동 참가이력을 삭제했습니다."
+        `${user?.name ?? "회원"}님의 참가이력을 삭제했습니다.`
       );
     } catch (error) {
       console.error(error);
@@ -177,51 +216,41 @@ export default function RecordsManagementPage() {
           MASTER ONLY
         </p>
         <h1 className="mt-1 text-3xl font-bold">
-          회원별 운동 참가이력 관리
+          날짜별 운동 참가이력 관리
         </h1>
         <p className="mt-2 text-sm text-slate-400">
-          본인을 포함한 모든 회원의 운동 참가일을 수정하거나 참가이력을 삭제할 수 있습니다.
+          날짜를 선택하면 해당 날짜의 전체 참석자가 표시됩니다.
         </p>
 
         <section className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
           <label className="text-sm text-slate-400">
-            회원 선택
-            <select
-              value={
-                selectedUserId
-              }
+            조회 날짜
+            <input
+              type="date"
+              value={selectedDate}
               onChange={(event) => {
-                const userId =
-                  event.target.value;
-                setSelectedUserId(
-                  userId
+                setSelectedDate(
+                  event.target.value
                 );
                 setAttendanceRecords(
                   []
                 );
                 setMessage("");
-                setLoading(
-                  Boolean(userId)
-                );
+                setLoading(true);
               }}
               className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-white"
-            >
-              <option value="">
-                회원을 선택하세요
-              </option>
-              {users.map((user) => (
-                <option
-                  key={user.id}
-                  value={user.id}
-                >
-                  {user.name}
-                  {user.grade
-                    ? ` (${user.grade})`
-                    : ""}
-                </option>
-              ))}
-            </select>
+            />
           </label>
+
+          <div className="mt-4 flex items-center justify-between">
+            <span className="text-sm text-slate-400">
+              참석 인원
+            </span>
+            <strong className="text-2xl text-cyan-300">
+              {attendanceRecords.length}명
+            </strong>
+          </div>
+
           {message && (
             <p className="mt-3 text-sm text-cyan-300">
               {message}
@@ -229,62 +258,88 @@ export default function RecordsManagementPage() {
           )}
         </section>
 
-        {selectedUserId && (
-          <section className="mt-6">
-            <h2 className="mb-3 text-xl font-bold">
-              운동 참가이력
-            </h2>
-            <div className="space-y-3">
-              {loading ? (
-                <div className="rounded-xl bg-slate-900 p-5 text-slate-400">
-                  불러오는 중...
-                </div>
-              ) : attendanceRecords.length ===
-                0 ? (
-                <div className="rounded-xl bg-slate-900 p-5 text-slate-500">
-                  운동 참가이력이 없습니다.
-                </div>
-              ) : (
-                attendanceRecords.map(
-                  (record) => (
+        <section className="mt-6">
+          <h2 className="mb-3 text-xl font-bold">
+            {selectedDate} 참석자 명단
+          </h2>
+          <div className="space-y-3">
+            {loading ? (
+              <div className="rounded-xl bg-slate-900 p-5 text-slate-400">
+                불러오는 중...
+              </div>
+            ) : attendanceRecords.length ===
+              0 ? (
+              <div className="rounded-xl bg-slate-900 p-5 text-slate-500">
+                선택한 날짜의 참가이력이 없습니다.
+              </div>
+            ) : (
+              attendanceRecords.map(
+                (record) => {
+                  const user =
+                    getAttendanceUser(
+                      record
+                    );
+
+                  return (
                     <div
                       key={record.id}
-                      className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 p-3"
+                      className="rounded-xl border border-slate-800 bg-slate-900 p-4"
                     >
-                      <input
-                        type="date"
-                        value={
-                          record.attendance_date
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          void handleAttendanceDate(
-                            record.id,
-                            event.target
-                              .value
-                          )
-                        }
-                        className="min-w-0 flex-1 rounded-lg bg-slate-800 px-3 py-2"
-                      />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          void handleDeleteAttendance(
-                            record.id
-                          )
-                        }
-                        className="rounded-lg bg-red-500 px-3 py-2 font-bold"
-                      >
-                        삭제
-                      </button>
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <strong className="text-lg">
+                            {user?.name ??
+                              "알 수 없는 회원"}
+                          </strong>
+                          <div className="mt-1 text-sm text-slate-400">
+                            {user?.gender ===
+                            "F"
+                              ? "여자"
+                              : "남자"}
+                            {user?.grade
+                              ? ` · ${user.grade}급`
+                              : ""}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void handleDeleteAttendance(
+                              record
+                            )
+                          }
+                          className="rounded-lg bg-red-500 px-3 py-2 font-bold"
+                        >
+                          삭제
+                        </button>
+                      </div>
+
+                      <label className="mt-4 block text-xs text-slate-400">
+                        참가일 변경
+                        <input
+                          type="date"
+                          value={
+                            record.attendance_date
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            void handleAttendanceDate(
+                              record,
+                              event.target
+                                .value
+                            )
+                          }
+                          className="mt-1 w-full rounded-lg bg-slate-800 px-3 py-2 text-white"
+                        />
+                      </label>
                     </div>
-                  )
-                )
-              )}
-            </div>
-          </section>
-        )}
+                  );
+                }
+              )
+            )}
+          </div>
+        </section>
       </div>
     </main>
   );

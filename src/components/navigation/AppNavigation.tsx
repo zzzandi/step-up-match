@@ -363,7 +363,7 @@ export default function AppNavigation() {
                   }
                   className="block rounded-xl bg-slate-900 px-4 py-4 font-bold"
                 >
-                  회원별 참가이력 관리
+                  날짜별 참가이력 관리
                 </NavLink>
               )}
 

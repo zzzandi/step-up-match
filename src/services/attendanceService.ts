@@ -63,6 +63,41 @@ export async function getUserAttendanceHistory(
   return data ?? [];
 }
 
+export async function getAttendanceListByDate(
+  attendanceDate: string
+) {
+  const { data, error } =
+    await supabase
+      .from("attendances")
+      .select(`
+        id,
+        user_id,
+        attendance_date,
+        arrival_time,
+        status,
+        users (
+          id,
+          name,
+          gender,
+          grade
+        )
+      `)
+      .eq(
+        "attendance_date",
+        attendanceDate
+      )
+      .neq("status", "OPEN")
+      .order("arrival_time", {
+        ascending: true,
+      });
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? [];
+}
+
 export async function updateAttendanceDate(
   attendanceId: string,
   attendanceDate: string
