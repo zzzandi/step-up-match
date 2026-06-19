@@ -7,6 +7,10 @@ export interface MatchScoreDetail {
 
   diversity: number;
 
+  partnerDiversity?: number;
+
+  opponentDiversity?: number;
+
   partnerPenalty: number;
 
   opponentPenalty: number;

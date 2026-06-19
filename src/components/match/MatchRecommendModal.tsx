@@ -180,23 +180,23 @@ import {
   
                   <div className="grid grid-cols-3 gap-3 mt-5 text-sm">
   <div>
-    실력 : {recommendation.score.balance}
+    실력 밸런스 : {recommendation.score.balance}/40
   </div>
 
   <div>
-    섞기 : {recommendation.score.diversity ?? 0}
+    파트너 중복 방지 : {recommendation.score.partnerDiversity ?? 0}/30
   </div>
 
   <div>
-    파트너 : {recommendation.score.partnerPenalty}
+    상대 중복 방지 : {recommendation.score.opponentDiversity ?? 0}/20
   </div>
 
   <div>
-    상대 : {recommendation.score.opponentPenalty}
+    성별 밸런스 : {recommendation.score.genderBonus}/10
   </div>
 
   <div>
-    성별 : {recommendation.score.genderBonus}
+    파트너 감점 : {recommendation.score.partnerPenalty}
   </div>
 
   <div>

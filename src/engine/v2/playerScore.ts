@@ -11,50 +11,35 @@ import {
 export function calculatePlayerScore(
   player: Player
 ) {
-  let score = 0;
-
+  const weights =
+    ENGINE_CONFIG.playerSelection;
   const restMinutes =
     getRestMinutes(
       player.waitingStartedAt
     );
-
-  /*
-   * 휴식시간
-   */
-
-  score +=
+  const rest =
     Math.min(
       restMinutes,
       60
     ) *
-    (ENGINE_CONFIG.restWeight /
-      60);
-
-  /*
-   * 경기수
-   */
-
-  score +=
+    (weights.rest / 60);
+  const matchCount =
     Math.max(
       0,
-      10 -
-        player.matchCount
+      10 - player.matchCount
     ) *
-    (ENGINE_CONFIG.matchCountWeight /
-      10);
-
-  /*
-   * 연속경기
-   */
-
-  score +=
+    (weights.matchCount / 10);
+  const consecutive =
     Math.max(
       0,
-      10 -
+      2 -
         player.consecutiveMatches
     ) *
-    (ENGINE_CONFIG.consecutiveWeight /
-      10);
+    (weights.consecutive / 2);
 
-  return score;
+  return (
+    rest +
+    matchCount +
+    consecutive
+  );
 }
