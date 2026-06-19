@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import {
+  getAttendanceListByDate,
     getActiveWorkoutAttendanceList,
   } from "@/services/attendanceService";
 import CourtCard from "@/components/court/CourtCard";
@@ -34,9 +35,25 @@ import {
   getUsers,
 } from "@/services/supabaseUserService";
 import {
+  setTestAttendanceDates,
   setTestWorkoutOpen,
   useTestMode,
 } from "@/services/testModeService";
+
+interface TestAttendanceUser {
+  id: string;
+  name: string;
+  gender?: "M" | "F" | null;
+  grade?: Player["grade"] | null;
+  hidden_skill?: number | null;
+}
+
+interface TestAttendanceRow {
+  users:
+    | TestAttendanceUser
+    | TestAttendanceUser[]
+    | null;
+}
 
 export default function AdminPage() {
   const session =
@@ -68,6 +85,18 @@ export default function AdminPage() {
     openingWorkout,
     setOpeningWorkout,
   ] = useState(false);
+  const [
+    testSourceDate,
+    setTestSourceDate,
+  ] = useState(getKstDateKey);
+  const [
+    importingTestRoster,
+    setImportingTestRoster,
+  ] = useState(false);
+  const [
+    testRosterMessage,
+    setTestRosterMessage,
+  ] = useState("");
 
   const [isAddModalOpen, setIsAddModalOpen] =
     useState(false);
@@ -297,6 +326,140 @@ console.log(
       );
     } finally {
       setOpeningWorkout(false);
+    }
+  }
+
+  async function importTestRoster() {
+    if (
+      !testMode.active ||
+      !workoutOpen
+    ) {
+      return;
+    }
+
+    if (
+      players.length > 0 &&
+      !window.confirm(
+        "현재 테스트 참가자와 경기 상태를 지우고 선택한 날짜의 참석자 명단으로 교체하시겠습니까?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setImportingTestRoster(true);
+      setTestRosterMessage("");
+      const rows =
+        await getAttendanceListByDate(
+          testSourceDate
+        ) as TestAttendanceRow[];
+      const uniqueUsers =
+        new Map<
+          string,
+          TestAttendanceUser
+        >();
+
+      rows.forEach((row) => {
+        const user =
+          Array.isArray(row.users)
+            ? row.users[0]
+            : row.users;
+
+        if (user?.id) {
+          uniqueUsers.set(
+            user.id,
+            user
+          );
+        }
+      });
+
+      const now = Date.now();
+      const importedPlayers: Player[] =
+        [...uniqueUsers.values()].map(
+          (user, index) => {
+            const restMinutes =
+              2 +
+              index * 3 +
+              (
+                index % 4
+              );
+            const waitingStartedAt =
+              new Date(
+                now -
+                  restMinutes *
+                    60_000
+              );
+
+            return {
+              id: user.id,
+              name: user.name,
+              gender:
+                user.gender ?? "M",
+              grade:
+                user.grade ?? "F",
+              hiddenSkill:
+                user.hidden_skill ??
+                35,
+              isPresent: true,
+              arrivalTime:
+                waitingStartedAt,
+              matchCount: 0,
+              consecutiveMatches: 0,
+              status: "WAITING",
+              waitingStartedAt,
+              lastPartners: [],
+              lastOpponents: [],
+            };
+          }
+        );
+
+      useMatchStore.setState({
+        players: importedPlayers,
+        courts: [
+          {
+            id: 1,
+            status: "EMPTY",
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          },
+          {
+            id: 2,
+            status: "EMPTY",
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          },
+          {
+            id: 3,
+            status: "EMPTY",
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          },
+        ],
+        fixedPartnerRequests: [],
+        notifications: [],
+        matchHistory: [],
+        recommendations: [],
+        selectedRecommendation:
+          null,
+      });
+      setTestAttendanceDates([
+        getKstDateKey(),
+      ]);
+      setTestRosterMessage(
+        `${testSourceDate} 참석자 ${importedPlayers.length}명을 테스트 대기열에 불러왔습니다. 휴식시간은 서로 다르게 설정되었습니다.`
+      );
+    } catch (error) {
+      console.error(error);
+      setTestRosterMessage(
+        "테스트 참가자 명단을 불러오지 못했습니다."
+      );
+    } finally {
+      setImportingTestRoster(
+        false
+      );
     }
   }
 
@@ -979,8 +1142,58 @@ console.log(
           }`}
         >
           {testMode.active && (
-            <div className="mb-4 rounded-xl border border-fuchsia-400/40 bg-fuchsia-400/10 px-4 py-3 font-bold text-fuchsia-200">
-              테스트 모드 · 출석과 경기 결과가 실제 통계에 저장되지 않습니다.
+            <div className="mb-4 rounded-xl border border-fuchsia-400/40 bg-fuchsia-400/10 p-4 text-fuchsia-100">
+              <div className="font-bold">
+                테스트 모드 · 출석과 경기 결과가 실제 통계에 저장되지 않습니다.
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+                <label className="text-xs text-fuchsia-200">
+                  참가자를 불러올 과거 운동 날짜
+                  <input
+                    type="date"
+                    value={
+                      testSourceDate
+                    }
+                    max={
+                      getKstDateKey()
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setTestSourceDate(
+                        event.target
+                          .value
+                      )
+                    }
+                    className="mt-1 block min-w-0 max-w-full box-border w-full rounded-xl border border-fuchsia-400/30 bg-slate-900 px-3 py-2 text-white"
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={
+                    !workoutOpen ||
+                    importingTestRoster
+                  }
+                  onClick={() =>
+                    void importTestRoster()
+                  }
+                  className="self-end rounded-xl bg-fuchsia-500 px-4 py-2.5 font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {importingTestRoster
+                    ? "불러오는 중..."
+                    : "참석자 전체 불러오기"}
+                </button>
+              </div>
+              {!workoutOpen && (
+                <p className="mt-2 text-xs text-fuchsia-200">
+                  테스트 운동을 먼저 열어주세요.
+                </p>
+              )}
+              {testRosterMessage && (
+                <p className="mt-3 text-sm text-fuchsia-100">
+                  {testRosterMessage}
+                </p>
+              )}
             </div>
           )}
           <div className="flex flex-wrap items-end justify-between gap-4">

@@ -11,6 +11,8 @@ const TEST_MODE_EVENT =
   "step-up-match-test-mode-change";
 const TEST_SNAPSHOT_KEY =
   "step-up-match-test-snapshot";
+const TEST_ATTENDANCE_DATES_KEY =
+  "step-up-match-test-attendance-dates";
 
 export interface TestModeState {
   active: boolean;
@@ -48,6 +50,9 @@ export function setTestMode(
     window.sessionStorage.removeItem(
       TEST_WORKOUT_OPEN_KEY
     );
+    window.sessionStorage.removeItem(
+      TEST_ATTENDANCE_DATES_KEY
+    );
   }
 
   notifyChange();
@@ -61,6 +66,37 @@ export function setTestWorkoutOpen(
     String(workoutOpen)
   );
   notifyChange();
+}
+
+export function setTestAttendanceDates(
+  dates: string[]
+) {
+  window.sessionStorage.setItem(
+    TEST_ATTENDANCE_DATES_KEY,
+    JSON.stringify([
+      ...new Set(dates),
+    ])
+  );
+  notifyChange();
+}
+
+export function getTestAttendanceDates() {
+  const stored =
+    window.sessionStorage.getItem(
+      TEST_ATTENDANCE_DATES_KEY
+    );
+
+  if (!stored) {
+    return [];
+  }
+
+  try {
+    return JSON.parse(
+      stored
+    ) as string[];
+  } catch {
+    return [];
+  }
 }
 
 export function saveTestSnapshot(

@@ -90,7 +90,8 @@ export async function getAttendanceListByDate(
           id,
           name,
           gender,
-          grade
+          grade,
+          hidden_skill
         )
       `)
       .eq(

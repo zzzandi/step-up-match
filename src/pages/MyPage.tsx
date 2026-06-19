@@ -19,6 +19,10 @@ import {
   getUserById,
 } from "@/services/supabaseUserService";
 import {
+  getTestAttendanceDates,
+  useTestMode,
+} from "@/services/testModeService";
+import {
   useMatchStore,
 } from "@/store/useMatchStore";
 import type {
@@ -337,6 +341,8 @@ function MatchScoreRow({
 export default function MyPage() {
   const session =
     useAccessSession();
+  const testMode =
+    useTestMode();
   const players =
     useMatchStore(
       (state) => state.players
@@ -440,15 +446,17 @@ export default function MyPage() {
       return;
     }
 
-    getUserAttendanceHistory(
-      session.userId
-    )
-      .then((data) =>
-        setAttendanceHistory(
-          data as AttendanceRecord[]
-        )
+    if (!testMode.active) {
+      getUserAttendanceHistory(
+        session.userId
       )
-      .catch(console.error);
+        .then((data) =>
+          setAttendanceHistory(
+            data as AttendanceRecord[]
+          )
+        )
+        .catch(console.error);
+    }
 
     getUserById(
       session.userId
@@ -459,7 +467,24 @@ export default function MyPage() {
         )
       )
       .catch(console.error);
-  }, [session?.userId]);
+  }, [
+    session?.userId,
+    testMode.active,
+  ]);
+
+  const effectiveAttendanceHistory =
+    testMode.active
+      ? getTestAttendanceDates().map(
+          (
+            attendanceDate,
+            index
+          ) => ({
+            id: `test-attendance-${index}`,
+            attendance_date:
+              attendanceDate,
+          })
+        )
+      : attendanceHistory;
 
   const stats = useMemo(() => {
     const userId =
@@ -491,7 +516,7 @@ export default function MyPage() {
 
     const attendanceDates = [
       ...new Set(
-        attendanceHistory
+        effectiveAttendanceHistory
           .map(
             (attendance) =>
               attendance.attendance_date ??
@@ -691,7 +716,7 @@ export default function MyPage() {
         ),
     };
   }, [
-    attendanceHistory,
+    effectiveAttendanceHistory,
     matchHistory,
     players,
     session?.userId,
@@ -710,6 +735,11 @@ export default function MyPage() {
     <main className="min-h-screen bg-slate-950 p-4 text-white sm:p-6">
       <div className="mx-auto max-w-screen-lg">
         <div className="mb-6">
+          {testMode.active && (
+            <div className="mb-4 rounded-xl border border-fuchsia-400/40 bg-fuchsia-400/10 px-4 py-3 font-bold text-fuchsia-200">
+              테스트 통계 · 실제 마이페이지 통계에는 반영되지 않습니다.
+            </div>
+          )}
           <p className="text-sm font-bold text-cyan-300">
             MY PAGE
           </p>
