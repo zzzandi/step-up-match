@@ -66,6 +66,66 @@ export async function getUserById(
   return data;
 }
 
+export async function getOrCreateUser({
+  name,
+  gender,
+  grade,
+  hiddenSkill,
+}: {
+  name: string;
+  gender: "M" | "F";
+  grade:
+    | "A"
+    | "B"
+    | "C"
+    | "D"
+    | "E"
+    | "F";
+  hiddenSkill: number;
+}) {
+  ensureSupabaseConfigured();
+
+  const normalizedName =
+    name.trim();
+  const {
+    data: existing,
+    error: findError,
+  } = await supabase
+    .from("users")
+    .select("*")
+    .eq("name", normalizedName)
+    .maybeSingle();
+
+  if (findError) {
+    throw findError;
+  }
+
+  if (existing) {
+    return existing;
+  }
+
+  const { data, error } =
+    await supabase
+      .from("users")
+      .insert({
+        id: crypto.randomUUID(),
+        name: normalizedName,
+        gender,
+        grade,
+        hidden_skill:
+          hiddenSkill,
+        is_active: true,
+      })
+      .select()
+      .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
 export async function getTodayAttendances() {
   ensureSupabaseConfigured();
 
@@ -127,4 +187,26 @@ export async function checkIn(
   }
 
   return data;
+}
+
+export async function ensureTodayCheckIn(
+  userId: string
+) {
+  const attendances =
+    await getTodayAttendances();
+  const existing =
+    attendances?.find(
+      (attendance) =>
+        attendance.user_id ===
+        userId
+    );
+
+  if (existing) {
+    return existing;
+  }
+
+  const inserted =
+    await checkIn(userId);
+
+  return inserted?.[0];
 }

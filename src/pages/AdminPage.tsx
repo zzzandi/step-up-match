@@ -27,6 +27,10 @@ import {
 import {
   publishLiveSessionEvent,
 } from "@/services/liveSessionService";
+import {
+  ensureTodayCheckIn,
+  getOrCreateUser,
+} from "@/services/supabaseUserService";
 
 export default function AdminPage() {
   const session =
@@ -538,7 +542,7 @@ console.log(
         player.status === "PLAYING"
     );
 
-  const handleAddPlayer = ({
+  const handleAddPlayer = async ({
     name,
     gender,
     grade,
@@ -562,45 +566,92 @@ console.log(
       F: 35,
     };
 
-    const newPlayer: Player = {
-      id: `manual-${crypto.randomUUID()}`,
+    try {
+      const user =
+        await getOrCreateUser({
+          name,
+          gender,
+          grade,
+          hiddenSkill:
+            skillMap[grade],
+        });
+      await ensureTodayCheckIn(
+        user.id
+      );
 
-      name,
+      const currentPlayers =
+        useMatchStore.getState()
+          .players;
+      const existingPlayer =
+        currentPlayers.find(
+          (player) =>
+            player.id === user.id
+        );
+      const newPlayer: Player = {
+        id: user.id,
 
-      gender,
+        name: user.name,
 
-      grade,
+        gender:
+          user.gender ?? gender,
 
-      hiddenSkill:
-        skillMap[grade],
+        grade:
+          user.grade ?? grade,
 
-      isPresent: true,
+        hiddenSkill:
+          user.hidden_skill ??
+          skillMap[grade],
 
-      arrivalTime:
-        new Date(),
+        isPresent: true,
 
-      matchCount: 0,
+        arrivalTime:
+          existingPlayer?.arrivalTime ??
+          new Date(),
 
-      consecutiveMatches: 0,
+        matchCount:
+          existingPlayer?.matchCount ??
+          0,
 
-      status: "WAITING" as const,
+        consecutiveMatches:
+          existingPlayer?.consecutiveMatches ??
+          0,
 
-      waitingStartedAt:
-        new Date(),
+        status:
+          existingPlayer?.status ===
+          "PLAYING"
+            ? "PLAYING"
+            : "WAITING",
 
-      lastPartners: [],
+        waitingStartedAt:
+          existingPlayer?.waitingStartedAt ??
+          new Date(),
 
-      lastOpponents: [],
-    };
+        lastPartners:
+          existingPlayer?.lastPartners ??
+          [],
 
-    const currentPlayers =
-      useMatchStore.getState()
-        .players;
+        lastOpponents:
+          existingPlayer?.lastOpponents ??
+          [],
+        fixedPartner:
+          existingPlayer?.fixedPartner,
+      };
 
-    setPlayers([
-      ...currentPlayers,
-      newPlayer,
-    ]);
+      setPlayers([
+        ...currentPlayers.filter(
+          (player) =>
+            player.id !== user.id
+        ),
+        newPlayer,
+      ]);
+
+      await refreshAttendance();
+    } catch (error) {
+      console.error(error);
+      window.alert(
+        "참가자를 추가하지 못했습니다."
+      );
+    }
   };
 
   const handleRemoveFixedPartner =

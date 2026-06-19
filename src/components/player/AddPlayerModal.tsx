@@ -18,7 +18,7 @@ interface AddPlayerModalProps {
         | "E"
         | "F";
     }
-  ) => void;
+  ) => void | Promise<void>;
 }
 
 export default function AddPlayerModal({
@@ -148,18 +148,19 @@ export default function AddPlayerModal({
 
         <div className="flex gap-3 mt-8">
           <button
-            onClick={() => {
+            onClick={async () => {
               if (
                 !name.trim()
               )
                 return;
 
-              onAdd({
+              await onAdd({
                 name,
                 gender,
                 grade,
               });
 
+              setName("");
               onClose();
             }}
             className="
