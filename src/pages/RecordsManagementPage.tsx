@@ -238,7 +238,7 @@ export default function RecordsManagementPage() {
                 setMessage("");
                 setLoading(true);
               }}
-              className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-white"
+              className="mt-2 block min-w-0 max-w-full box-border w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-white"
             />
           </label>
 
@@ -330,7 +330,7 @@ export default function RecordsManagementPage() {
                                 .value
                             )
                           }
-                          className="mt-1 w-full rounded-lg bg-slate-800 px-3 py-2 text-white"
+                          className="mt-1 block min-w-0 max-w-full box-border w-full rounded-lg bg-slate-800 px-3 py-2 text-white"
                         />
                       </label>
                     </div>
