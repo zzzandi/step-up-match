@@ -117,6 +117,11 @@ export default function JoinPage() {
     useMatchStore(
       (state) => state.players
     );
+  const setPlayers =
+    useMatchStore(
+      (state) =>
+        state.setPlayers
+    );
 
   const addNotification =
     useMatchStore(
@@ -301,6 +306,15 @@ export default function JoinPage() {
       setSubmitting(true);
       setMessage("");
 
+      const existingPlayer =
+        players.find(
+          (player) =>
+            player.id ===
+            selectedUser.id
+        );
+      const isReturningAfterEnd =
+        existingPlayer?.status ===
+        "LEFT";
       const didJoinToday =
         participationMode ===
         "PARTICIPANT"
@@ -309,7 +323,40 @@ export default function JoinPage() {
             )
           : false;
 
-      if (didJoinToday) {
+      const shouldNotifyParticipation =
+        participationMode ===
+          "PARTICIPANT" &&
+        (
+          didJoinToday ||
+          isReturningAfterEnd
+        );
+
+      if (
+        participationMode ===
+          "PARTICIPANT" &&
+        existingPlayer?.status ===
+          "LEFT"
+      ) {
+        setPlayers(
+          players.map((player) =>
+            player.id ===
+            selectedUser.id
+              ? {
+                  ...player,
+                  isPresent: true,
+                  status:
+                    "WAITING",
+                  waitingStartedAt:
+                    new Date(),
+                }
+              : player
+          )
+        );
+      }
+
+      if (
+        shouldNotifyParticipation
+      ) {
         notifyNewParticipant(
           selectedUser
         );
