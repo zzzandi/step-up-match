@@ -13,6 +13,7 @@ import {
   AccessRole,
   adminNames,
   getRolePath,
+  masterNames,
   setAccessSession,
   useAccessSession,
 } from "@/auth/access";
@@ -128,21 +129,31 @@ export default function JoinPage() {
 
   const visibleUsers =
     useMemo(() => {
-      if (role !== "ADMIN") {
+      if (role === "PLAYER") {
         return users;
       }
 
-      return adminNames
+      const allowedNames =
+        role === "ADMIN"
+          ? adminNames
+          : masterNames;
+
+      return allowedNames
         .map((name) =>
           users.find(
             (user) =>
               user.name === name
-          ) ?? {
-            id: name,
-            name,
-          }
+          )
+        )
+        .filter(
+          (user): user is User =>
+            Boolean(user)
         );
     }, [role, users]);
+
+  const requiresPassword =
+    role === "ADMIN" ||
+    Boolean(config?.password);
 
   useEffect(() => {
     loadUsers();
@@ -402,7 +413,7 @@ export default function JoinPage() {
                 </select>
               </div>
 
-              {config.password && (
+              {requiresPassword && (
                 <div className="mb-4">
                   <label className="block mb-2 text-slate-400">
                     비밀번호

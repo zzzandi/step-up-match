@@ -11,6 +11,7 @@ import {
 } from "react-router-dom";
 
 import {
+  canManage,
   clearAccessSession,
   getRolePath,
   useAccessSession,
@@ -205,31 +206,52 @@ export default function AppNavigation() {
                 Home 대시보드
               </NavLink>
 
-              {(session.role ===
-                "ADMIN" ||
-                session.role ===
-                  "PLAYER") && (
-                <>
-                  <NavLink
-                    to="/participants"
-                    onClick={() =>
-                      setIsOpen(false)
-                    }
-                    className="block rounded-xl bg-slate-900 px-4 py-4 font-bold"
-                  >
-                    오늘 참가자
-                  </NavLink>
-                  <NavLink
-                    to="/my"
-                    onClick={() =>
-                      setIsOpen(false)
-                    }
-                    className="block rounded-xl bg-slate-900 px-4 py-4 font-bold"
-                  >
-                    My 페이지
-                  </NavLink>
-                </>
+              <NavLink
+                to="/participants"
+                onClick={() =>
+                  setIsOpen(false)
+                }
+                className="block rounded-xl bg-slate-900 px-4 py-4 font-bold"
+              >
+                오늘 참가자
+              </NavLink>
+
+              {session.role ===
+                "PLAYER" && (
+                <NavLink
+                  to="/fixed-partner"
+                  onClick={() =>
+                    setIsOpen(false)
+                  }
+                  className="block rounded-xl bg-slate-900 px-4 py-4 font-bold"
+                >
+                  고정 파트너 신청
+                </NavLink>
               )}
+
+              {canManage(
+                session.role
+              ) && (
+                <NavLink
+                  to="/attendance"
+                  onClick={() =>
+                    setIsOpen(false)
+                  }
+                  className="block rounded-xl bg-slate-900 px-4 py-4 font-bold"
+                >
+                  월별 출석현황
+                </NavLink>
+              )}
+
+              <NavLink
+                to="/my"
+                onClick={() =>
+                  setIsOpen(false)
+                }
+                className="block rounded-xl bg-slate-900 px-4 py-4 font-bold"
+              >
+                My 페이지
+              </NavLink>
             </nav>
 
             <div className="mt-auto space-y-2">
@@ -246,8 +268,9 @@ export default function AppNavigation() {
                 </button>
               )}
 
-              {session.role ===
-                "ADMIN" && (
+              {canManage(
+                session.role
+              ) && (
                 <button
                   type="button"
                   onClick={

@@ -30,6 +30,10 @@ import {
 
 const AdminPage =
   lazy(() => import("@/pages/AdminPage"));
+const AttendancePage =
+  lazy(() => import("@/pages/AttendancePage"));
+const FixedPartnerPage =
+  lazy(() => import("@/pages/FixedPartnerPage"));
 const JoinPage =
   lazy(() => import("@/pages/JoinPage"));
 const MasterPage =
@@ -411,6 +415,24 @@ function App() {
           element={
             <AuthenticatedRoute>
               <ParticipantsPage />
+            </AuthenticatedRoute>
+          }
+        />
+
+        <Route
+          path="/attendance"
+          element={
+            <AuthenticatedRoute>
+              <AttendancePage />
+            </AuthenticatedRoute>
+          }
+        />
+
+        <Route
+          path="/fixed-partner"
+          element={
+            <AuthenticatedRoute>
+              <FixedPartnerPage />
             </AuthenticatedRoute>
           }
         />

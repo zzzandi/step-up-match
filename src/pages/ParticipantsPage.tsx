@@ -74,7 +74,14 @@ export default function ParticipantsPage() {
                       {player.name}
                     </div>
                     <div className="text-xs text-slate-500">
-                      {player.grade}등급 · {player.matchCount}경기
+                      {session.role ===
+                        "MASTER" && (
+                        <>
+                          {player.grade}
+                          등급 ·{" "}
+                        </>
+                      )}
+                      {player.matchCount}경기
                     </div>
                   </div>
                   <span

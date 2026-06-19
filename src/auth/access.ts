@@ -36,6 +36,19 @@ export const adminNames = [
   "박철상",
 ];
 
+export const masterNames = [
+  "김민수",
+];
+
+export function canManage(
+  role: AccessRole
+) {
+  return (
+    role === "ADMIN" ||
+    role === "MASTER"
+  );
+}
+
 export function getRolePath(
   role: AccessRole
 ) {

@@ -34,14 +34,6 @@ export default function PlayerPage() {
     ,
     setAttendanceList,
   ] = useState<any[]>([]);
-  const [
-    selectedPartnerId,
-    setSelectedPartnerId,
-  ] = useState("");
-  const [
-    partnerRequestMessage,
-    setPartnerRequestMessage,
-  ] = useState("");
 
   const players =
     useMatchStore(
@@ -61,18 +53,6 @@ export default function PlayerPage() {
   const setCourts =
     useMatchStore(
       (state) => state.setCourts
-    );
-
-  const fixedPartnerRequests =
-    useMatchStore(
-      (state) =>
-        state.fixedPartnerRequests
-    );
-
-  const requestFixedPartner =
-    useMatchStore(
-      (state) =>
-        state.requestFixedPartner
     );
 
   const notifications =
@@ -231,32 +211,6 @@ export default function PlayerPage() {
         session?.userId
     );
 
-  const partnerCandidates =
-    players.filter(
-      (player) =>
-        player.id !==
-          session?.userId &&
-        player.status !== "LEFT"
-    );
-
-  const currentFixedPartner =
-    currentPlayer?.fixedPartner
-      ? players.find(
-          (player) =>
-            player.id ===
-            currentPlayer.fixedPartner
-        )
-      : null;
-
-  const pendingPartnerRequest =
-    fixedPartnerRequests.find(
-      (request) =>
-        request.requesterId ===
-          session?.userId ||
-        request.partnerId ===
-          session?.userId
-    );
-
   const playerNotifications =
     notifications.filter(
       (notification) =>
@@ -265,32 +219,6 @@ export default function PlayerPage() {
         notification.recipientId ===
           session?.userId
     );
-
-  function handlePartnerRequest() {
-    if (!session?.userId) {
-      setPartnerRequestMessage(
-        "로그인 정보를 찾을 수 없습니다."
-      );
-      return;
-    }
-
-    if (!selectedPartnerId) {
-      setPartnerRequestMessage(
-        "파트너를 선택해주세요."
-      );
-      return;
-    }
-
-    requestFixedPartner(
-      session.userId,
-      selectedPartnerId
-    );
-
-    setSelectedPartnerId("");
-    setPartnerRequestMessage(
-      "고정 파트너 신청이 Admin에게 전달되었습니다."
-    );
-  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-white p-6">
@@ -468,136 +396,6 @@ export default function PlayerPage() {
         />
 
         <MatchHistoryPanel />
-      </div>
-
-      <div className="mt-8 rounded-3xl bg-slate-900 p-6 border border-slate-800">
-        <h2 className="text-xl font-bold mb-4">
-          고정 파트너 신청
-        </h2>
-
-        {currentFixedPartner ? (
-          <div className="rounded-xl bg-slate-800 px-4 py-3 text-slate-300">
-            현재 고정 파트너는 {currentFixedPartner.name}님입니다.
-          </div>
-        ) : pendingPartnerRequest ? (
-          <div className="rounded-xl bg-slate-800 px-4 py-3 text-slate-300">
-            {pendingPartnerRequest.requesterName}
-            {" ↔ "}
-            {pendingPartnerRequest.partnerName}
-            {" 신청 승인 대기 중"}
-          </div>
-        ) : (
-          <>
-            <div className="mb-4">
-              <label className="block mb-2 text-slate-400">
-                원하는 파트너
-              </label>
-
-              <select
-                value={selectedPartnerId}
-                onChange={(event) => {
-                  setSelectedPartnerId(
-                    event.target.value
-                  );
-                  setPartnerRequestMessage(
-                    ""
-                  );
-                }}
-                className="
-                  w-full
-                  rounded-xl
-                  bg-slate-800
-                  border
-                  border-slate-700
-                  px-4
-                  py-3
-                  text-white
-                "
-              >
-                <option value="">
-                  파트너를 선택하세요
-                </option>
-
-                {partnerCandidates.map(
-                  (player) => (
-                    <option
-                      key={player.id}
-                      value={player.id}
-                    >
-                      {player.name}
-                    </option>
-                  )
-                )}
-              </select>
-            </div>
-
-            {partnerRequestMessage && (
-              <div className="mb-4 rounded-xl bg-slate-800 px-4 py-3 text-center text-slate-300">
-                {partnerRequestMessage}
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={handlePartnerRequest}
-              className="
-                w-full
-                rounded-xl
-                bg-cyan-500
-                py-3
-                font-bold
-                text-slate-950
-                hover:bg-cyan-400
-              "
-            >
-              신청하기
-            </button>
-          </>
-        )}
-      </div>
-
-      <div className="mt-8 rounded-3xl bg-slate-900 p-6 border border-slate-800">
-        <h2 className="text-xl font-bold mb-4">
-          고정 파트너 현황
-        </h2>
-
-        <div className="space-y-2">
-          {players
-            .filter(
-              (player) =>
-                player.fixedPartner &&
-                player.id <
-                  player.fixedPartner
-            )
-            .map((player) => {
-              const partner =
-                players.find(
-                  (target) =>
-                    target.id ===
-                    player.fixedPartner
-                );
-
-              if (!partner) {
-                return null;
-              }
-
-              return (
-                <div
-                  key={player.id}
-                  className="
-                    rounded-xl
-                    bg-slate-800
-                    px-4
-                    py-3
-                  "
-                >
-                  {player.name}
-                  {" ↔ "}
-                  {partner.name}
-                </div>
-              );
-            })}
-        </div>
       </div>
 
     </div>

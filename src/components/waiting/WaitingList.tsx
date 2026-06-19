@@ -17,6 +17,7 @@ import {
 interface WaitingListProps {
   players: Player[];
   readOnly?: boolean;
+  showGrade?: boolean;
   leaveablePlayerIds?: string[];
   onLeave?: (player: Player) => void;
 }
@@ -24,6 +25,7 @@ interface WaitingListProps {
 export default function WaitingList({
   players,
   readOnly = false,
+  showGrade = false,
   leaveablePlayerIds = [],
   onLeave,
 }: WaitingListProps) {
@@ -165,9 +167,13 @@ export default function WaitingList({
                   </div>
 
                   <div className="text-xs text-slate-400">
-                    {player.grade}
-                    등급
-                    {" · "}
+                    {showGrade && (
+                      <>
+                        {player.grade}
+                        등급
+                        {" · "}
+                      </>
+                    )}
                     경기{" "}
                     {player.matchCount}
                     회

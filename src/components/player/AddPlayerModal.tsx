@@ -2,6 +2,7 @@ import { useState } from "react";
 
 interface AddPlayerModalProps {
   open: boolean;
+  showGrade?: boolean;
 
   onClose: () => void;
 
@@ -22,6 +23,7 @@ interface AddPlayerModalProps {
 
 export default function AddPlayerModal({
   open,
+  showGrade = false,
   onClose,
   onAdd,
 }: AddPlayerModalProps) {
@@ -111,29 +113,37 @@ export default function AddPlayerModal({
             </option>
           </select>
 
-          <select
-            value={grade}
-            onChange={(e) =>
-              setGrade(
-                e.target
-                  .value as any
-              )
-            }
-            className="
-              w-full
-              rounded-xl
-              bg-slate-800
-              px-4
-              py-3
-            "
-          >
-            <option>A</option>
-            <option>B</option>
-            <option>C</option>
-            <option>D</option>
-            <option>E</option>
-            <option>F</option>
-          </select>
+          {showGrade && (
+            <select
+              value={grade}
+              onChange={(e) =>
+                setGrade(
+                  e.target
+                    .value as
+                    | "A"
+                    | "B"
+                    | "C"
+                    | "D"
+                    | "E"
+                    | "F"
+                )
+              }
+              className="
+                w-full
+                rounded-xl
+                bg-slate-800
+                px-4
+                py-3
+              "
+            >
+              <option>A</option>
+              <option>B</option>
+              <option>C</option>
+              <option>D</option>
+              <option>E</option>
+              <option>F</option>
+            </select>
+          )}
         </div>
 
         <div className="flex gap-3 mt-8">

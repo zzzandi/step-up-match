@@ -23,6 +23,8 @@ import {
 export default function AdminPage() {
   const session =
     useAccessSession();
+  const isMaster =
+    session?.role === "MASTER";
 
   const [isAddModalOpen, setIsAddModalOpen] =
     useState(false);
@@ -474,7 +476,9 @@ console.log(
             </h1>
 
             <p className="text-slate-400 mt-2">
-              Admin Dashboard
+              {isMaster
+                ? "Master Dashboard"
+                : "Admin Dashboard"}
             </p>
           </div>
 
@@ -725,10 +729,111 @@ console.log(
             players={
               waitingPlayers
             }
+            showGrade={
+              isMaster
+            }
           />
 
           <MatchHistoryPanel />
         </div>
+
+        {isMaster && (
+          <div className="mt-8 rounded-3xl border border-purple-500/30 bg-slate-900 p-6">
+            <div className="mb-4">
+              <p className="text-sm font-bold text-purple-300">
+                MASTER ONLY
+              </p>
+              <h2 className="mt-1 text-xl font-bold">
+                전체 선수 정보
+              </h2>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] text-left text-sm">
+                <thead className="text-slate-400">
+                  <tr className="border-b border-slate-800">
+                    <th className="px-3 py-3">
+                      이름
+                    </th>
+                    <th className="px-3 py-3">
+                      성별
+                    </th>
+                    <th className="px-3 py-3">
+                      등급
+                    </th>
+                    <th className="px-3 py-3">
+                      내부 점수
+                    </th>
+                    <th className="px-3 py-3">
+                      상태
+                    </th>
+                    <th className="px-3 py-3">
+                      경기 수
+                    </th>
+                    <th className="px-3 py-3">
+                      고정 파트너
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {players.map(
+                    (player) => {
+                      const partner =
+                        players.find(
+                          (item) =>
+                            item.id ===
+                            player.fixedPartner
+                        );
+
+                      return (
+                        <tr
+                          key={player.id}
+                          className="border-b border-slate-800/70"
+                        >
+                          <td className="px-3 py-3 font-bold">
+                            {
+                              player.name
+                            }
+                          </td>
+                          <td className="px-3 py-3">
+                            {player.gender ===
+                            "M"
+                              ? "남"
+                              : "여"}
+                          </td>
+                          <td className="px-3 py-3 font-bold text-purple-300">
+                            {
+                              player.grade
+                            }
+                          </td>
+                          <td className="px-3 py-3">
+                            {
+                              player.hiddenSkill
+                            }
+                          </td>
+                          <td className="px-3 py-3">
+                            {
+                              player.status
+                            }
+                          </td>
+                          <td className="px-3 py-3">
+                            {
+                              player.matchCount
+                            }
+                          </td>
+                          <td className="px-3 py-3">
+                            {partner?.name ??
+                              "-"}
+                          </td>
+                        </tr>
+                      );
+                    }
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         <div className="mt-8 rounded-3xl bg-slate-900 p-6 border border-slate-800">
           <div className="flex items-center justify-between mb-4">
@@ -901,6 +1006,9 @@ console.log(
       <AddPlayerModal
         open={
           isAddModalOpen
+        }
+        showGrade={
+          isMaster
         }
         onClose={() =>
           setIsAddModalOpen(
