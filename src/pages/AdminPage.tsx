@@ -7,6 +7,7 @@ import CourtCard from "@/components/court/CourtCard";
 import WaitingList from "@/components/waiting/WaitingList";
 import MatchRecommendModal from "@/components/match/MatchRecommendModal";
 import AddPlayerModal from "@/components/player/AddPlayerModal";
+import MasterAddParticipantModal from "@/components/player/MasterAddParticipantModal";
 import FixedPartnerModal from "@/components/player/FixedPartnerModal";
 import MatchHistoryPanel from "@/components/history/MatchHistoryPanel";
 import {
@@ -62,6 +63,10 @@ export default function AdminPage() {
 
   const [isAddModalOpen, setIsAddModalOpen] =
     useState(false);
+  const [
+    isMasterParticipantModalOpen,
+    setIsMasterParticipantModalOpen,
+  ] = useState(false);
 
   const [
     isFixedPartnerOpen,
@@ -654,6 +659,88 @@ console.log(
     }
   };
 
+  const handleMasterAddParticipant =
+    async (member: {
+      id: string;
+      name: string;
+      gender?: "M" | "F" | null;
+      grade?:
+        | "A"
+        | "B"
+        | "C"
+        | "D"
+        | "E"
+        | "F"
+        | null;
+      hidden_skill?: number | null;
+    }) => {
+      try {
+        await ensureTodayCheckIn(
+          member.id
+        );
+
+        const currentPlayers =
+          useMatchStore.getState()
+            .players;
+        const existingPlayer =
+          currentPlayers.find(
+            (player) =>
+              player.id === member.id
+          );
+        const participant: Player = {
+          id: member.id,
+          name: member.name,
+          gender:
+            member.gender ?? "M",
+          grade:
+            member.grade ?? "F",
+          hiddenSkill:
+            member.hidden_skill ?? 35,
+          isPresent: true,
+          arrivalTime:
+            existingPlayer?.arrivalTime ??
+            new Date(),
+          matchCount:
+            existingPlayer?.matchCount ??
+            0,
+          consecutiveMatches:
+            existingPlayer?.consecutiveMatches ??
+            0,
+          status:
+            existingPlayer?.status ===
+            "PLAYING"
+              ? "PLAYING"
+              : "WAITING",
+          waitingStartedAt:
+            existingPlayer?.waitingStartedAt ??
+            new Date(),
+          lastPartners:
+            existingPlayer?.lastPartners ??
+            [],
+          lastOpponents:
+            existingPlayer?.lastOpponents ??
+            [],
+          fixedPartner:
+            existingPlayer?.fixedPartner,
+        };
+
+        setPlayers([
+          ...currentPlayers.filter(
+            (player) =>
+              player.id !== member.id
+          ),
+          participant,
+        ]);
+        await refreshAttendance();
+      } catch (error) {
+        console.error(error);
+        window.alert(
+          "오늘 참가자로 등록하지 못했습니다."
+        );
+        throw error;
+      }
+    };
+
   const handleRemoveFixedPartner =
     (
       playerId: string,
@@ -978,6 +1065,20 @@ console.log(
             >
               참가자 추가
             </button>
+
+            {isMaster && (
+              <button
+                type="button"
+                onClick={() =>
+                  setIsMasterParticipantModalOpen(
+                    true
+                  )
+                }
+                className="rounded-2xl bg-purple-500 px-6 py-3 font-bold"
+              >
+                오늘 참가자 대신 등록
+              </button>
+            )}
           </div>
           </details>
         </div>
@@ -1444,6 +1545,20 @@ console.log(
           handleAddPlayer
         }
       />
+
+      {isMasterParticipantModalOpen && (
+        <MasterAddParticipantModal
+          open
+          onClose={() =>
+            setIsMasterParticipantModalOpen(
+              false
+            )
+          }
+          onAdd={
+            handleMasterAddParticipant
+          }
+        />
+      )}
 
       <FixedPartnerModal
         open={
