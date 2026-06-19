@@ -332,6 +332,10 @@ console.log(
     try {
       setImportingTestRoster(true);
       setTestRosterMessage("");
+      if (!workoutOpen) {
+        setTestWorkoutOpen(true);
+        setWorkoutOpen(true);
+      }
       const rows =
         await getAttendanceListByDate(
           sourceDate
@@ -1132,18 +1136,35 @@ console.log(
                 테스트 모드 · 출석과 경기 결과가 실제 통계에 저장되지 않습니다.
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
-                <div className="self-center text-sm text-fuchsia-100">
-                  현재 선택한 운동 날짜{" "}
-                  <strong>
-                    {workoutDate}
-                  </strong>
-                  의 참석자를 불러옵니다.
-                </div>
+                <label className="text-xs text-fuchsia-200">
+                  참가자를 불러올 실제 운동 날짜
+                  <input
+                    type="date"
+                    value={
+                      workoutDate
+                    }
+                    max={
+                      getKstDateKey()
+                    }
+                    onChange={(
+                      event
+                    ) => {
+                      setWorkoutDate(
+                        event.target
+                          .value
+                      );
+                      setTestRosterMessage(
+                        ""
+                      );
+                    }}
+                    className="mt-1 block min-w-0 max-w-full box-border w-full rounded-xl border border-fuchsia-400/30 bg-slate-900 px-3 py-2 text-white"
+                  />
+                </label>
                 <button
                   type="button"
                   disabled={
-                    !workoutOpen ||
-                    importingTestRoster
+                    importingTestRoster ||
+                    !workoutDate
                   }
                   onClick={() =>
                     void importTestRoster(
