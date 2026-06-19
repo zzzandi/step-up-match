@@ -63,6 +63,43 @@ export async function getUserAttendanceHistory(
   return data ?? [];
 }
 
+export async function updateAttendanceDate(
+  attendanceId: string,
+  attendanceDate: string
+) {
+  const { data, error } =
+    await supabase
+      .from("attendances")
+      .update({
+        attendance_date:
+          attendanceDate,
+      })
+      .eq("id", attendanceId)
+      .neq("status", "OPEN")
+      .select();
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? [];
+}
+
+export async function deleteAttendanceRecord(
+  attendanceId: string
+) {
+  const { error } =
+    await supabase
+      .from("attendances")
+      .delete()
+      .eq("id", attendanceId)
+      .neq("status", "OPEN");
+
+  if (error) {
+    throw error;
+  }
+}
+
 export async function getMonthlyAttendanceList(
   yearMonth: string
 ) {

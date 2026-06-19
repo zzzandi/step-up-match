@@ -56,6 +56,8 @@ const MyPage =
   lazy(() => import("@/pages/MyPage"));
 const PlayerPage =
   lazy(() => import("@/pages/PlayerPage"));
+const RecordsManagementPage =
+  lazy(() => import("@/pages/RecordsManagementPage"));
 const ParticipantsPage =
   lazy(() => import("@/pages/ParticipantsPage"));
 
@@ -658,6 +660,15 @@ function App() {
           element={
             <AuthenticatedRoute>
               <FixedPartnerPage />
+            </AuthenticatedRoute>
+          }
+        />
+
+        <Route
+          path="/records-management"
+          element={
+            <AuthenticatedRoute>
+              <RecordsManagementPage />
             </AuthenticatedRoute>
           }
         />

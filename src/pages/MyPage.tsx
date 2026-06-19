@@ -8,9 +8,11 @@ import {
 } from "react-router-dom";
 
 import {
+  setAccessSession,
   useAccessSession,
 } from "@/auth/access";
 import {
+  deleteAttendanceRecord,
   getUserAttendanceHistory,
 } from "@/services/attendanceService";
 import {
@@ -27,6 +29,7 @@ import type {
 } from "@/types/player";
 
 type AttendanceRecord = {
+  id: string;
   attendance_date?: string;
   created_at?: string;
 };
@@ -343,6 +346,11 @@ export default function MyPage() {
       (state) =>
         state.matchHistory
     );
+  const setPlayers =
+    useMatchStore(
+      (state) =>
+        state.setPlayers
+    );
   const [
     attendanceHistory,
     setAttendanceHistory,
@@ -351,6 +359,81 @@ export default function MyPage() {
     useState<UserProfile | null>(
       null
     );
+  const [resetMessage, setResetMessage] =
+    useState("");
+
+  async function handleCancelTodayAttendance() {
+    if (!session?.userId) {
+      return;
+    }
+
+    const today = dateKey(
+      new Date()
+    );
+    const todayAttendance =
+      attendanceHistory.find(
+        (attendance) =>
+          (attendance.attendance_date ??
+            attendance.created_at?.slice(
+              0,
+              10
+            )) === today
+      );
+
+    if (!todayAttendance) {
+      setResetMessage(
+        "오늘 운동 참가이력이 없습니다."
+      );
+      return;
+    }
+
+    if (
+      !window.confirm(
+        "실수로 등록한 오늘 운동 참가이력을 취소하시겠습니까?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await deleteAttendanceRecord(
+        todayAttendance.id
+      );
+      setAttendanceHistory(
+        attendanceHistory.filter(
+          (attendance) =>
+            attendance.id !==
+            todayAttendance.id
+        )
+      );
+      setPlayers(
+        players.map((player) =>
+          player.id ===
+          session.userId
+            ? {
+                ...player,
+                status:
+                  "LEFT" as const,
+                isPresent: false,
+              }
+            : player
+        )
+      );
+      setAccessSession({
+        ...session,
+        participationMode:
+          "VIEWER",
+      });
+      setResetMessage(
+        "오늘 운동 참가이력이 취소되었습니다."
+      );
+    } catch (error) {
+      console.error(error);
+      setResetMessage(
+        "오늘 운동 참가이력 취소에 실패했습니다."
+      );
+    }
+  }
 
   useEffect(() => {
     if (!session?.userId) {
@@ -633,6 +716,31 @@ export default function MyPage() {
           <h1 className="mt-1 text-3xl font-bold">
             {session.userName}님의 기록
           </h1>
+
+          {(session.role ===
+            "ADMIN" ||
+            session.role ===
+              "PLAYER") && (
+            <div className="mt-4">
+              {session.participationMode ===
+                "PARTICIPANT" && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    void handleCancelTodayAttendance()
+                  }
+                  className="rounded-xl bg-red-500 px-4 py-2 text-sm font-bold"
+                >
+                  오늘 운동 참가이력 취소
+                </button>
+              )}
+              {resetMessage && (
+                <p className="mt-2 text-sm text-slate-400">
+                  {resetMessage}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         <section className="mb-6 grid grid-cols-3 overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
