@@ -14,7 +14,8 @@ export interface AccessSession {
   userName?: string;
   participationMode?:
     | "PARTICIPANT"
-    | "VIEWER";
+    | "VIEWER"
+    | "PENDING";
 }
 
 const ACCESS_SESSION_KEY =

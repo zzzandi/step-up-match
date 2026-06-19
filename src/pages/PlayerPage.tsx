@@ -74,6 +74,13 @@ export default function PlayerPage() {
     );
 
   useEffect(() => {
+    if (
+      session?.participationMode ===
+      "PENDING"
+    ) {
+      return;
+    }
+
     getTodayAttendanceList()
       .then((data) => {
         const uniqueAttendance =
@@ -190,7 +197,9 @@ export default function PlayerPage() {
         }
       })
       .catch(console.error);
-  }, []);
+  }, [
+    session?.participationMode,
+  ]);
 
   const waitingPlayers =
     players.filter(
@@ -219,6 +228,36 @@ export default function PlayerPage() {
         notification.recipientId ===
           session?.userId
     );
+
+  if (
+    session?.participationMode ===
+    "PENDING"
+  ) {
+    return (
+      <main className="flex min-h-[calc(100vh-60px)] items-center justify-center bg-slate-950 p-6 text-white">
+        <div className="w-full max-w-xl rounded-3xl border border-amber-400/30 bg-slate-900 p-8 text-center">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-amber-400/15 text-3xl">
+            🏸
+          </div>
+          <p className="text-sm font-bold text-amber-300">
+            오늘 운동 미개설
+          </p>
+          <h1 className="mt-2 text-3xl font-bold">
+            운영진이 아직 오늘 운동을 열지 않았습니다
+          </h1>
+          <p className="mt-4 leading-7 text-slate-400">
+            이 화면에서 기다리면 됩니다.
+            Admin 또는 Master가 오늘
+            운동을 열면 자동으로 출석 처리되고
+            대기열과 대시보드로 전환됩니다.
+          </p>
+          <div className="mt-6 rounded-xl bg-slate-800 px-4 py-3 text-sm text-slate-300">
+            {session.userName}님 참가 대기 중
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-white p-6">

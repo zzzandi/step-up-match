@@ -16,6 +16,7 @@ import {
   clearAccessSession,
   getAccessSession,
   getRolePath,
+  setAccessSession,
   useAccessSession,
 } from "@/auth/access";
 import AppNavigation from "@/components/navigation/AppNavigation";
@@ -27,6 +28,19 @@ import {
 import {
   useMatchStore,
 } from "@/store/useMatchStore";
+import {
+  checkIn,
+  getTodayAttendances,
+  getUserById,
+} from "@/services/supabaseUserService";
+import {
+  closeWorkout,
+  getKstDateKey as getWorkoutDateKey,
+  isWorkoutOpen,
+} from "@/services/workoutSessionService";
+import type {
+  Player,
+} from "@/types/player";
 
 const AdminPage =
   lazy(() => import("@/pages/AdminPage"));
@@ -164,9 +178,134 @@ function publishStateSnapshot() {
   });
 }
 
+async function activatePendingParticipant() {
+  const session =
+    getAccessSession();
+
+  if (
+    !session?.userId ||
+    session.participationMode !==
+      "PENDING"
+  ) {
+    return false;
+  }
+
+  const today =
+    getWorkoutDateKey();
+  const attendances =
+    await getTodayAttendances();
+  const alreadyJoined =
+    attendances?.some(
+      (attendance: {
+        user_id?: string;
+      }) =>
+        attendance.user_id ===
+        session.userId
+    );
+
+  if (!alreadyJoined) {
+    await checkIn(
+      session.userId
+    );
+  }
+
+  const user =
+    await getUserById(
+      session.userId
+    );
+  const state =
+    useMatchStore.getState();
+  const existing =
+    state.players.find(
+      (player) =>
+        player.id ===
+        session.userId
+    );
+  const nextPlayer: Player = {
+    id: user.id,
+    name:
+      session.userName ??
+      user.name,
+    gender:
+      user.gender ?? "M",
+    grade:
+      user.grade ?? "F",
+    hiddenSkill:
+      user.hidden_skill ?? 35,
+    isPresent: true,
+    arrivalTime: new Date(),
+    matchCount:
+      existing?.matchCount ?? 0,
+    consecutiveMatches:
+      existing?.consecutiveMatches ??
+      0,
+    status: "WAITING",
+    waitingStartedAt:
+      new Date(),
+    lastPartners:
+      existing?.lastPartners ?? [],
+    lastOpponents:
+      existing?.lastOpponents ?? [],
+    fixedPartner:
+      existing?.fixedPartner,
+  };
+
+  state.setPlayers([
+    ...state.players.filter(
+      (player) =>
+        player.id !==
+        nextPlayer.id
+    ),
+    nextPlayer,
+  ]);
+
+  state.players
+    .filter(
+      (player) =>
+        player.id !==
+          nextPlayer.id &&
+        player.status !== "LEFT"
+    )
+    .forEach((player) => {
+      state.addNotification({
+        audience:
+          player.name ===
+            "유원석" ||
+          player.name ===
+            "이주민" ||
+          player.name ===
+            "큰영진" ||
+          player.name ===
+            "김영진" ||
+          player.name ===
+            "박철상"
+            ? "ADMIN"
+            : "PLAYER",
+        recipientId:
+          player.id,
+        message: `${nextPlayer.name}님이 오늘 운동에 참가했습니다.`,
+      });
+    });
+
+  setAccessSession({
+    ...session,
+    participationMode:
+      "PARTICIPANT",
+  });
+
+  window.localStorage.setItem(
+    DASHBOARD_DATE_KEY,
+    today
+  );
+
+  return true;
+}
+
 function App() {
   const navigate =
     useNavigate();
+  const accessSession =
+    useAccessSession();
 
   useEffect(() => {
     const todayKey =
@@ -200,6 +339,33 @@ function App() {
     const unsubscribeLive =
       subscribeLiveSessionEvents(
         (event) => {
+          if (
+            event.type ===
+            "WORKOUT_OPENED"
+          ) {
+            if (
+              event.workoutDate ===
+              getWorkoutDateKey()
+            ) {
+              void activatePendingParticipant()
+                .then(
+                  (activated) => {
+                    if (
+                      activated &&
+                      getAccessSession()
+                        ?.role ===
+                        "PLAYER"
+                    ) {
+                      navigate(
+                        "/player"
+                      );
+                    }
+                  }
+                );
+            }
+            return;
+          }
+
           if (
             event.type ===
             "STATE_SNAPSHOT"
@@ -300,11 +466,70 @@ function App() {
   }, [navigate]);
 
   useEffect(() => {
+    if (
+      accessSession?.participationMode !==
+      "PENDING"
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function checkOpenStatus() {
+      try {
+        const open =
+          await isWorkoutOpen();
+
+        if (
+          open &&
+          !cancelled
+        ) {
+          const activated =
+            await activatePendingParticipant();
+
+          if (
+            activated &&
+            getAccessSession()
+              ?.role ===
+              "PLAYER"
+          ) {
+            navigate(
+              "/player"
+            );
+          }
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    void checkOpenStatus();
+    const timer =
+      window.setInterval(
+        checkOpenStatus,
+        5000
+      );
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(
+        timer
+      );
+    };
+  }, [
+    accessSession?.participationMode,
+    navigate,
+  ]);
+
+  useEffect(() => {
     let timer = 0;
 
     function scheduleNextMidnight() {
       timer =
         window.setTimeout(() => {
+          void closeWorkout(
+            getWorkoutDateKey()
+          );
           publishLiveSessionEvent({
             type: "END_TODAY",
             reason: "MIDNIGHT",

@@ -25,6 +25,10 @@ import {
 import {
   useMatchStore,
 } from "@/store/useMatchStore";
+import {
+  getKstDateKey,
+  isWorkoutOpen,
+} from "@/services/workoutSessionService";
 
 interface User {
   id: string;
@@ -306,6 +310,19 @@ export default function JoinPage() {
       setSubmitting(true);
       setMessage("");
 
+      const workoutOpen =
+        participationMode ===
+          "PARTICIPANT"
+          ? await isWorkoutOpen(
+              getKstDateKey()
+            )
+          : false;
+      const resolvedMode =
+        participationMode ===
+          "PARTICIPANT" &&
+        !workoutOpen
+          ? "PENDING"
+          : participationMode;
       const existingPlayer =
         players.find(
           (player) =>
@@ -316,7 +333,7 @@ export default function JoinPage() {
         existingPlayer?.status ===
         "LEFT";
       const didJoinToday =
-        participationMode ===
+        resolvedMode ===
         "PARTICIPANT"
           ? await markAttendance(
               selectedUser.id
@@ -324,7 +341,7 @@ export default function JoinPage() {
           : false;
 
       const shouldNotifyParticipation =
-        participationMode ===
+        resolvedMode ===
           "PARTICIPANT" &&
         (
           didJoinToday ||
@@ -332,7 +349,7 @@ export default function JoinPage() {
         );
 
       if (
-        participationMode ===
+        resolvedMode ===
           "PARTICIPANT" &&
         existingPlayer?.status ===
           "LEFT"
@@ -366,7 +383,8 @@ export default function JoinPage() {
         role,
         userId: selectedUser.id,
         userName: selectedUser.name,
-        participationMode,
+        participationMode:
+          resolvedMode,
       });
 
       navigate(

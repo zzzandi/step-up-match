@@ -28,7 +28,8 @@ export async function getTodayAttendanceList() {
       .eq(
         "attendance_date",
         today
-      );
+      )
+      .neq("status", "OPEN");
 
   console.log(
     "ATTENDANCE QUERY RESULT",
@@ -50,6 +51,7 @@ export async function getUserAttendanceHistory(
       .from("attendances")
       .select("*")
       .eq("user_id", userId)
+      .neq("status", "OPEN")
       .order("attendance_date", {
         ascending: false,
       });
@@ -103,6 +105,7 @@ export async function getMonthlyAttendanceList(
         "attendance_date",
         nextMonth
       )
+      .neq("status", "OPEN")
       .order(
         "attendance_date",
         {

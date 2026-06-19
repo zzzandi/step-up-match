@@ -24,6 +24,10 @@ import {
 import {
   useMatchStore,
 } from "@/store/useMatchStore";
+import {
+  closeWorkout,
+  getKstDateKey,
+} from "@/services/workoutSessionService";
 
 const roleLabels = {
   ADMIN: "Admin",
@@ -73,6 +77,13 @@ export default function AppNavigation() {
     (activeSession.participationMode ??
       "PARTICIPANT") ===
     "PARTICIPANT";
+  const sessionModeLabel =
+    activeSession.participationMode ===
+    "PENDING"
+      ? " · 개설 대기"
+      : !isParticipant
+        ? " · 조회 전용"
+        : "";
 
   function logout() {
     const confirmed =
@@ -182,7 +193,7 @@ export default function AppNavigation() {
     logout();
   }
 
-  function endAdminWorkout() {
+  async function endAdminWorkout() {
     const confirmed =
       window.confirm(
         "오늘 운동을 종료하시겠습니까? 모든 참가자가 로그아웃되고 오늘 대시보드가 초기화됩니다."
@@ -192,12 +203,27 @@ export default function AppNavigation() {
       return;
     }
 
-    endTodaySession();
-    publishLiveSessionEvent({
-      type: "END_TODAY",
-      reason: "ADMIN_END",
-    });
-    logout();
+    try {
+      await closeWorkout();
+      endTodaySession();
+      publishLiveSessionEvent({
+        type: "WORKOUT_CLOSED",
+        workoutDate:
+          getKstDateKey(),
+      });
+      publishLiveSessionEvent({
+        type: "END_TODAY",
+        reason: "ADMIN_END",
+      });
+      clearAccessSession();
+      setIsOpen(false);
+      navigate("/");
+    } catch (error) {
+      console.error(error);
+      window.alert(
+        "오늘 운동 종료 처리에 실패했습니다."
+      );
+    }
   }
 
   return (
@@ -229,8 +255,7 @@ export default function AppNavigation() {
               {session.userName}
               <span className="ml-2 text-xs font-medium text-cyan-300">
                 {roleLabels[session.role]}
-                {!isParticipant &&
-                  " · 조회 전용"}
+                {sessionModeLabel}
               </span>
             </div>
           </div>

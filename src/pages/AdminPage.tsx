@@ -19,6 +19,14 @@ import { useMatchStore } from "@/store/useMatchStore";
 import {
   uniqueByUserId,
 } from "@/utils/participants";
+import {
+  getKstDateKey,
+  isWorkoutOpen,
+  openWorkout,
+} from "@/services/workoutSessionService";
+import {
+  publishLiveSessionEvent,
+} from "@/services/liveSessionService";
 
 export default function AdminPage() {
   const session =
@@ -29,6 +37,24 @@ export default function AdminPage() {
     !isMaster &&
     session?.participationMode ===
     "VIEWER";
+  const [
+    workoutDate,
+    setWorkoutDate,
+  ] = useState(
+    getKstDateKey
+  );
+  const [
+    workoutOpen,
+    setWorkoutOpen,
+  ] = useState(false);
+  const [
+    workoutStatusLoading,
+    setWorkoutStatusLoading,
+  ] = useState(true);
+  const [
+    openingWorkout,
+    setOpeningWorkout,
+  ] = useState(false);
 
   const [isAddModalOpen, setIsAddModalOpen] =
     useState(false);
@@ -128,6 +154,84 @@ console.log(
         state.removeCourt
     );
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function refreshStatus() {
+      try {
+        const open =
+          await isWorkoutOpen(
+            workoutDate
+          );
+
+        if (!cancelled) {
+          setWorkoutOpen(open);
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        if (!cancelled) {
+          setWorkoutStatusLoading(
+            false
+          );
+        }
+      }
+    }
+
+    void refreshStatus();
+    const timer =
+      window.setInterval(
+        refreshStatus,
+        5000
+      );
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(
+        timer
+      );
+    };
+  }, [workoutDate]);
+
+  async function handleOpenWorkout() {
+    if (!session?.userId) {
+      window.alert(
+        "운영진 회원 정보를 찾을 수 없습니다."
+      );
+      return;
+    }
+
+    if (
+      workoutDate !==
+      getKstDateKey()
+    ) {
+      window.alert(
+        "오늘 날짜로만 운동을 열 수 있습니다."
+      );
+      return;
+    }
+
+    try {
+      setOpeningWorkout(true);
+      await openWorkout(
+        workoutDate,
+        session.userId
+      );
+      setWorkoutOpen(true);
+      publishLiveSessionEvent({
+        type: "WORKOUT_OPENED",
+        workoutDate,
+      });
+    } catch (error) {
+      console.error(error);
+      window.alert(
+        "오늘 운동을 열지 못했습니다."
+      );
+    } finally {
+      setOpeningWorkout(false);
+    }
+  }
+
   function handleRemoveCourt() {
     if (isReadOnly) {
       window.alert(
@@ -189,9 +293,12 @@ console.log(
 
       const uniqueAttendance =
         uniqueByUserId(data);
+      const currentPlayers =
+        useMatchStore.getState()
+          .players;
       const existingById =
         new Map(
-          players.map(
+          currentPlayers.map(
             (player) => [
               player.id,
               player,
@@ -257,6 +364,25 @@ console.log(
       console.error(error);
     }
   };
+
+  useEffect(() => {
+    if (!workoutOpen) {
+      return;
+    }
+
+    const timer =
+      window.setInterval(
+        () => {
+          void refreshAttendance();
+        },
+        5000
+      );
+
+    return () =>
+      window.clearInterval(
+        timer
+      );
+  }, [workoutOpen]);
 
     useEffect(() => {
         getTodayAttendanceList()
@@ -588,6 +714,80 @@ console.log(
   return (
     <>
       <div className="min-h-screen bg-slate-950 p-4 text-white sm:p-6">
+        <section
+          className={`mb-6 rounded-2xl border p-5 ${
+            workoutOpen
+              ? "border-emerald-400/30 bg-emerald-400/10"
+              : "border-amber-400/30 bg-amber-400/10"
+          }`}
+        >
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p
+                className={`text-sm font-bold ${
+                  workoutOpen
+                    ? "text-emerald-300"
+                    : "text-amber-200"
+                }`}
+              >
+                오늘 운동{" "}
+                {workoutOpen
+                  ? "진행 중"
+                  : "미개설"}
+              </p>
+              <p className="mt-1 text-sm text-slate-300">
+                {workoutOpen
+                  ? `${workoutDate} 운동이 열려 있습니다.`
+                  : "운영진이 오늘 운동을 열어야 참가 대기자가 자동으로 등록됩니다."}
+              </p>
+            </div>
+
+            {!workoutOpen && (
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="text-xs text-slate-300">
+                  운동 날짜
+                  <input
+                    type="date"
+                    value={
+                      workoutDate
+                    }
+                    max={
+                      getKstDateKey()
+                    }
+                    onChange={(
+                      event
+                    ) => {
+                      setWorkoutDate(
+                        event.target
+                          .value
+                      );
+                      setWorkoutStatusLoading(
+                        true
+                      );
+                    }}
+                    className="mt-1 block rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-white"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={
+                    handleOpenWorkout
+                  }
+                  disabled={
+                    openingWorkout ||
+                    workoutStatusLoading
+                  }
+                  className="rounded-xl bg-emerald-500 px-5 py-2.5 font-bold text-slate-950 disabled:opacity-50"
+                >
+                  {openingWorkout
+                    ? "여는 중..."
+                    : "오늘 운동 열기"}
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
+
         <div className="mb-6 lg:flex lg:items-start lg:justify-between lg:gap-6">
           <div>
             <h1 className="text-3xl font-bold sm:text-4xl">

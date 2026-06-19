@@ -79,7 +79,8 @@ export async function getTodayAttendances() {
       .eq(
         "attendance_date",
         today
-      );
+      )
+      .neq("status", "OPEN");
 
   if (error) {
     console.error(

@@ -5,6 +5,14 @@ import {
 
 export type LiveSessionEvent =
   | {
+      type: "WORKOUT_OPENED";
+      workoutDate: string;
+    }
+  | {
+      type: "WORKOUT_CLOSED";
+      workoutDate: string;
+    }
+  | {
       type: "END_TODAY";
       reason:
         | "MIDNIGHT"
