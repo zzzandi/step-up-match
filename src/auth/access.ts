@@ -78,18 +78,6 @@ export function getAccessSession():
       stored
     ) as AccessSession;
 
-    if (
-      session.testMode &&
-      window.sessionStorage.getItem(
-        "step-up-match-test-mode"
-      ) !== "true"
-    ) {
-      window.localStorage.removeItem(
-        ACCESS_SESSION_KEY
-      );
-      return null;
-    }
-
     return session;
   } catch {
     window.localStorage.removeItem(

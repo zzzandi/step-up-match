@@ -35,7 +35,9 @@ import {
   getUsers,
 } from "@/services/supabaseUserService";
 import {
+  getTestRosterDate,
   setTestAttendanceDates,
+  setTestRosterDate as saveTestRosterDate,
   setTestWorkoutDate,
   setTestWorkoutOpen,
   useTestMode,
@@ -88,8 +90,12 @@ export default function AdminPage() {
   ] = useState(false);
   const [
     testRosterDate,
-    setTestRosterDate,
-  ] = useState(getKstDateKey);
+    setTestRosterDateState,
+  ] = useState(
+    () =>
+      getTestRosterDate() ||
+      getKstDateKey()
+  );
   const [
     importingTestRoster,
     setImportingTestRoster,
@@ -1142,15 +1148,33 @@ console.log(
               <div className="font-bold">
                 테스트 모드 · 출석과 경기 결과가 실제 통계에 저장되지 않습니다.
               </div>
-              <div className="mt-3 rounded-xl bg-slate-950/50 px-3 py-2 text-sm">
-                테스트 운동 날짜:{" "}
-                <strong>
-                  {workoutDate}
-                </strong>
-              </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <label className="text-xs text-fuchsia-200">
-                  참가자를 불러올 실제 운동 날짜
+                  테스트 운동 날짜
+                  <input
+                    type="date"
+                    value={
+                      workoutDate
+                    }
+                    max={
+                      getKstDateKey()
+                    }
+                    disabled={
+                      workoutOpen
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setWorkoutDate(
+                        event.target
+                          .value
+                      )
+                    }
+                    className="mt-1 block min-w-0 max-w-full box-border w-full rounded-xl border border-fuchsia-400/30 bg-slate-900 px-3 py-2 text-white disabled:opacity-60"
+                  />
+                </label>
+                <label className="text-xs text-fuchsia-200">
+                  참석자 데이터 원본 날짜
                   <input
                     type="date"
                     value={
@@ -1162,9 +1186,14 @@ console.log(
                     onChange={(
                       event
                     ) => {
-                      setTestRosterDate(
+                      const date =
                         event.target
-                          .value
+                          .value;
+                      setTestRosterDateState(
+                        date
+                      );
+                      saveTestRosterDate(
+                        date
                       );
                       setTestRosterMessage(
                         ""
@@ -1173,6 +1202,26 @@ console.log(
                     className="mt-1 block min-w-0 max-w-full box-border w-full rounded-xl border border-fuchsia-400/30 bg-slate-900 px-3 py-2 text-white"
                   />
                 </label>
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  disabled={
+                    workoutOpen ||
+                    openingWorkout ||
+                    !workoutDate
+                  }
+                  onClick={
+                    handleOpenWorkout
+                  }
+                  className="rounded-xl bg-emerald-500 px-4 py-2.5 font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {workoutOpen
+                    ? "테스트 운동 열림"
+                    : openingWorkout
+                      ? "여는 중..."
+                      : "테스트 운동 열기"}
+                </button>
                 <button
                   type="button"
                   disabled={
@@ -1222,7 +1271,8 @@ console.log(
               </p>
             </div>
 
-            {!workoutOpen && (
+            {!workoutOpen &&
+              !testMode.active && (
               <div className="flex flex-wrap items-end gap-2">
                 <label className="text-xs text-slate-300">
                   운동 날짜

@@ -15,6 +15,8 @@ const TEST_ATTENDANCE_DATES_KEY =
   "step-up-match-test-attendance-dates";
 const TEST_WORKOUT_DATE_KEY =
   "step-up-match-test-workout-date";
+const TEST_ROSTER_DATE_KEY =
+  "step-up-match-test-roster-date";
 
 export interface TestModeState {
   active: boolean;
@@ -22,8 +24,25 @@ export interface TestModeState {
 }
 
 export function getTestModeState(): TestModeState {
+  const sessionTestMode = (() => {
+    try {
+      const storedSession =
+        window.localStorage.getItem(
+          "step-up-match-access-session"
+        );
+      return Boolean(
+        storedSession &&
+        JSON.parse(storedSession)
+          .testMode
+      );
+    } catch {
+      return false;
+    }
+  })();
+
   return {
     active:
+      sessionTestMode ||
       window.sessionStorage.getItem(
         TEST_MODE_KEY
       ) === "true",
@@ -57,6 +76,9 @@ export function setTestMode(
     );
     window.sessionStorage.removeItem(
       TEST_WORKOUT_DATE_KEY
+    );
+    window.sessionStorage.removeItem(
+      TEST_ROSTER_DATE_KEY
     );
   }
 
@@ -118,6 +140,24 @@ export function getTestWorkoutDate() {
   return (
     window.sessionStorage.getItem(
       TEST_WORKOUT_DATE_KEY
+    ) ?? ""
+  );
+}
+
+export function setTestRosterDate(
+  date: string
+) {
+  window.sessionStorage.setItem(
+    TEST_ROSTER_DATE_KEY,
+    date
+  );
+  notifyChange();
+}
+
+export function getTestRosterDate() {
+  return (
+    window.sessionStorage.getItem(
+      TEST_ROSTER_DATE_KEY
     ) ?? ""
   );
 }
