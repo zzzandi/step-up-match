@@ -11,7 +11,7 @@ import {
   useAccessSession,
 } from "@/auth/access";
 import {
-  getTodayAttendanceList,
+  getActiveWorkoutAttendanceList,
 } from "@/services/attendanceService";
 import {
   useMatchStore,
@@ -81,7 +81,7 @@ export default function PlayerPage() {
       return;
     }
 
-    getTodayAttendanceList()
+    getActiveWorkoutAttendanceList()
       .then((data) => {
         const uniqueAttendance =
           uniqueByUserId(data);
@@ -89,6 +89,15 @@ export default function PlayerPage() {
         setAttendanceList(
           uniqueAttendance
         );
+
+        if (
+          uniqueAttendance.length ===
+          0
+        ) {
+          setPlayers([]);
+          setCourts([]);
+          return;
+        }
 
         if (players.length > 0) {
           const existingIds =

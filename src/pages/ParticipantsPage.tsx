@@ -13,7 +13,7 @@ import {
   useMatchStore,
 } from "@/store/useMatchStore";
 import {
-  getTodayAttendanceList,
+  getActiveWorkoutAttendanceList,
 } from "@/services/attendanceService";
 import type {
   Player,
@@ -58,7 +58,7 @@ export default function ParticipantsPage() {
     useState(true);
 
   useEffect(() => {
-    getTodayAttendanceList()
+    getActiveWorkoutAttendanceList()
       .then((data) => {
         const mapped =
           uniqueByUserId(data)
@@ -123,24 +123,21 @@ export default function ParticipantsPage() {
   }
 
   const activePlayers =
-    (
-      attendancePlayers.length >
-      0
-        ? attendancePlayers.map(
-            (attendancePlayer) =>
-              players.find(
-                (player) =>
-                  player.id ===
-                  attendancePlayer.id
-              ) ??
-              attendancePlayer
-          )
-        : players
-    ).filter(
+    attendancePlayers
+      .map(
+        (attendancePlayer) =>
+          players.find(
+            (player) =>
+              player.id ===
+              attendancePlayer.id
+          ) ??
+          attendancePlayer
+      )
+      .filter(
       (player) =>
         player.status !== "LEFT" &&
         player.isPresent
-    );
+      );
 
   return (
     <main className="min-h-screen bg-slate-950 p-4 text-white sm:p-6">

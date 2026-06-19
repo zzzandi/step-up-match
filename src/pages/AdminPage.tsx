@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import {
-    getTodayAttendanceList,
+    getActiveWorkoutAttendanceList,
   } from "@/services/attendanceService";
 import CourtCard from "@/components/court/CourtCard";
 import WaitingList from "@/components/waiting/WaitingList";
@@ -175,6 +175,12 @@ console.log(
 
         if (!cancelled) {
           setWorkoutOpen(open);
+          if (!open) {
+            setAttendanceList([]);
+            useMatchStore
+              .getState()
+              .endTodaySession();
+          }
         }
       } catch (error) {
         console.error(error);
@@ -289,7 +295,7 @@ console.log(
   async () => {
     try {
       const data =
-        await getTodayAttendanceList();
+        await getActiveWorkoutAttendanceList();
 
       console.log(
         "갱신 데이터",
@@ -404,7 +410,7 @@ console.log(
   }, [workoutOpen]);
 
     useEffect(() => {
-        getTodayAttendanceList()
+        getActiveWorkoutAttendanceList()
           .then((data) => {
       
             const uniqueAttendance =

@@ -1,4 +1,7 @@
 import { supabase } from "@/lib/supabase";
+import {
+  isWorkoutOpen,
+} from "@/services/workoutSessionService";
 
 export async function getTodayAttendanceList() {
   const today =
@@ -61,6 +64,14 @@ export async function getUserAttendanceHistory(
   }
 
   return data ?? [];
+}
+
+export async function getActiveWorkoutAttendanceList() {
+  if (!(await isWorkoutOpen())) {
+    return [];
+  }
+
+  return getTodayAttendanceList();
 }
 
 export async function getAttendanceListByDate(
