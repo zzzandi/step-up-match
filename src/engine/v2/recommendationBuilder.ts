@@ -6,18 +6,6 @@ export interface TeamMatch {
   teamB: [Player, Player];
 }
 
-function isFixedPartner(
-  playerA: Player,
-  playerB: Player
-) {
-  return (
-    playerA.fixedPartner ===
-      playerB.id ||
-    playerB.fixedPartner ===
-      playerA.id
-  );
-}
-
 function generateBasicMatches(
   players: Player[]
 ): TeamMatch[] {

@@ -8,12 +8,15 @@ import {
 } from "./playerSelector";
 
 import {
-  generateTeams,
-} from "./teamGenerator";
+  buildMatches,
+} from "./v2/recommendationBuilder";
 
 import {
-  calculateMatchScore,
-} from "./scoreCalculator";
+  scoreMatch,
+} from "./v2/recommendationScorer";
+import {
+  isCompatibleGenderMatch,
+} from "./v2/genderRules";
 
 function uniqueKey(
   teamA: Player[],
@@ -86,12 +89,21 @@ export function generateRecommendations(
           ];
 
           const matches =
-            generateTeams(
+            buildMatches(
               group
             );
 
           matches.forEach(
             (match) => {
+              if (
+                !isCompatibleGenderMatch(
+                  match.teamA,
+                  match.teamB
+                )
+              ) {
+                return;
+              }
+
               allRecommendations.push(
                 {
                   id:
@@ -106,10 +118,7 @@ export function generateRecommendations(
                     match.teamB,
 
                   score:
-                    calculateMatchScore(
-                      match.teamA,
-                      match.teamB
-                    ),
+                    scoreMatch(match),
 
                   createdAt:
                     new Date(),
