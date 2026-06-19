@@ -43,6 +43,29 @@ export async function getUsers() {
   return data;
 }
 
+export async function getUserById(
+  userId: string
+) {
+  ensureSupabaseConfigured();
+
+  const { data, error } =
+    await supabase
+      .from("users")
+      .select("*")
+      .eq(
+        "id",
+        userId
+      )
+      .single();
+
+  if (error) {
+    console.error(error);
+    throw error;
+  }
+
+  return data;
+}
+
 export async function getTodayAttendances() {
   ensureSupabaseConfigured();
 

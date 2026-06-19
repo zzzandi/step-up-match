@@ -1,4 +1,8 @@
 import {
+  useEffect,
+  useState,
+} from "react";
+import {
   Navigate,
 } from "react-router-dom";
 
@@ -8,12 +12,38 @@ import {
 import {
   useMatchStore,
 } from "@/store/useMatchStore";
+import {
+  getTodayAttendanceList,
+} from "@/services/attendanceService";
+import type {
+  Player,
+} from "@/types/player";
+import {
+  uniqueByUserId,
+} from "@/utils/participants";
 
 const statusLabels = {
   WAITING: "대기 중",
   PLAYING: "경기 중",
   LEFT: "운동 종료",
 };
+
+interface AttendanceUser {
+  id: string;
+  name: string;
+  gender?: "M" | "F" | null;
+  grade: Player["grade"];
+  hidden_skill: number;
+}
+
+interface AttendanceRow {
+  users: AttendanceUser;
+  arrival_time?: string;
+  match_count?: number;
+  consecutive_matches?: number;
+  status?: Player["status"];
+  waiting_started_at?: string;
+}
 
 export default function ParticipantsPage() {
   const session =
@@ -22,6 +52,66 @@ export default function ParticipantsPage() {
     useMatchStore(
       (state) => state.players
     );
+  const [attendancePlayers, setAttendancePlayers] =
+    useState<Player[]>([]);
+  const [loading, setLoading] =
+    useState(true);
+
+  useEffect(() => {
+    getTodayAttendanceList()
+      .then((data) => {
+        const mapped =
+          uniqueByUserId(data)
+            .map(
+              (
+                attendance: AttendanceRow
+              ) => ({
+                id:
+                  attendance.users.id,
+                name:
+                  attendance.users.name,
+                gender:
+                  attendance.users.gender ??
+                  "M",
+                grade:
+                  attendance.users.grade,
+                hiddenSkill:
+                  attendance.users.hidden_skill,
+                isPresent: true,
+                arrivalTime:
+                  new Date(
+                    attendance.arrival_time ??
+                      Date.now()
+                  ),
+                matchCount:
+                  attendance.match_count ??
+                  0,
+                consecutiveMatches:
+                  attendance.consecutive_matches ??
+                  0,
+                status:
+                  attendance.status ??
+                  "WAITING",
+                waitingStartedAt:
+                  attendance.waiting_started_at
+                    ? new Date(
+                        attendance.waiting_started_at
+                      )
+                    : new Date(),
+                lastPartners: [],
+                lastOpponents: [],
+              })
+            ) as Player[];
+
+        setAttendancePlayers(
+          mapped
+        );
+      })
+      .catch(console.error)
+      .finally(() =>
+        setLoading(false)
+      );
+  }, []);
 
   if (!session) {
     return (
@@ -33,7 +123,20 @@ export default function ParticipantsPage() {
   }
 
   const activePlayers =
-    players.filter(
+    (
+      attendancePlayers.length >
+      0
+        ? attendancePlayers.map(
+            (attendancePlayer) =>
+              players.find(
+                (player) =>
+                  player.id ===
+                  attendancePlayer.id
+              ) ??
+              attendancePlayer
+          )
+        : players
+    ).filter(
       (player) =>
         player.status !== "LEFT" &&
         player.isPresent
@@ -54,7 +157,11 @@ export default function ParticipantsPage() {
           </p>
         </div>
 
-        {activePlayers.length === 0 ? (
+        {loading ? (
+          <div className="rounded-xl border border-slate-800 bg-slate-900 p-6 text-slate-400">
+            오늘 참가자를 불러오는 중...
+          </div>
+        ) : activePlayers.length === 0 ? (
           <div className="rounded-xl border border-slate-800 bg-slate-900 p-6 text-slate-400">
             현재 참가 중인 회원이 없습니다.
           </div>

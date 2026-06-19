@@ -186,6 +186,73 @@ console.log(
       setAttendanceList(
         uniqueByUserId(data)
       );
+
+      const uniqueAttendance =
+        uniqueByUserId(data);
+      const existingById =
+        new Map(
+          players.map(
+            (player) => [
+              player.id,
+              player,
+            ]
+          )
+        );
+      const refreshedPlayers =
+        uniqueAttendance.map(
+          (attendance: any) => {
+            const existing =
+              existingById.get(
+                attendance.users.id
+              );
+
+            return existing
+              ? {
+                  ...existing,
+                  isPresent: true,
+                  status:
+                    existing.status ===
+                    "LEFT"
+                      ? "WAITING"
+                      : existing.status,
+                }
+              : {
+                  id:
+                    attendance.users.id,
+                  name:
+                    attendance.users.name,
+                  gender:
+                    attendance.users.gender ??
+                    "M",
+                  grade:
+                    attendance.users.grade,
+                  hiddenSkill:
+                    attendance.users.hidden_skill,
+                  isPresent: true,
+                  arrivalTime:
+                    new Date(
+                      attendance.arrival_time ??
+                        Date.now()
+                    ),
+                  matchCount:
+                    attendance.match_count ??
+                    0,
+                  consecutiveMatches:
+                    attendance.consecutive_matches ??
+                    0,
+                  status:
+                    "WAITING" as const,
+                  waitingStartedAt:
+                    new Date(),
+                  lastPartners: [],
+                  lastOpponents: [],
+                };
+          }
+        );
+
+      setPlayers(
+        refreshedPlayers
+      );
     } catch (error) {
       console.error(error);
     }
@@ -292,29 +359,33 @@ console.log(
       
             setPlayers(playerList);
       
-            setCourts([
-              {
-                id: 1,
-                status: "EMPTY",
-                teamA: null,
-                teamB: null,
-                startedAt: null,
-              },
-              {
-                id: 2,
-                status: "EMPTY",
-                teamA: null,
-                teamB: null,
-                startedAt: null,
-              },
-              {
-                id: 3,
-                status: "EMPTY",
-                teamA: null,
-                teamB: null,
-                startedAt: null,
-              },
-            ]);
+            if (
+              courts.length === 0
+            ) {
+              setCourts([
+                {
+                  id: 1,
+                  status: "EMPTY",
+                  teamA: null,
+                  teamB: null,
+                  startedAt: null,
+                },
+                {
+                  id: 2,
+                  status: "EMPTY",
+                  teamA: null,
+                  teamB: null,
+                  startedAt: null,
+                },
+                {
+                  id: 3,
+                  status: "EMPTY",
+                  teamA: null,
+                  teamB: null,
+                  startedAt: null,
+                },
+              ]);
+            }
           })
           .catch(console.error);
       }, []);

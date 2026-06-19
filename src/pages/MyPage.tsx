@@ -14,6 +14,9 @@ import {
   getUserAttendanceHistory,
 } from "@/services/attendanceService";
 import {
+  getUserById,
+} from "@/services/supabaseUserService";
+import {
   useMatchStore,
 } from "@/store/useMatchStore";
 import type {
@@ -26,6 +29,16 @@ import type {
 type AttendanceRecord = {
   attendance_date?: string;
   created_at?: string;
+};
+
+type UserProfile = {
+  id: string;
+  name: string;
+  gender?: string | null;
+  grade?: string | null;
+  hidden_skill?: number | null;
+  fixed_partner_id?: string | null;
+  is_active?: boolean;
 };
 
 function dateKey(
@@ -334,6 +347,10 @@ export default function MyPage() {
     attendanceHistory,
     setAttendanceHistory,
   ] = useState<AttendanceRecord[]>([]);
+  const [profile, setProfile] =
+    useState<UserProfile | null>(
+      null
+    );
 
   useEffect(() => {
     if (!session?.userId) {
@@ -346,6 +363,16 @@ export default function MyPage() {
       .then((data) =>
         setAttendanceHistory(
           data as AttendanceRecord[]
+        )
+      )
+      .catch(console.error);
+
+    getUserById(
+      session.userId
+    )
+      .then((data) =>
+        setProfile(
+          data as UserProfile
         )
       )
       .catch(console.error);
@@ -636,6 +663,50 @@ export default function MyPage() {
             </div>
           </div>
         </section>
+
+        {profile && (
+          <section className="mb-6 rounded-xl border border-purple-500/30 bg-slate-900 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <div className="text-xs font-bold text-purple-300">
+                  PLAYER PROFILE
+                </div>
+                <div className="mt-1 text-2xl font-bold">
+                  {profile.name}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {session.role ===
+                  "MASTER" &&
+                  profile.grade && (
+                    <span className="rounded-lg bg-purple-400/15 px-3 py-2 text-sm font-bold text-purple-300">
+                      {profile.grade}등급
+                    </span>
+                  )}
+                {session.role ===
+                  "MASTER" &&
+                  profile.hidden_skill !==
+                    null &&
+                  profile.hidden_skill !==
+                    undefined && (
+                    <span className="rounded-lg bg-cyan-400/15 px-3 py-2 text-sm font-bold text-cyan-300">
+                      내부 점수{" "}
+                      {
+                        profile.hidden_skill
+                      }
+                    </span>
+                  )}
+                <span className="rounded-lg bg-slate-800 px-3 py-2 text-sm text-slate-300">
+                  {profile.is_active ===
+                  false
+                    ? "비활성 회원"
+                    : "활성 회원"}
+                </span>
+              </div>
+            </div>
+          </section>
+        )}
 
         <section className="mb-6">
           <h2 className="mb-3 text-lg font-bold">
