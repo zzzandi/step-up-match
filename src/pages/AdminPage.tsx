@@ -268,14 +268,10 @@ console.log(
       setTestWorkoutDate(
         workoutDate
       );
-      try {
-        await importTestRoster(
-          testRosterDate,
-          false
-        );
-      } finally {
-        setOpeningWorkout(false);
-      }
+      setTestRosterMessage(
+        `${workoutDate} 테스트 운동을 열었습니다. 아래에서 참석자 데이터 날짜를 별도로 선택해 주세요.`
+      );
+      setOpeningWorkout(false);
       return;
     }
 
@@ -1145,6 +1141,12 @@ console.log(
             <div className="mb-4 rounded-xl border border-fuchsia-400/40 bg-fuchsia-400/10 p-4 text-fuchsia-100">
               <div className="font-bold">
                 테스트 모드 · 출석과 경기 결과가 실제 통계에 저장되지 않습니다.
+              </div>
+              <div className="mt-3 rounded-xl bg-slate-950/50 px-3 py-2 text-sm">
+                테스트 운동 날짜:{" "}
+                <strong>
+                  {workoutDate}
+                </strong>
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
                 <label className="text-xs text-fuchsia-200">
