@@ -136,8 +136,11 @@ export default function AppNavigation() {
     "PARTICIPANT";
   const sessionModeLabel =
     activeSession.participationMode ===
-    "PENDING"
+      "PENDING"
       ? " · 개설 대기"
+      : activeSession.participationMode ===
+          "PREOPEN"
+        ? " · 대기열 미등록"
       : !isParticipant
         ? " · 조회 전용"
         : "";

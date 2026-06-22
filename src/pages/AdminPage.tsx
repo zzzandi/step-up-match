@@ -6,6 +6,7 @@ import {
   } from "@/services/attendanceService";
 import CourtCard from "@/components/court/CourtCard";
 import WaitingList from "@/components/waiting/WaitingList";
+import PreWorkoutQueueGate from "@/components/waiting/PreWorkoutQueueGate";
 import MatchRecommendModal from "@/components/match/MatchRecommendModal";
 import AddPlayerModal from "@/components/player/AddPlayerModal";
 import MasterAddParticipantModal from "@/components/player/MasterAddParticipantModal";
@@ -328,11 +329,22 @@ console.log(
 
     try {
       setOpeningWorkout(true);
-      await openWorkout(
+      const workoutMarker =
+        await openWorkout(
         workoutDate,
         session.userId
       );
-      await activateAllPendingCheckIns();
+      await activateAllPendingCheckIns(
+        workoutMarker &&
+          typeof workoutMarker ===
+            "object" &&
+          "arrival_time" in
+            workoutMarker
+          ? String(
+              workoutMarker.arrival_time
+            )
+          : new Date().toISOString()
+      );
       setWorkoutOpen(true);
       await refreshAttendance();
       publishLiveSessionEvent({
@@ -1306,6 +1318,25 @@ console.log(
         player.id ===
         session?.userId
     );
+
+  if (
+    session &&
+    !testMode.active &&
+    !workoutOpen &&
+    (
+      session.participationMode ===
+        "PREOPEN" ||
+      session.participationMode ===
+        "PENDING"
+    )
+  ) {
+    return (
+      <PreWorkoutQueueGate
+        session={session}
+        allowManagementWithoutQueue
+      />
+    );
+  }
 
   return (
     <>

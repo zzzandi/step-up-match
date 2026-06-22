@@ -16,7 +16,6 @@ import {
 import {
   createGuestUser,
   ensureTodayCheckIn,
-  queuePendingCheckIn,
 } from "@/services/supabaseUserService";
 import {
   getKstDateKey,
@@ -84,7 +83,7 @@ export default function GuestJoinPage() {
       const participationMode =
         workoutOpen
           ? "PARTICIPANT"
-          : "PENDING";
+          : "PREOPEN";
 
       if (workoutOpen) {
         await ensureTodayCheckIn(
@@ -147,10 +146,6 @@ export default function GuestJoinPage() {
               message: `${guest.name} 게스트님이 오늘 운동에 참가했습니다.`,
             });
           });
-      } else {
-        await queuePendingCheckIn(
-          guest.id
-        );
       }
 
       setAccessSession({

@@ -17,6 +17,7 @@ export interface AccessSession {
   participationMode?:
     | "PARTICIPANT"
     | "VIEWER"
+    | "PREOPEN"
     | "PENDING";
 }
 

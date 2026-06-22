@@ -204,8 +204,18 @@ async function activatePendingParticipant() {
     getWorkoutDateKey();
   const attendance =
     await activatePendingCheckIn(
-      session.userId
+      session.userId,
+      false
     );
+
+  if (!attendance) {
+    setAccessSession({
+      ...session,
+      participationMode:
+        "PREOPEN",
+    });
+    return false;
+  }
 
   const user =
     await getUserById(
@@ -357,15 +367,18 @@ function App() {
               void activatePendingParticipant()
                 .then(
                   (activated) => {
-                    if (
-                      activated &&
-                      getAccessSession()
-                        ?.role ===
-                        "PLAYER"
-                    ) {
+                    if (activated) {
+                      const activeRole =
+                        getAccessSession()
+                          ?.role;
+
+                      if (activeRole) {
                       navigate(
-                        "/player"
+                          getRolePath(
+                            activeRole
+                          )
                       );
+                      }
                     }
                   }
                 );
@@ -505,15 +518,18 @@ function App() {
           const activated =
             await activatePendingParticipant();
 
-          if (
-            activated &&
-            getAccessSession()
-              ?.role ===
-              "PLAYER"
-          ) {
-            navigate(
-              "/player"
-            );
+          if (activated) {
+            const activeRole =
+              getAccessSession()
+                ?.role;
+
+            if (activeRole) {
+              navigate(
+                getRolePath(
+                  activeRole
+                )
+              );
+            }
           }
         }
       } catch (error) {

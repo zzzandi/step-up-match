@@ -345,7 +345,8 @@ export async function queuePendingCheckIn(
 }
 
 export async function activatePendingCheckIn(
-  userId: string
+  userId: string,
+  allowDirectCheckIn = true
 ) {
   ensureSupabaseConfigured();
 
@@ -375,6 +376,34 @@ export async function activatePendingCheckIn(
     return activeAttendance;
   }
 
+  const {
+    data: workoutMarker,
+    error: workoutError,
+  } = await supabase
+    .from("attendances")
+    .select("arrival_time")
+    .eq("attendance_date", today)
+    .eq("status", "OPEN")
+    .order("arrival_time", {
+      ascending: true,
+    })
+    .limit(1)
+    .maybeSingle();
+
+  if (workoutError) {
+    throw workoutError;
+  }
+
+  const cutoffTime =
+    workoutMarker?.arrival_time
+      ? new Date(
+          new Date(
+            workoutMarker.arrival_time
+          ).getTime() -
+            30 * 60 * 1000
+        ).toISOString()
+      : null;
+
   const { data, error } =
     await supabase
       .from("attendances")
@@ -384,6 +413,11 @@ export async function activatePendingCheckIn(
       .eq("attendance_date", today)
       .eq("user_id", userId)
       .eq("status", "PENDING")
+      .gte(
+        "arrival_time",
+        cutoffTime ??
+          new Date().toISOString()
+      )
       .select()
       .maybeSingle();
 
@@ -395,17 +429,54 @@ export async function activatePendingCheckIn(
     return data;
   }
 
+  const {
+    data: stalePending,
+    error: staleError,
+  } = await supabase
+    .from("attendances")
+    .select("id")
+    .eq("attendance_date", today)
+    .eq("user_id", userId)
+    .eq("status", "PENDING")
+    .limit(1)
+    .maybeSingle();
+
+  if (staleError) {
+    throw staleError;
+  }
+
+  if (stalePending) {
+    await supabase
+      .from("attendances")
+      .delete()
+      .eq("id", stalePending.id);
+    return null;
+  }
+
+  if (!allowDirectCheckIn) {
+    return null;
+  }
+
   const inserted =
     await checkIn(userId);
 
   return inserted?.[0];
 }
 
-export async function activateAllPendingCheckIns() {
+export async function activateAllPendingCheckIns(
+  workoutOpenedAt: string
+) {
   ensureSupabaseConfigured();
 
   const today =
     getKstDateKey();
+  const cutoff =
+    new Date(
+      new Date(
+        workoutOpenedAt
+      ).getTime() -
+        30 * 60 * 1000
+    ).toISOString();
   const { data, error } =
     await supabase
       .from("attendances")
@@ -417,6 +488,10 @@ export async function activateAllPendingCheckIns() {
         today
       )
       .eq("status", "PENDING")
+      .gte(
+        "arrival_time",
+        cutoff
+      )
       .select()
       .order("arrival_time", {
         ascending: true,
@@ -424,6 +499,24 @@ export async function activateAllPendingCheckIns() {
 
   if (error) {
     throw error;
+  }
+
+  const { error: cleanupError } =
+    await supabase
+      .from("attendances")
+      .delete()
+      .eq(
+        "attendance_date",
+        today
+      )
+      .eq("status", "PENDING")
+      .lt(
+        "arrival_time",
+        cutoff
+      );
+
+  if (cleanupError) {
+    throw cleanupError;
   }
 
   return data ?? [];

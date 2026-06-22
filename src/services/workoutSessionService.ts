@@ -65,7 +65,7 @@ export async function openWorkout(
     return false;
   }
 
-  const { error } =
+  const { data, error } =
     await supabase
       .from("attendances")
       .insert({
@@ -75,13 +75,15 @@ export async function openWorkout(
         status: "OPEN",
         attendance_date:
           workoutDate,
-      });
+      })
+      .select()
+      .single();
 
   if (error) {
     throw error;
   }
 
-  return true;
+  return data;
 }
 
 export async function closeWorkout(

@@ -21,7 +21,6 @@ import {
   activatePendingCheckIn,
   getTodayAttendances,
   getUsers,
-  queuePendingCheckIn,
 } from "@/services/supabaseUserService";
 import {
   useMatchStore,
@@ -393,17 +392,8 @@ export default function JoinPage() {
         participationMode ===
           "PARTICIPANT" &&
         !workoutOpen
-          ? "PENDING"
+          ? "PREOPEN"
           : participationMode;
-
-      if (
-        resolvedMode ===
-          "PENDING"
-      ) {
-        await queuePendingCheckIn(
-          selectedUser.id
-        );
-      }
 
       const existingPlayer =
         players.find(
