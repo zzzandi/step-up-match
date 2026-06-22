@@ -34,6 +34,7 @@ import {
   publishLiveSessionEvent,
 } from "@/services/liveSessionService";
 import {
+  activateAllPendingCheckIns,
   createGuestUser,
   ensureTodayCheckIn,
   getOrCreateUser,
@@ -331,7 +332,9 @@ console.log(
         workoutDate,
         session.userId
       );
+      await activateAllPendingCheckIns();
       setWorkoutOpen(true);
+      await refreshAttendance();
       publishLiveSessionEvent({
         type: "WORKOUT_OPENED",
         workoutDate,

@@ -33,7 +33,10 @@ export async function getTodayAttendanceList() {
         today
       )
       .neq("status", "OPEN")
-      .neq("status", "PENDING");
+      .neq("status", "PENDING")
+      .order("arrival_time", {
+        ascending: true,
+      });
 
   console.log(
     "ATTENDANCE QUERY RESULT",
@@ -194,6 +197,7 @@ export async function getMonthlyAttendanceList(
         nextMonth
       )
       .neq("status", "OPEN")
+      .neq("status", "PENDING")
       .order(
         "attendance_date",
         {

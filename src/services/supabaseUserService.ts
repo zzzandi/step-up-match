@@ -351,6 +351,30 @@ export async function activatePendingCheckIn(
 
   const today =
     getKstDateKey();
+  const {
+    data: activeAttendance,
+    error: activeError,
+  } = await supabase
+    .from("attendances")
+    .select("*")
+    .eq("attendance_date", today)
+    .eq("user_id", userId)
+    .neq("status", "OPEN")
+    .neq("status", "PENDING")
+    .order("arrival_time", {
+      ascending: true,
+    })
+    .limit(1)
+    .maybeSingle();
+
+  if (activeError) {
+    throw activeError;
+  }
+
+  if (activeAttendance) {
+    return activeAttendance;
+  }
+
   const { data, error } =
     await supabase
       .from("attendances")
@@ -375,6 +399,34 @@ export async function activatePendingCheckIn(
     await checkIn(userId);
 
   return inserted?.[0];
+}
+
+export async function activateAllPendingCheckIns() {
+  ensureSupabaseConfigured();
+
+  const today =
+    getKstDateKey();
+  const { data, error } =
+    await supabase
+      .from("attendances")
+      .update({
+        status: "WAITING",
+      })
+      .eq(
+        "attendance_date",
+        today
+      )
+      .eq("status", "PENDING")
+      .select()
+      .order("arrival_time", {
+        ascending: true,
+      });
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? [];
 }
 
 export async function updateUserProfile({
