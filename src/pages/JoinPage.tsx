@@ -34,6 +34,9 @@ import {
   setTestMode,
   setTestWorkoutOpen,
 } from "@/services/testModeService";
+import {
+  shouldActivateAttendance,
+} from "@/utils/attendanceState";
 
 interface User {
   id: string;
@@ -222,22 +225,27 @@ export default function JoinPage() {
     const attendances =
       await getTodayAttendances();
 
-    const alreadyJoined =
-      attendances?.some(
+    const existingAttendance =
+      attendances?.find(
         (attendance: {
           user_id?: string;
+          status?: string;
         }) =>
           attendance.user_id ===
           userId
       );
+    const shouldJoin =
+      shouldActivateAttendance(
+        existingAttendance
+      );
 
-    if (!alreadyJoined) {
+    if (shouldJoin) {
       await activatePendingCheckIn(
         userId
       );
     }
 
-    return !alreadyJoined;
+    return shouldJoin;
   }
 
   function notifyNewParticipant(

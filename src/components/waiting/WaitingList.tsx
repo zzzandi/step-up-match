@@ -14,6 +14,9 @@ import {
   publishLiveSessionEvent,
 } from "@/services/liveSessionService";
 import {
+  markAttendanceLeft,
+} from "@/services/supabaseUserService";
+import {
   sortWaitingPlayersByQueue,
 } from "@/utils/preWorkoutQueue";
 
@@ -61,7 +64,7 @@ export default function WaitingList({
   }, []);
 
   const handleLeave =
-    (
+    async (
       targetPlayer: Player
     ) => {
       const confirmed =
@@ -70,6 +73,18 @@ export default function WaitingList({
         );
 
       if (!confirmed) {
+        return;
+      }
+
+      try {
+        await markAttendanceLeft(
+          targetPlayer.id
+        );
+      } catch (error) {
+        console.error(error);
+        window.alert(
+          "운동 종료 상태를 저장하지 못했습니다. 잠시 후 다시 시도해주세요."
+        );
         return;
       }
 
@@ -198,7 +213,7 @@ export default function WaitingList({
                   )) && (
                   <button
                     onClick={() =>
-                      handleLeave(
+                      void handleLeave(
                         player
                       )
                     }

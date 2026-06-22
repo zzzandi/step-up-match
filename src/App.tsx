@@ -30,8 +30,11 @@ import {
   subscribeLiveSessionEvents,
 } from "@/services/liveSessionService";
 import {
+  createLiveStatePatch,
   createLiveStateSnapshot,
+  getSnapshotResponseDelay,
   mergeLiveStateSnapshot,
+  type LiveStatePatch,
 } from "@/services/liveStateSync";
 import {
   getTestModeState,
@@ -167,7 +170,10 @@ function AuthenticatedRoute({
   return children;
 }
 
-function publishStateSnapshot() {
+function publishStateSnapshot(
+  patch?: LiveStatePatch,
+  responseToRequestId?: string
+) {
   const session =
     getAccessSession();
 
@@ -191,6 +197,8 @@ function publishStateSnapshot() {
       getLiveSessionClientId(),
     sentAt:
       new Date().toISOString(),
+    patch,
+    responseToRequestId,
   });
 }
 
@@ -362,6 +370,18 @@ function App() {
       !canManage(
         initialSession.role
       );
+    const snapshotResponseTimers =
+      new Map<
+        string,
+        number
+      >();
+    const requestSnapshot = () => {
+      publishLiveSessionEvent({
+        type: "REQUEST_SNAPSHOT",
+        requestId:
+          crypto.randomUUID(),
+      });
+    };
     const authorityTimer =
       window.setTimeout(() => {
         authorityReady = true;
@@ -372,10 +392,7 @@ function App() {
           !getTestModeState()
             .active
         ) {
-          publishLiveSessionEvent({
-            type:
-              "REQUEST_SNAPSHOT",
-          });
+          requestSnapshot();
         }
       }, 500),
       window.setTimeout(() => {
@@ -383,10 +400,7 @@ function App() {
           !getTestModeState()
             .active
         ) {
-          publishLiveSessionEvent({
-            type:
-              "REQUEST_SNAPSHOT",
-          });
+          requestSnapshot();
         }
       }, 1200),
     ];
@@ -436,6 +450,27 @@ function App() {
             "STATE_SNAPSHOT"
           ) {
             if (
+              event.responseToRequestId
+            ) {
+              const responseTimer =
+                snapshotResponseTimers.get(
+                  event.responseToRequestId
+                );
+
+              if (
+                responseTimer !==
+                undefined
+              ) {
+                window.clearTimeout(
+                  responseTimer
+                );
+                snapshotResponseTimers.delete(
+                  event.responseToRequestId
+                );
+              }
+            }
+
+            if (
               event.sourceClientId ===
               getLiveSessionClientId()
             ) {
@@ -453,7 +488,8 @@ function App() {
                 currentSnapshot,
                 event.snapshot,
                 event.sourceRole,
-                event.sourceUserId
+                event.sourceUserId,
+                event.patch
               );
 
             applyingRemoteSnapshot =
@@ -491,7 +527,35 @@ function App() {
               ) &&
               authorityReady
             ) {
-              publishStateSnapshot();
+              if (
+                snapshotResponseTimers.has(
+                  event.requestId
+                )
+              ) {
+                return;
+              }
+
+              const responseTimer =
+                window.setTimeout(
+                  () => {
+                    snapshotResponseTimers.delete(
+                      event.requestId
+                    );
+                    publishStateSnapshot(
+                      undefined,
+                      event.requestId
+                    );
+                  },
+                  getSnapshotResponseDelay(
+                    session.role,
+                    getLiveSessionClientId()
+                  )
+                );
+
+              snapshotResponseTimers.set(
+                event.requestId,
+                responseTimer
+              );
             }
             return;
           }
@@ -533,7 +597,7 @@ function App() {
 
     const unsubscribeStore =
       useMatchStore.subscribe(
-        () => {
+        (state, previousState) => {
           const session =
             getAccessSession();
 
@@ -554,16 +618,28 @@ function App() {
             return;
           }
 
-          publishStateSnapshot();
+          const previousSnapshot =
+            createLiveStateSnapshot(
+              previousState
+            );
+          const nextSnapshot =
+            createLiveStateSnapshot(
+              state
+            );
+
+          publishStateSnapshot(
+            createLiveStatePatch(
+              previousSnapshot,
+              nextSnapshot
+            )
+          );
         }
       );
 
     if (
       !getTestModeState().active
     ) {
-      publishLiveSessionEvent({
-        type: "REQUEST_SNAPSHOT",
-      });
+      requestSnapshot();
     }
 
     return () => {
@@ -571,6 +647,12 @@ function App() {
         authorityTimer
       );
       snapshotRetryTimers.forEach(
+        (timer) =>
+          window.clearTimeout(
+            timer
+          )
+      );
+      snapshotResponseTimers.forEach(
         (timer) =>
           window.clearTimeout(
             timer

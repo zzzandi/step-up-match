@@ -599,10 +599,7 @@ console.log(
               ...existing,
               isPresent: true,
               status:
-                existing.status ===
-                "LEFT"
-                  ? "WAITING"
-                  : existing.status,
+                existing.status,
             };
           } else {
             refreshedPlayers.push({

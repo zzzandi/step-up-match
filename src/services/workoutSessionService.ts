@@ -83,7 +83,49 @@ export async function openWorkout(
     throw error;
   }
 
-  return data;
+  const {
+    data: markers,
+    error: markerError,
+  } = await supabase
+    .from("attendances")
+    .select("*")
+    .eq(
+      "attendance_date",
+      workoutDate
+    )
+    .eq("status", "OPEN")
+    .order("arrival_time", {
+      ascending: true,
+    })
+    .order("id", {
+      ascending: true,
+    });
+
+  if (markerError) {
+    throw markerError;
+  }
+
+  const canonical =
+    markers?.[0] ?? data;
+  const duplicateIds =
+    (markers ?? [])
+      .slice(1)
+      .map((marker) => marker.id);
+
+  if (duplicateIds.length > 0) {
+    const {
+      error: cleanupError,
+    } = await supabase
+      .from("attendances")
+      .delete()
+      .in("id", duplicateIds);
+
+    if (cleanupError) {
+      throw cleanupError;
+    }
+  }
+
+  return canonical;
 }
 
 export async function closeWorkout(

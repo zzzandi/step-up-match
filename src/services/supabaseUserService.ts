@@ -2,6 +2,12 @@ import {
   isSupabaseConfigured,
   supabase,
 } from "@/lib/supabase";
+import {
+  selectCanonicalAttendance,
+} from "@/utils/attendanceState";
+import {
+  getPendingQueueCutoff,
+} from "@/utils/preWorkoutQueue";
 
 const SESSION_ID =
   "c3112be7-3e3d-4db4-9850-2ff305095a76";
@@ -24,6 +30,64 @@ function getKstDateKey() {
       day: "2-digit",
     }
   ).format(new Date());
+}
+
+async function normalizeTodayAttendance(
+  userId: string,
+  attendanceDate = getKstDateKey()
+) {
+  const { data, error } =
+    await supabase
+      .from("attendances")
+      .select("*")
+      .eq(
+        "attendance_date",
+        attendanceDate
+      )
+      .eq("user_id", userId)
+      .neq("status", "OPEN")
+      .order("arrival_time", {
+        ascending: true,
+      })
+      .order("id", {
+        ascending: true,
+      });
+
+  if (error) {
+    throw error;
+  }
+
+  const rows = data ?? [];
+  const canonical =
+    selectCanonicalAttendance(
+      rows
+    );
+
+  if (!canonical) {
+    return null;
+  }
+
+  const duplicateIds =
+    rows
+      .filter(
+        (row) =>
+          row.id !== canonical.id
+      )
+      .map((row) => row.id);
+
+  if (duplicateIds.length > 0) {
+    const { error: cleanupError } =
+      await supabase
+        .from("attendances")
+        .delete()
+        .in("id", duplicateIds);
+
+    if (cleanupError) {
+      throw cleanupError;
+    }
+  }
+
+  return canonical;
 }
 
 export async function getUsers() {
@@ -266,7 +330,15 @@ export async function checkIn(
     throw error;
   }
 
-  return data;
+  const normalized =
+    await normalizeTodayAttendance(
+      userId,
+      today
+    );
+
+  return normalized
+    ? [normalized]
+    : data;
 }
 
 export async function ensureTodayCheckIn(
@@ -304,22 +376,11 @@ export async function queuePendingCheckIn(
 
   const today =
     getKstDateKey();
-  const { data: existing, error } =
-    await supabase
-      .from("attendances")
-      .select("*")
-      .eq("attendance_date", today)
-      .eq("user_id", userId)
-      .neq("status", "OPEN")
-      .order("arrival_time", {
-        ascending: true,
-      })
-      .limit(1)
-      .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
+  const existing =
+    await normalizeTodayAttendance(
+      userId,
+      today
+    );
 
   if (existing) {
     return existing;
@@ -341,7 +402,12 @@ export async function queuePendingCheckIn(
     throw insertError;
   }
 
-  return data;
+  return (
+    await normalizeTodayAttendance(
+      userId,
+      today
+    )
+  ) ?? data;
 }
 
 export async function activatePendingCheckIn(
@@ -373,6 +439,34 @@ export async function activatePendingCheckIn(
   }
 
   if (activeAttendance) {
+    if (
+      activeAttendance.status ===
+      "LEFT"
+    ) {
+      const {
+        data: rejoined,
+        error: rejoinError,
+      } = await supabase
+        .from("attendances")
+        .update({
+          status: "WAITING",
+          arrival_time:
+            new Date().toISOString(),
+        })
+        .eq(
+          "id",
+          activeAttendance.id
+        )
+        .select()
+        .single();
+
+      if (rejoinError) {
+        throw rejoinError;
+      }
+
+      return rejoined;
+    }
+
     return activeAttendance;
   }
 
@@ -396,12 +490,9 @@ export async function activatePendingCheckIn(
 
   const cutoffTime =
     workoutMarker?.arrival_time
-      ? new Date(
-          new Date(
-            workoutMarker.arrival_time
-          ).getTime() -
-            30 * 60 * 1000
-        ).toISOString()
+      ? getPendingQueueCutoff(
+          workoutMarker.arrival_time
+        )
       : null;
 
   const { data, error } =
@@ -471,12 +562,9 @@ export async function activateAllPendingCheckIns(
   const today =
     getKstDateKey();
   const cutoff =
-    new Date(
-      new Date(
-        workoutOpenedAt
-      ).getTime() -
-        30 * 60 * 1000
-    ).toISOString();
+    getPendingQueueCutoff(
+      workoutOpenedAt
+    );
   const { data, error } =
     await supabase
       .from("attendances")
@@ -517,6 +605,34 @@ export async function activateAllPendingCheckIns(
 
   if (cleanupError) {
     throw cleanupError;
+  }
+
+  return data ?? [];
+}
+
+export async function markAttendanceLeft(
+  userId: string
+) {
+  ensureSupabaseConfigured();
+
+  const today =
+    getKstDateKey();
+  const { data, error } =
+    await supabase
+      .from("attendances")
+      .update({
+        status: "LEFT",
+      })
+      .eq(
+        "attendance_date",
+        today
+      )
+      .eq("user_id", userId)
+      .neq("status", "OPEN")
+      .select();
+
+  if (error) {
+    throw error;
   }
 
   return data ?? [];

@@ -35,3 +35,30 @@ export function sortWaitingPlayersByQueue(
       )
   );
 }
+
+export function getPendingQueueCutoff(
+  workoutOpenedAt: string
+) {
+  return new Date(
+    new Date(
+      workoutOpenedAt
+    ).getTime() -
+      30 * 60 * 1000
+  ).toISOString();
+}
+
+export function isPendingQueueValid(
+  registeredAt: string,
+  workoutOpenedAt: string
+) {
+  return (
+    new Date(
+      registeredAt
+    ).getTime() >=
+    new Date(
+      getPendingQueueCutoff(
+        workoutOpenedAt
+      )
+    ).getTime()
+  );
+}

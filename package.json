@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "test:live-state": "node --experimental-strip-types scripts/verify-live-state.ts",
     "test:preworkout-queue": "node --experimental-strip-types scripts/verify-preworkout-queue.ts",
+    "test:real-workout": "node scripts/simulate-real-workout.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

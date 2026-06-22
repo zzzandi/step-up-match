@@ -2,6 +2,9 @@ import { supabase } from "@/lib/supabase";
 import {
   isWorkoutOpen,
 } from "@/services/workoutSessionService";
+import {
+  isActiveAttendance,
+} from "@/utils/attendanceState";
 
 export async function getTodayAttendanceList() {
   const today =
@@ -76,7 +79,12 @@ export async function getActiveWorkoutAttendanceList() {
     return [];
   }
 
-  return getTodayAttendanceList();
+  const attendance =
+    await getTodayAttendanceList();
+
+  return attendance.filter(
+    isActiveAttendance
+  );
 }
 
 export async function getAttendanceListByDate(

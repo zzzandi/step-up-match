@@ -7,10 +7,38 @@ import {
   scorePlayerSelection,
 } from "./v2/selectionScorer";
 
+function containsExcludedPair(
+  players: Player[],
+  excludedMatchPairs: [
+    string,
+    string,
+  ][]
+) {
+  const playerIds =
+    new Set(
+      players.map(
+        (player) => player.id
+      )
+    );
+
+  return excludedMatchPairs.some(
+    ([
+      playerAId,
+      playerBId,
+    ]) =>
+      playerIds.has(playerAId) &&
+      playerIds.has(playerBId)
+  );
+}
+
 export function selectCandidates(
   players: Player[],
   courtCount: number,
-  womenDoublesPriority = false
+  womenDoublesPriority = false,
+  excludedMatchPairs: [
+    string,
+    string,
+  ][] = []
 ): Player[] {
   const waitingPlayers =
     players.filter(
@@ -81,10 +109,92 @@ export function selectCandidates(
               item.player
           );
 
-      return [
+      const womenPool = [
         ...topThreeWomen,
         ...remainingWomen,
-      ].slice(0, 4);
+      ];
+      let bestWomenGroup:
+        | [
+            Player,
+            Player,
+            Player,
+            Player,
+          ]
+        | null = null;
+      let bestWomenScore =
+        Number.NEGATIVE_INFINITY;
+
+      for (
+        let i = 0;
+        i < womenPool.length;
+        i++
+      ) {
+        for (
+          let j = i + 1;
+          j < womenPool.length;
+          j++
+        ) {
+          for (
+            let k = j + 1;
+            k < womenPool.length;
+            k++
+          ) {
+            for (
+              let l = k + 1;
+              l < womenPool.length;
+              l++
+            ) {
+              const group: [
+                Player,
+                Player,
+                Player,
+                Player,
+              ] = [
+                womenPool[i],
+                womenPool[j],
+                womenPool[k],
+                womenPool[l],
+              ];
+
+              if (
+                !topThreeWomen.every(
+                  (player) =>
+                    group.some(
+                      (member) =>
+                        member.id ===
+                        player.id
+                    )
+                ) ||
+                containsExcludedPair(
+                  group,
+                  excludedMatchPairs
+                )
+              ) {
+                continue;
+              }
+
+              const score =
+                scorePlayerSelection(
+                  group
+                ).total;
+
+              if (
+                score >
+                bestWomenScore
+              ) {
+                bestWomenScore =
+                  score;
+                bestWomenGroup =
+                  group;
+              }
+            }
+          }
+        }
+      }
+
+      if (bestWomenGroup) {
+        return bestWomenGroup;
+      }
     }
   }
 
@@ -161,6 +271,15 @@ export function selectCandidates(
           if (
             femaleCount === 1 ||
             femaleCount === 3
+          ) {
+            continue;
+          }
+
+          if (
+            containsExcludedPair(
+              group,
+              excludedMatchPairs
+            )
           ) {
             continue;
           }

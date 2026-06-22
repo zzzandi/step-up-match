@@ -55,7 +55,8 @@ export function generateRecommendations(
     selectCandidates(
       players,
       courtCount,
-      womenDoublesPriority
+      womenDoublesPriority,
+      excludedMatchPairs
     );
 
   if (

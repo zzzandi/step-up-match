@@ -6,6 +6,7 @@ import type {
   AccessRole,
 } from "@/auth/access";
 import type {
+  LiveStatePatch,
   LiveStateSnapshot,
 } from "@/services/liveStateSync";
 
@@ -45,9 +46,12 @@ export type LiveSessionEvent =
       sourceUserId?: string;
       sourceClientId: string;
       sentAt: string;
+      patch?: LiveStatePatch;
+      responseToRequestId?: string;
     }
   | {
       type: "REQUEST_SNAPSHOT";
+      requestId: string;
     }
   | {
       type: "STATE_CHANGED";
