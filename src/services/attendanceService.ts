@@ -32,7 +32,8 @@ export async function getTodayAttendanceList() {
         "attendance_date",
         today
       )
-      .neq("status", "OPEN");
+      .neq("status", "OPEN")
+      .neq("status", "PENDING");
 
   console.log(
     "ATTENDANCE QUERY RESULT",
@@ -55,6 +56,7 @@ export async function getUserAttendanceHistory(
       .select("*")
       .eq("user_id", userId)
       .neq("status", "OPEN")
+      .neq("status", "PENDING")
       .order("attendance_date", {
         ascending: false,
       });
@@ -99,6 +101,7 @@ export async function getAttendanceListByDate(
         attendanceDate
       )
       .neq("status", "OPEN")
+      .neq("status", "PENDING")
       .order("arrival_time", {
         ascending: true,
       });
@@ -123,6 +126,7 @@ export async function updateAttendanceDate(
       })
       .eq("id", attendanceId)
       .neq("status", "OPEN")
+      .neq("status", "PENDING")
       .select();
 
   if (error) {

@@ -61,7 +61,7 @@ export function initializeMatches(
             ...player,
 
             status:
-              "PLAYING",
+              "PLAYING" as const,
 
             matchCount:
               player.matchCount +
@@ -76,7 +76,7 @@ export function initializeMatches(
           ...player,
 
           status:
-            "WAITING",
+            "WAITING" as const,
 
           waitingStartedAt:
             new Date(),

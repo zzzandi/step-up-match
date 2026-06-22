@@ -103,3 +103,22 @@ export async function closeWorkout(
     throw error;
   }
 }
+
+export async function resetTodayWorkoutData(
+  workoutDate = getKstDateKey()
+) {
+  ensureConfigured();
+
+  const { error } =
+    await supabase
+      .from("attendances")
+      .delete()
+      .eq(
+        "attendance_date",
+        workoutDate
+      );
+
+  if (error) {
+    throw error;
+  }
+}

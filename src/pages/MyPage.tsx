@@ -213,6 +213,28 @@ function MatchScoreRow({
     );
   const result =
     resultFor(history, userId);
+  const teamALabel =
+    history.teamA
+      .map((playerId) =>
+        playerName(
+          players,
+          playerId,
+          history,
+          memberNames
+        )
+      )
+      .join(" + ");
+  const teamBLabel =
+    history.teamB
+      .map((playerId) =>
+        playerName(
+          players,
+          playerId,
+          history,
+          memberNames
+        )
+      )
+      .join(" + ");
 
   function saveScore() {
     const scoreA =
@@ -279,10 +301,10 @@ function MatchScoreRow({
       </div>
 
       {isEditing ? (
-        <div className="mt-4 grid grid-cols-[1fr_auto_1fr_auto] items-end gap-2">
-          <label>
-            <span className="mb-1 block text-xs text-slate-400">
-              Team A
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <label className="rounded-xl bg-slate-800 p-3">
+            <span className="mb-2 block text-sm font-bold text-cyan-200">
+              A팀 · {teamALabel}
             </span>
             <input
               type="number"
@@ -293,15 +315,12 @@ function MatchScoreRow({
                   event.target.value
                 )
               }
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-center"
+              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-center text-xl font-bold"
             />
           </label>
-          <span className="pb-2 text-slate-500">
-            :
-          </span>
-          <label>
-            <span className="mb-1 block text-xs text-slate-400">
-              Team B
+          <label className="rounded-xl bg-slate-800 p-3">
+            <span className="mb-2 block text-sm font-bold text-lime-200">
+              B팀 · {teamBLabel}
             </span>
             <input
               type="number"
@@ -312,13 +331,13 @@ function MatchScoreRow({
                   event.target.value
                 )
               }
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-center"
+              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-center text-xl font-bold"
             />
           </label>
           <button
             type="button"
             onClick={saveScore}
-            className="rounded-lg bg-cyan-400 px-3 py-2 font-bold text-slate-950"
+            className="rounded-lg bg-cyan-400 px-3 py-3 font-bold text-slate-950 sm:col-span-2"
           >
             저장
           </button>
@@ -328,6 +347,10 @@ function MatchScoreRow({
           <div>
             <div className="text-xs text-slate-400">
               저장된 점수
+            </div>
+            <div className="mt-1 text-xs text-slate-300">
+              {teamALabel} vs{" "}
+              {teamBLabel}
             </div>
             <div className="mt-1 text-xl font-bold">
               {teamAScore} :{" "}
@@ -522,6 +545,8 @@ export default function MyPage() {
             id: `test-attendance-${index}`,
             attendance_date:
               attendanceDate,
+            created_at:
+              undefined,
           })
         )
       : attendanceHistory;

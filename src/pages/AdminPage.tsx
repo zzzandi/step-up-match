@@ -9,6 +9,7 @@ import WaitingList from "@/components/waiting/WaitingList";
 import MatchRecommendModal from "@/components/match/MatchRecommendModal";
 import AddPlayerModal from "@/components/player/AddPlayerModal";
 import MasterAddParticipantModal from "@/components/player/MasterAddParticipantModal";
+import MasterManagementPanel from "@/components/player/MasterManagementPanel";
 import FixedPartnerModal from "@/components/player/FixedPartnerModal";
 import MatchHistoryPanel from "@/components/history/MatchHistoryPanel";
 import {
@@ -27,6 +28,7 @@ import {
   getKstDateKey,
   isWorkoutOpen,
   openWorkout,
+  resetTodayWorkoutData as resetTodayWorkoutDataInDatabase,
 } from "@/services/workoutSessionService";
 import {
   publishLiveSessionEvent,
@@ -224,6 +226,12 @@ console.log(
     useMatchStore(
       (state) =>
         state.removeCourt
+    );
+
+  const resetTodayWorkoutData =
+    useMatchStore(
+      (state) =>
+        state.resetTodayWorkoutData
     );
 
   useEffect(() => {
@@ -606,7 +614,10 @@ console.log(
                   status:
                     "WAITING" as const,
                   waitingStartedAt:
-                    new Date(),
+                    new Date(
+                      attendance.arrival_time ??
+                        Date.now()
+                    ),
                   lastPartners: [],
                   lastOpponents: [],
                 };
@@ -699,16 +710,22 @@ console.log(
                         isPresent: true,
               
                         arrivalTime:
-                          new Date(),
+                          new Date(
+                            attendance.arrival_time ??
+                              Date.now()
+                          ),
               
                         matchCount: 0,
               
                         consecutiveMatches: 0,
               
-                        status: "WAITING",
+                        status: "WAITING" as const,
               
                         waitingStartedAt:
-                          new Date(),
+                          new Date(
+                            attendance.arrival_time ??
+                              Date.now()
+                          ),
               
                         lastPartners: [],
               
@@ -739,12 +756,18 @@ console.log(
       attendance.users.hidden_skill,
     isPresent: true,
     arrivalTime:
-      new Date(),
+      new Date(
+        attendance.arrival_time ??
+          Date.now()
+      ),
     matchCount: 0,
     consecutiveMatches: 0,
     status: "WAITING",
     waitingStartedAt:
-      new Date(),
+      new Date(
+        attendance.arrival_time ??
+          Date.now()
+      ),
     lastPartners: [],
     lastOpponents: [],
   }));
@@ -1106,6 +1129,56 @@ console.log(
           "오늘 참가자로 등록하지 못했습니다."
         );
         throw error;
+      }
+    };
+
+  const handleResetTodayWorkout =
+    async () => {
+      if (!isMaster) {
+        return;
+      }
+
+      const confirmed =
+        window.confirm(
+          "오늘 출석, 대기열, 코트와 모든 경기 기록을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        if (!testMode.active) {
+          await resetTodayWorkoutDataInDatabase(
+            getKstDateKey()
+          );
+        }
+
+        resetTodayWorkoutData(
+          testMode.active
+            ? workoutDate
+            : getKstDateKey()
+        );
+        setWorkoutOpen(false);
+        if (testMode.active) {
+          setTestWorkoutOpen(
+            false
+          );
+        } else {
+          publishLiveSessionEvent({
+            type: "WORKOUT_CLOSED",
+            workoutDate:
+              getKstDateKey(),
+          });
+        }
+        window.alert(
+          "오늘 운동 정보가 모두 초기화되었습니다."
+        );
+      } catch (error) {
+        console.error(error);
+        window.alert(
+          "오늘 운동 정보를 초기화하지 못했습니다."
+        );
       }
     };
 
@@ -1795,6 +1868,14 @@ console.log(
 
           <MatchHistoryPanel />
         </div>
+
+        {isMaster && (
+          <MasterManagementPanel
+            onResetToday={
+              handleResetTodayWorkout
+            }
+          />
+        )}
 
         {isMaster && (
           <div className="mt-8 rounded-3xl border border-purple-500/30 bg-slate-900 p-6">

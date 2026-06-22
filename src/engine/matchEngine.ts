@@ -45,7 +45,11 @@ export function generateRecommendations(
   courtId: number,
   players: Player[],
   courtCount = 1,
-  womenDoublesPriority = false
+  womenDoublesPriority = false,
+  excludedMatchPairs: [
+    string,
+    string,
+  ][] = []
 ): MatchRecommendation[] {
   const candidates =
     selectCandidates(
@@ -89,6 +93,28 @@ export function generateRecommendations(
             candidates[k],
             candidates[l],
           ];
+
+          const groupIds =
+            new Set(
+              group.map(
+                (player) =>
+                  player.id
+              )
+            );
+          const hasExcludedPair =
+            excludedMatchPairs.some(
+              ([playerAId, playerBId]) =>
+                groupIds.has(
+                  playerAId
+                ) &&
+                groupIds.has(
+                  playerBId
+                )
+            );
+
+          if (hasExcludedPair) {
+            continue;
+          }
 
           const matches =
             buildMatches(

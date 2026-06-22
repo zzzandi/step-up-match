@@ -18,9 +18,10 @@ import {
   useAccessSession,
 } from "@/auth/access";
 import {
-  checkIn,
+  activatePendingCheckIn,
   getTodayAttendances,
   getUsers,
+  queuePendingCheckIn,
 } from "@/services/supabaseUserService";
 import {
   useMatchStore,
@@ -232,7 +233,9 @@ export default function JoinPage() {
       );
 
     if (!alreadyJoined) {
-      await checkIn(userId);
+      await activatePendingCheckIn(
+        userId
+      );
     }
 
     return !alreadyJoined;
@@ -341,6 +344,8 @@ export default function JoinPage() {
             state.selectedRecommendation,
           womenDoublesPriority:
             state.womenDoublesPriority,
+          excludedMatchPairs:
+            state.excludedMatchPairs,
         });
         useMatchStore.setState({
           players: [],
@@ -353,6 +358,8 @@ export default function JoinPage() {
             null,
           womenDoublesPriority:
             false,
+          excludedMatchPairs:
+            state.excludedMatchPairs,
         });
         setTestMode(true);
         setTestWorkoutOpen(false);
@@ -388,6 +395,16 @@ export default function JoinPage() {
         !workoutOpen
           ? "PENDING"
           : participationMode;
+
+      if (
+        resolvedMode ===
+          "PENDING"
+      ) {
+        await queuePendingCheckIn(
+          selectedUser.id
+        );
+      }
+
       const existingPlayer =
         players.find(
           (player) =>

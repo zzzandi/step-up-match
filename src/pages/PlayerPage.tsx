@@ -130,12 +130,18 @@ export default function PlayerPage() {
                     attendance.users.hidden_skill,
                   isPresent: true,
                   arrivalTime:
-                    new Date(),
+                    new Date(
+                      attendance.arrival_time ??
+                        Date.now()
+                    ),
                   matchCount: 0,
                   consecutiveMatches: 0,
                   status: "WAITING" as const,
                   waitingStartedAt:
-                    new Date(),
+                    new Date(
+                      attendance.arrival_time ??
+                        Date.now()
+                    ),
                   lastPartners: [],
                   lastOpponents: [],
                 })
@@ -166,12 +172,18 @@ export default function PlayerPage() {
                 attendance.users.hidden_skill,
               isPresent: true,
               arrivalTime:
-                new Date(),
+                new Date(
+                  attendance.arrival_time ??
+                    Date.now()
+                ),
               matchCount: 0,
               consecutiveMatches: 0,
               status: "WAITING",
               waitingStartedAt:
-                new Date(),
+                new Date(
+                  attendance.arrival_time ??
+                    Date.now()
+                ),
               lastPartners: [],
               lastOpponents: [],
             })

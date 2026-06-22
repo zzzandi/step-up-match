@@ -1,6 +1,13 @@
 import {
+  useEffect,
+  useState,
+} from "react";
+import {
   useMatchStore,
 } from "@/store/useMatchStore";
+import {
+  getUsers,
+} from "@/services/supabaseUserService";
 
 export default function MatchHistoryPanel() {
   const matchHistory =
@@ -15,13 +22,44 @@ export default function MatchHistoryPanel() {
         state.players
     );
 
+  const [
+    memberNames,
+    setMemberNames,
+  ] = useState<
+    Record<string, string>
+  >({});
+
+  useEffect(() => {
+    getUsers()
+      .then((users) => {
+        setMemberNames(
+          Object.fromEntries(
+            (users ?? []).map(
+              (user) => [
+                user.id,
+                user.name,
+              ]
+            )
+          )
+        );
+      })
+      .catch(console.error);
+  }, []);
+
   const getPlayerName = (
-    playerId: string
+    playerId: string,
+    playerNames?: Record<
+      string,
+      string
+    >
   ) =>
     players.find(
       (player) =>
         player.id === playerId
-    )?.name ?? "알 수 없음";
+    )?.name ??
+    playerNames?.[playerId] ??
+    memberNames[playerId] ??
+    "알 수 없음";
 
   const recentHistory =
     [...matchHistory]
@@ -73,11 +111,13 @@ export default function MatchHistoryPanel() {
 
               <div>
                 {getPlayerName(
-                  history.teamA[0]
+                  history.teamA[0],
+                  history.playerNames
                 )}
                 {" + "}
                 {getPlayerName(
-                  history.teamA[1]
+                  history.teamA[1],
+                  history.playerNames
                 )}
               </div>
 
@@ -87,11 +127,13 @@ export default function MatchHistoryPanel() {
 
               <div>
                 {getPlayerName(
-                  history.teamB[0]
+                  history.teamB[0],
+                  history.playerNames
                 )}
                 {" + "}
                 {getPlayerName(
-                  history.teamB[1]
+                  history.teamB[1],
+                  history.playerNames
                 )}
               </div>
             </div>

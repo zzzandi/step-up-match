@@ -34,8 +34,7 @@ import {
   useMatchStore,
 } from "@/store/useMatchStore";
 import {
-  checkIn,
-  getTodayAttendances,
+  activatePendingCheckIn,
   getUserById,
 } from "@/services/supabaseUserService";
 import {
@@ -183,6 +182,8 @@ function publishStateSnapshot() {
         state.selectedRecommendation,
       womenDoublesPriority:
         state.womenDoublesPriority,
+      excludedMatchPairs:
+        state.excludedMatchPairs,
     },
   });
 }
@@ -201,22 +202,10 @@ async function activatePendingParticipant() {
 
   const today =
     getWorkoutDateKey();
-  const attendances =
-    await getTodayAttendances();
-  const alreadyJoined =
-    attendances?.some(
-      (attendance: {
-        user_id?: string;
-      }) =>
-        attendance.user_id ===
-        session.userId
-    );
-
-  if (!alreadyJoined) {
-    await checkIn(
+  const attendance =
+    await activatePendingCheckIn(
       session.userId
     );
-  }
 
   const user =
     await getUserById(
@@ -250,7 +239,10 @@ async function activatePendingParticipant() {
       0,
     status: "WAITING",
     waitingStartedAt:
-      new Date(),
+      new Date(
+        attendance?.arrival_time ??
+          Date.now()
+      ),
     lastPartners:
       existing?.lastPartners ?? [],
     lastOpponents:
@@ -470,6 +462,8 @@ function App() {
                 state.selectedRecommendation,
               womenDoublesPriority:
                 state.womenDoublesPriority,
+              excludedMatchPairs:
+                state.excludedMatchPairs,
             },
           });
         }

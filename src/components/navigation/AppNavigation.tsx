@@ -168,6 +168,7 @@ export default function AppNavigation() {
             null,
           womenDoublesPriority:
             false,
+          excludedMatchPairs: [],
         }
       );
       setTestMode(false);

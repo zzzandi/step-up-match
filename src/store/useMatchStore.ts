@@ -38,6 +38,11 @@ export interface AppNotification {
   createdAt: string;
 }
 
+export type ExcludedMatchPair = [
+  string,
+  string,
+];
+
 interface MatchStore {
   players: Player[];
 
@@ -60,6 +65,9 @@ interface MatchStore {
   womenDoublesPriority:
     boolean;
 
+  excludedMatchPairs:
+    ExcludedMatchPair[];
+
   setPlayers: (
     players: Player[]
   ) => void;
@@ -70,6 +78,16 @@ interface MatchStore {
 
   setWomenDoublesPriority: (
     enabled: boolean
+  ) => void;
+
+  addExcludedMatchPair: (
+    playerAId: string,
+    playerBId: string
+  ) => void;
+
+  removeExcludedMatchPair: (
+    playerAId: string,
+    playerBId: string
   ) => void;
 
   setFixedPartner: (
@@ -106,6 +124,10 @@ interface MatchStore {
   ) => void;
 
   endTodaySession: () => void;
+
+  resetTodayWorkoutData: (
+    workoutDate?: string
+  ) => void;
 
   updateMatchScore: (
     matchId: string,
@@ -164,6 +186,8 @@ export const useMatchStore =
       womenDoublesPriority:
         false,
 
+      excludedMatchPairs: [],
+
       setPlayers: (
         players
       ) =>
@@ -187,6 +211,58 @@ export const useMatchStore =
             womenDoublesPriority:
               enabled,
           }),
+
+      addExcludedMatchPair: (
+        playerAId,
+        playerBId
+      ) => {
+        if (
+          !playerAId ||
+          !playerBId ||
+          playerAId === playerBId
+        ) {
+          return;
+        }
+
+        const pair = [
+          playerAId,
+          playerBId,
+        ].sort() as ExcludedMatchPair;
+        const exists =
+          get().excludedMatchPairs.some(
+            ([a, b]) =>
+              a === pair[0] &&
+              b === pair[1]
+          );
+
+        if (!exists) {
+          set({
+            excludedMatchPairs: [
+              ...get().excludedMatchPairs,
+              pair,
+            ],
+          });
+        }
+      },
+
+      removeExcludedMatchPair: (
+        playerAId,
+        playerBId
+      ) => {
+        const pair = [
+          playerAId,
+          playerBId,
+        ].sort();
+
+        set({
+          excludedMatchPairs:
+            get().excludedMatchPairs.filter(
+              ([a, b]) =>
+                a !== pair[0] ||
+                b !== pair[1]
+            ),
+        });
+      },
 
       setFixedPartner: (
         playerAId,
@@ -510,6 +586,55 @@ export const useMatchStore =
         });
       },
 
+      resetTodayWorkoutData: (
+        workoutDate
+      ) => {
+        const targetDate =
+          workoutDate ??
+          new Intl.DateTimeFormat(
+            "en-CA",
+            {
+              timeZone:
+                "Asia/Seoul",
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+            }
+          ).format(new Date());
+
+        set({
+          players: [],
+          courts: [],
+          fixedPartnerRequests: [],
+          notifications: [],
+          matchHistory:
+            get().matchHistory.filter(
+              (history) =>
+                new Intl.DateTimeFormat(
+                  "en-CA",
+                  {
+                    timeZone:
+                      "Asia/Seoul",
+                    year:
+                      "numeric",
+                    month:
+                      "2-digit",
+                    day: "2-digit",
+                  }
+                ).format(
+                  new Date(
+                    history.endedAt
+                  )
+                ) !== targetDate
+            ),
+          recommendations: [],
+          selectedRecommendation:
+            null,
+          womenDoublesPriority:
+            false,
+        });
+      },
+
       updateMatchScore: (
         matchId,
         teamAScore,
@@ -695,7 +820,7 @@ export const useMatchStore =
                   ...player,
 
                   status:
-                    "WAITING",
+                    "WAITING" as const,
 
                   waitingStartedAt:
                     new Date(),
@@ -1010,6 +1135,7 @@ export const useMatchStore =
           const {
             players,
             womenDoublesPriority,
+            excludedMatchPairs,
           } = get();
         
           const recommendations =
@@ -1021,7 +1147,8 @@ export const useMatchStore =
                   0.5
               ),
               get().courts.length,
-              womenDoublesPriority
+              womenDoublesPriority,
+              excludedMatchPairs
             );
         
           console.log(
@@ -1096,7 +1223,7 @@ export const useMatchStore =
                 return {
                   ...player,
                   status:
-                    "PLAYING",
+                    "PLAYING" as const,
                   matchCount:
                     player.matchCount +
                     1,
@@ -1200,7 +1327,7 @@ export const useMatchStore =
       {
         name:
           "step-up-match-storage",
-        version: 3,
+        version: 4,
         migrate: (
           persistedState,
           version
@@ -1208,7 +1335,7 @@ export const useMatchStore =
           const state =
             persistedState as MatchStore;
 
-          if (version < 3) {
+          if (version < 4) {
             return {
               ...state,
               players: [],
@@ -1222,6 +1349,9 @@ export const useMatchStore =
                 null,
               womenDoublesPriority:
                 false,
+              excludedMatchPairs:
+                state.excludedMatchPairs ??
+                [],
             };
           }
 

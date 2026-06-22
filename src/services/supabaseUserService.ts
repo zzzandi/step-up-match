@@ -219,7 +219,8 @@ export async function getTodayAttendances() {
         "attendance_date",
         today
       )
-      .neq("status", "OPEN");
+      .neq("status", "OPEN")
+      .neq("status", "PENDING");
 
   if (error) {
     console.error(
@@ -284,8 +285,136 @@ export async function ensureTodayCheckIn(
     return existing;
   }
 
+  const pending =
+    await activatePendingCheckIn(
+      userId
+    );
+
+  if (pending) {
+    return pending;
+  }
+
+  return pending;
+}
+
+export async function queuePendingCheckIn(
+  userId: string
+) {
+  ensureSupabaseConfigured();
+
+  const today =
+    getKstDateKey();
+  const { data: existing, error } =
+    await supabase
+      .from("attendances")
+      .select("*")
+      .eq("attendance_date", today)
+      .eq("user_id", userId)
+      .neq("status", "OPEN")
+      .order("arrival_time", {
+        ascending: true,
+      })
+      .limit(1)
+      .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (existing) {
+    return existing;
+  }
+
+  const { data, error: insertError } =
+    await supabase
+      .from("attendances")
+      .insert({
+        session_id: SESSION_ID,
+        user_id: userId,
+        status: "PENDING",
+        attendance_date: today,
+      })
+      .select()
+      .single();
+
+  if (insertError) {
+    throw insertError;
+  }
+
+  return data;
+}
+
+export async function activatePendingCheckIn(
+  userId: string
+) {
+  ensureSupabaseConfigured();
+
+  const today =
+    getKstDateKey();
+  const { data, error } =
+    await supabase
+      .from("attendances")
+      .update({
+        status: "WAITING",
+      })
+      .eq("attendance_date", today)
+      .eq("user_id", userId)
+      .eq("status", "PENDING")
+      .select()
+      .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (data) {
+    return data;
+  }
+
   const inserted =
     await checkIn(userId);
 
   return inserted?.[0];
+}
+
+export async function updateUserProfile({
+  userId,
+  name,
+  gender,
+  grade,
+  hiddenSkill,
+}: {
+  userId: string;
+  name: string;
+  gender: "M" | "F";
+  grade:
+    | "A"
+    | "B"
+    | "C"
+    | "D"
+    | "E"
+    | "F";
+  hiddenSkill: number;
+}) {
+  ensureSupabaseConfigured();
+
+  const { data, error } =
+    await supabase
+      .from("users")
+      .update({
+        name: name.trim(),
+        gender,
+        grade,
+        hidden_skill:
+          hiddenSkill,
+      })
+      .eq("id", userId)
+      .select()
+      .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
 }

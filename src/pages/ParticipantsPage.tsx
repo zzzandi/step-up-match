@@ -97,7 +97,10 @@ export default function ParticipantsPage() {
                     ? new Date(
                         attendance.waiting_started_at
                       )
-                    : new Date(),
+                    : new Date(
+                        attendance.arrival_time ??
+                          Date.now()
+                      ),
                 lastPartners: [],
                 lastOpponents: [],
               })
