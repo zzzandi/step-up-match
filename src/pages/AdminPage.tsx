@@ -1427,6 +1427,26 @@ console.log(
                 ? "Master Dashboard"
                 : "Admin Dashboard"}
             </p>
+
+            <div
+              className={`mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-bold ${
+                womenDoublesPriority
+                  ? "border-pink-300 bg-pink-400/20 text-pink-200"
+                  : "border-slate-700 bg-slate-800 text-slate-400"
+              }`}
+            >
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${
+                  womenDoublesPriority
+                    ? "bg-pink-400 shadow-[0_0_10px_rgba(244,114,182,0.9)]"
+                    : "bg-slate-500"
+                }`}
+              />
+              여복 우선 모드:{" "}
+              {womenDoublesPriority
+                ? "활성화됨"
+                : "꺼짐"}
+            </div>
           </div>
 
           {isReadOnly && (
@@ -1544,6 +1564,9 @@ console.log(
 
             <button
               type="button"
+              aria-pressed={
+                womenDoublesPriority
+              }
               onClick={() => {
                 if (isReadOnly) {
                   window.alert(
@@ -1556,16 +1579,29 @@ console.log(
                   !womenDoublesPriority
                 );
               }}
-              className={`rounded-2xl px-6 py-3 font-bold ${
+              className={`rounded-2xl border-2 px-6 py-3 font-bold shadow-lg transition ${
                 womenDoublesPriority
-                  ? "bg-pink-400 text-slate-950"
-                  : "bg-slate-700 text-slate-200"
+                  ? "border-pink-200 bg-pink-400 text-slate-950 shadow-pink-500/30"
+                  : "border-slate-600 bg-slate-800 text-slate-300 shadow-none"
               }`}
             >
-              여복 우선{" "}
-              {womenDoublesPriority
-                ? "ON"
-                : "OFF"}
+              <span className="block">
+                {womenDoublesPriority
+                  ? "✓ 여복 우선 모드 ON"
+                  : "○ 여복 우선 모드 OFF"}
+              </span>
+              <span
+                className={`mt-1 block text-xs ${
+                  womenDoublesPriority
+                    ? "text-pink-950"
+                    : "text-slate-500"
+                }`}
+              >
+                눌러서{" "}
+                {womenDoublesPriority
+                  ? "비활성화"
+                  : "활성화"}
+              </span>
             </button>
 
             {isMaster && (
