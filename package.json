@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "test:live-state": "node --experimental-strip-types scripts/verify-live-state.ts",
     "preview": "vite preview"
   },
   "dependencies": {

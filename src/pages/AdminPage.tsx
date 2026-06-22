@@ -575,34 +575,37 @@ console.log(
       const currentPlayers =
         useMatchStore.getState()
           .players;
-      const existingById =
-        new Map(
-          currentPlayers.map(
-            (player) => [
-              player.id,
-              player,
-            ]
-          )
-        );
       const refreshedPlayers =
-        uniqueAttendance.map(
-          (attendance: any) => {
-            const existing =
-              existingById.get(
-                attendance.users.id
-              );
+        currentPlayers.slice();
 
-            return existing
-              ? {
-                  ...existing,
-                  isPresent: true,
-                  status:
-                    existing.status ===
-                    "LEFT"
-                      ? "WAITING"
-                      : existing.status,
-                }
-              : {
+      uniqueAttendance.forEach(
+        (attendance: any) => {
+          const existingIndex =
+            refreshedPlayers.findIndex(
+              (player) =>
+                player.id ===
+                attendance.users.id
+            );
+
+          if (existingIndex >= 0) {
+            const existing =
+              refreshedPlayers[
+                existingIndex
+              ];
+
+            refreshedPlayers[
+              existingIndex
+            ] = {
+              ...existing,
+              isPresent: true,
+              status:
+                existing.status ===
+                "LEFT"
+                  ? "WAITING"
+                  : existing.status,
+            };
+          } else {
+            refreshedPlayers.push({
                   id:
                     attendance.users.id,
                   name:
@@ -635,23 +638,12 @@ console.log(
                     ),
                   lastPartners: [],
                   lastOpponents: [],
-                };
+                });
           }
-        );
-      const manuallyAddedPlayers =
-        currentPlayers.filter(
-          (player) =>
-            player.id.startsWith(
-              "manual-"
-            )
-        );
-
-      setPlayers(
-        [
-          ...refreshedPlayers,
-          ...manuallyAddedPlayers,
-        ]
+        }
       );
+
+      setPlayers(refreshedPlayers);
     } catch (error) {
       console.error(error);
     }

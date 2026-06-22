@@ -43,7 +43,7 @@ export type ExcludedMatchPair = [
   string,
 ];
 
-interface MatchStore {
+export interface MatchStore {
   players: Player[];
 
   courts: Court[];

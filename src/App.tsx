@@ -14,6 +14,7 @@ import {
 import {
   AccessRole,
   adminNames,
+  canManage,
   clearAccessSession,
   getAccessSession,
   getRolePath,
@@ -24,9 +25,14 @@ import {
 import AppNavigation from "@/components/navigation/AppNavigation";
 import RoleSelectPage from "@/pages/RoleSelectPage";
 import {
+  getLiveSessionClientId,
   publishLiveSessionEvent,
   subscribeLiveSessionEvents,
 } from "@/services/liveSessionService";
+import {
+  createLiveStateSnapshot,
+  mergeLiveStateSnapshot,
+} from "@/services/liveStateSync";
 import {
   getTestModeState,
 } from "@/services/testModeService";
@@ -162,29 +168,29 @@ function AuthenticatedRoute({
 }
 
 function publishStateSnapshot() {
+  const session =
+    getAccessSession();
+
+  if (!session) {
+    return;
+  }
+
   const state =
     useMatchStore.getState();
 
   publishLiveSessionEvent({
     type: "STATE_SNAPSHOT",
-    snapshot: {
-      players: state.players,
-      courts: state.courts,
-      fixedPartnerRequests:
-        state.fixedPartnerRequests,
-      notifications:
-        state.notifications,
-      matchHistory:
-        state.matchHistory,
-      recommendations:
-        state.recommendations,
-      selectedRecommendation:
-        state.selectedRecommendation,
-      womenDoublesPriority:
-        state.womenDoublesPriority,
-      excludedMatchPairs:
-        state.excludedMatchPairs,
-    },
+    snapshot:
+      createLiveStateSnapshot(
+        state
+      ),
+    sourceRole: session.role,
+    sourceUserId:
+      session.userId,
+    sourceClientId:
+      getLiveSessionClientId(),
+    sentAt:
+      new Date().toISOString(),
   });
 }
 
@@ -349,6 +355,41 @@ function App() {
   useEffect(() => {
     let applyingRemoteSnapshot =
       false;
+    const initialSession =
+      getAccessSession();
+    let authorityReady =
+      !initialSession ||
+      !canManage(
+        initialSession.role
+      );
+    const authorityTimer =
+      window.setTimeout(() => {
+        authorityReady = true;
+      }, 2200);
+    const snapshotRetryTimers = [
+      window.setTimeout(() => {
+        if (
+          !getTestModeState()
+            .active
+        ) {
+          publishLiveSessionEvent({
+            type:
+              "REQUEST_SNAPSHOT",
+          });
+        }
+      }, 500),
+      window.setTimeout(() => {
+        if (
+          !getTestModeState()
+            .active
+        ) {
+          publishLiveSessionEvent({
+            type:
+              "REQUEST_SNAPSHOT",
+          });
+        }
+      }, 1200),
+    ];
 
     const unsubscribeLive =
       subscribeLiveSessionEvents(
@@ -394,15 +435,45 @@ function App() {
             event.type ===
             "STATE_SNAPSHOT"
           ) {
+            if (
+              event.sourceClientId ===
+              getLiveSessionClientId()
+            ) {
+              return;
+            }
+
+            const currentState =
+              useMatchStore.getState();
+            const currentSnapshot =
+              createLiveStateSnapshot(
+                currentState
+              );
+            const mergedSnapshot =
+              mergeLiveStateSnapshot(
+                currentSnapshot,
+                event.snapshot,
+                event.sourceRole,
+                event.sourceUserId
+              );
+
             applyingRemoteSnapshot =
               true;
-            useMatchStore.setState(
-              event.snapshot as any
-            );
-            window.setTimeout(() => {
+            try {
+              useMatchStore.setState(
+                mergedSnapshot
+              );
+              if (
+                event.sourceRole ===
+                  "ADMIN" ||
+                event.sourceRole ===
+                  "MASTER"
+              ) {
+                authorityReady = true;
+              }
+            } finally {
               applyingRemoteSnapshot =
                 false;
-            }, 0);
+            }
             return;
           }
 
@@ -410,7 +481,18 @@ function App() {
             event.type ===
             "REQUEST_SNAPSHOT"
           ) {
-            publishStateSnapshot();
+            const session =
+              getAccessSession();
+
+            if (
+              session &&
+              canManage(
+                session.role
+              ) &&
+              authorityReady
+            ) {
+              publishStateSnapshot();
+            }
             return;
           }
 
@@ -451,9 +533,20 @@ function App() {
 
     const unsubscribeStore =
       useMatchStore.subscribe(
-        (state) => {
+        () => {
+          const session =
+            getAccessSession();
+
           if (
             applyingRemoteSnapshot
+            ||
+            (
+              session &&
+              canManage(
+                session.role
+              ) &&
+              !authorityReady
+            )
             ||
             getTestModeState()
               .active
@@ -461,28 +554,7 @@ function App() {
             return;
           }
 
-          publishLiveSessionEvent({
-            type: "STATE_SNAPSHOT",
-            snapshot: {
-              players:
-                state.players,
-              courts: state.courts,
-              fixedPartnerRequests:
-                state.fixedPartnerRequests,
-              notifications:
-                state.notifications,
-              matchHistory:
-                state.matchHistory,
-              recommendations:
-                state.recommendations,
-              selectedRecommendation:
-                state.selectedRecommendation,
-              womenDoublesPriority:
-                state.womenDoublesPriority,
-              excludedMatchPairs:
-                state.excludedMatchPairs,
-            },
-          });
+          publishStateSnapshot();
         }
       );
 
@@ -495,6 +567,15 @@ function App() {
     }
 
     return () => {
+      window.clearTimeout(
+        authorityTimer
+      );
+      snapshotRetryTimers.forEach(
+        (timer) =>
+          window.clearTimeout(
+            timer
+          )
+      );
       unsubscribeLive();
       unsubscribeStore();
     };

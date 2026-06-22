@@ -51,11 +51,6 @@ export default function PlayerPage() {
       (state) => state.setPlayers
     );
 
-  const setCourts =
-    useMatchStore(
-      (state) => state.setCourts
-    );
-
   const notifications =
     useMatchStore(
       (state) =>
@@ -97,15 +92,19 @@ export default function PlayerPage() {
           uniqueAttendance.length ===
           0
         ) {
-          setPlayers([]);
-          setCourts([]);
           return;
         }
 
-        if (players.length > 0) {
+        const currentPlayers =
+          useMatchStore.getState()
+            .players;
+
+        if (
+          currentPlayers.length > 0
+        ) {
           const existingIds =
             new Set(
-              players.map(
+              currentPlayers.map(
                 (player) => player.id
               )
             );
@@ -152,7 +151,7 @@ export default function PlayerPage() {
 
           if (newPlayers.length > 0) {
             setPlayers([
-              ...players,
+              ...currentPlayers,
               ...newPlayers,
             ]);
           }
@@ -193,32 +192,6 @@ export default function PlayerPage() {
           );
 
         setPlayers(playerList);
-
-        if (courts.length === 0) {
-          setCourts([
-            {
-              id: 1,
-              status: "EMPTY",
-              teamA: null,
-              teamB: null,
-              startedAt: null,
-            },
-            {
-              id: 2,
-              status: "EMPTY",
-              teamA: null,
-              teamB: null,
-              startedAt: null,
-            },
-            {
-              id: 3,
-              status: "EMPTY",
-              teamA: null,
-              teamB: null,
-              startedAt: null,
-            },
-          ]);
-        }
       })
       .catch(console.error);
   }, [

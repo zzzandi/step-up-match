@@ -2,6 +2,19 @@ import {
   isSupabaseConfigured,
   supabase,
 } from "@/lib/supabase";
+import type {
+  AccessRole,
+} from "@/auth/access";
+import type {
+  LiveStateSnapshot,
+} from "@/services/liveStateSync";
+
+const CLIENT_ID =
+  crypto.randomUUID();
+
+export function getLiveSessionClientId() {
+  return CLIENT_ID;
+}
 
 export type LiveSessionEvent =
   | {
@@ -27,10 +40,11 @@ export type LiveSessionEvent =
     }
   | {
       type: "STATE_SNAPSHOT";
-      snapshot: Record<
-        string,
-        unknown
-      >;
+      snapshot: LiveStateSnapshot;
+      sourceRole: AccessRole;
+      sourceUserId?: string;
+      sourceClientId: string;
+      sentAt: string;
     }
   | {
       type: "REQUEST_SNAPSHOT";
