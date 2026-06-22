@@ -13,6 +13,9 @@ import {
 import {
   isWorkoutOpen,
 } from "@/services/workoutSessionService";
+import {
+  getQueuedParticipationMode,
+} from "@/utils/preWorkoutQueue";
 
 export default function PreWorkoutQueueGate({
   session,
@@ -81,7 +84,9 @@ export default function PreWorkoutQueueGate({
       setAccessSession({
         ...session,
         participationMode:
-          "PENDING",
+          getQueuedParticipationMode(
+            allowManagementWithoutQueue
+          ),
       });
     } catch (error) {
       console.error(error);
@@ -161,7 +166,9 @@ export default function PreWorkoutQueueGate({
 
         {allowManagementWithoutQueue &&
           (
-            registered ? (
+            registered &&
+            session.participationMode !==
+              "PENDING_MANAGER" ? (
               <button
                 type="button"
                 onClick={

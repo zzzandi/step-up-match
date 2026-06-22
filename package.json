@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test:live-state": "node --experimental-strip-types scripts/verify-live-state.ts",
+    "test:preworkout-queue": "node --experimental-strip-types scripts/verify-preworkout-queue.ts",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -13,6 +13,9 @@ import {
 import {
   publishLiveSessionEvent,
 } from "@/services/liveSessionService";
+import {
+  sortWaitingPlayersByQueue,
+} from "@/utils/preWorkoutQueue";
 
 interface WaitingListProps {
   players: Player[];
@@ -104,14 +107,8 @@ export default function WaitingList({
     };
 
   const sortedPlayers =
-    [...players].sort(
-      (a, b) =>
-        getRestMinutes(
-          b.waitingStartedAt
-        ) -
-        getRestMinutes(
-          a.waitingStartedAt
-        )
+    sortWaitingPlayersByQueue(
+      players
     );
 
   return (
