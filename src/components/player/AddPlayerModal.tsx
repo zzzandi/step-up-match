@@ -3,6 +3,8 @@ import { useState } from "react";
 interface AddPlayerModalProps {
   open: boolean;
   showGrade?: boolean;
+  title?: string;
+  submitLabel?: string;
 
   onClose: () => void;
 
@@ -24,6 +26,8 @@ interface AddPlayerModalProps {
 export default function AddPlayerModal({
   open,
   showGrade = false,
+  title = "참가자 추가",
+  submitLabel = "추가",
   onClose,
   onAdd,
 }: AddPlayerModalProps) {
@@ -66,7 +70,7 @@ export default function AddPlayerModal({
         "
       >
         <h2 className="text-2xl font-bold mb-6">
-          참가자 추가
+          {title}
         </h2>
 
         <div className="space-y-4">
@@ -172,7 +176,7 @@ export default function AddPlayerModal({
               font-bold
             "
           >
-            추가
+            {submitLabel}
           </button>
 
           <button

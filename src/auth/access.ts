@@ -13,6 +13,7 @@ export interface AccessSession {
   userId?: string;
   userName?: string;
   testMode?: boolean;
+  isGuest?: boolean;
   participationMode?:
     | "PARTICIPANT"
     | "VIEWER"

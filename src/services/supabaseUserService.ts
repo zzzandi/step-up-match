@@ -33,6 +33,7 @@ export async function getUsers() {
     await supabase
       .from("users")
       .select("*")
+      .eq("is_active", true)
       .order("name");
 
   if (error) {
@@ -94,6 +95,10 @@ export async function getOrCreateUser({
     .from("users")
     .select("*")
     .eq("name", normalizedName)
+    .order("is_active", {
+      ascending: false,
+    })
+    .limit(1)
     .maybeSingle();
 
   if (findError) {
@@ -101,7 +106,25 @@ export async function getOrCreateUser({
   }
 
   if (existing) {
-    return existing;
+    const { data, error } =
+      await supabase
+        .from("users")
+        .update({
+          gender,
+          grade,
+          hidden_skill:
+            hiddenSkill,
+          is_active: true,
+        })
+        .eq("id", existing.id)
+        .select()
+        .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return data;
   }
 
   const { data, error } =
@@ -115,6 +138,62 @@ export async function getOrCreateUser({
         hidden_skill:
           hiddenSkill,
         is_active: true,
+      })
+      .select()
+      .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
+export async function createGuestUser({
+  name,
+  gender,
+  grade,
+}: {
+  name: string;
+  gender: "M" | "F";
+  grade:
+    | "A"
+    | "B"
+    | "C"
+    | "D"
+    | "E"
+    | "F";
+}) {
+  ensureSupabaseConfigured();
+
+  const normalizedName =
+    name.trim();
+  const skillMap = {
+    A: 85,
+    B: 75,
+    C: 65,
+    D: 55,
+    E: 45,
+    F: 35,
+  };
+
+  if (!normalizedName) {
+    throw new Error(
+      "Guest name is required."
+    );
+  }
+
+  const { data, error } =
+    await supabase
+      .from("users")
+      .insert({
+        id: crypto.randomUUID(),
+        name: normalizedName,
+        gender,
+        grade,
+        hidden_skill:
+          skillMap[grade],
+        is_active: false,
       })
       .select()
       .single();

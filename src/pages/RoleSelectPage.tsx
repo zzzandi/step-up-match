@@ -39,6 +39,14 @@ const roles = [
     className:
       "bg-purple-500 hover:bg-purple-400 text-white",
   },
+  {
+    label: "Guest",
+    description:
+      "모임원이 아닌 게스트가 이름과 성별, 급수를 입력해 참가합니다.",
+    path: "/join/guest",
+    className:
+      "bg-orange-500 hover:bg-orange-400 text-slate-950",
+  },
 ];
 
 export default function RoleSelectPage() {
@@ -102,7 +110,7 @@ export default function RoleSelectPage() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
           {roles.map((role) => (
             <button
               key={role.label}

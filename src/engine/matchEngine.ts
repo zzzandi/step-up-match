@@ -44,12 +44,14 @@ function uniqueKey(
 export function generateRecommendations(
   courtId: number,
   players: Player[],
-  courtCount = 1
+  courtCount = 1,
+  womenDoublesPriority = false
 ): MatchRecommendation[] {
   const candidates =
     selectCandidates(
       players,
-      courtCount
+      courtCount,
+      womenDoublesPriority
     );
 
   if (

@@ -27,6 +27,16 @@ export function createMatchHistory(
       court.teamB[1].id,
     ],
 
+    playerNames: Object.fromEntries(
+      [
+        ...court.teamA,
+        ...court.teamB,
+      ].map((player) => [
+        player.id,
+        player.name,
+      ])
+    ),
+
     startedAt:
       court.startedAt,
 

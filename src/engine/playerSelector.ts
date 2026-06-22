@@ -9,7 +9,8 @@ import {
 
 export function selectCandidates(
   players: Player[],
-  courtCount: number
+  courtCount: number,
+  womenDoublesPriority = false
 ): Player[] {
   const waitingPlayers =
     players.filter(
@@ -18,6 +19,75 @@ export function selectCandidates(
           "WAITING" &&
         player.isPresent
     );
+
+  if (womenDoublesPriority) {
+    const waitingOrder =
+      [...waitingPlayers].sort(
+        (a, b) =>
+          new Date(
+            a.waitingStartedAt ??
+              a.arrivalTime
+          ).getTime() -
+          new Date(
+            b.waitingStartedAt ??
+              b.arrivalTime
+          ).getTime()
+      );
+    const topThreeWomen =
+      waitingOrder
+        .slice(0, 3)
+        .filter(
+          (player) =>
+            player.gender === "F"
+        );
+    const waitingWomen =
+      waitingOrder.filter(
+        (player) =>
+          player.gender === "F"
+      );
+
+    if (
+      topThreeWomen.length >= 2 &&
+      waitingWomen.length >= 4
+    ) {
+      const mandatoryIds =
+        new Set(
+          topThreeWomen.map(
+            (player) =>
+              player.id
+          )
+        );
+      const remainingWomen =
+        waitingWomen
+          .filter(
+            (player) =>
+              !mandatoryIds.has(
+                player.id
+              )
+          )
+          .map((player) => ({
+            player,
+            score:
+              calculatePlayerScore(
+                player
+              ),
+          }))
+          .sort(
+            (a, b) =>
+              b.score - a.score
+          )
+          .map(
+            (item) =>
+              item.player
+          );
+
+      return [
+        ...topThreeWomen,
+        ...remainingWomen,
+      ].slice(0, 4);
+    }
+  }
+
   const candidateCount =
     Math.min(
       waitingPlayers.length,

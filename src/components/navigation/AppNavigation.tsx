@@ -166,6 +166,8 @@ export default function AppNavigation() {
           recommendations: [],
           selectedRecommendation:
             null,
+          womenDoublesPriority:
+            false,
         }
       );
       setTestMode(false);

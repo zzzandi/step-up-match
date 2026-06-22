@@ -250,10 +250,13 @@ export default function JoinPage() {
             selectedUser.id
       )
       .forEach((player) => {
-        const isAdmin =
-          adminNames.includes(
-            player.name
-          );
+          const isAdmin =
+            adminNames.includes(
+              player.name
+            ) ||
+            masterNames.includes(
+              player.name
+            );
 
         addNotification({
           audience: isAdmin
@@ -336,6 +339,8 @@ export default function JoinPage() {
             state.recommendations,
           selectedRecommendation:
             state.selectedRecommendation,
+          womenDoublesPriority:
+            state.womenDoublesPriority,
         });
         useMatchStore.setState({
           players: [],
@@ -346,6 +351,8 @@ export default function JoinPage() {
           recommendations: [],
           selectedRecommendation:
             null,
+          womenDoublesPriority:
+            false,
         });
         setTestMode(true);
         setTestWorkoutOpen(false);

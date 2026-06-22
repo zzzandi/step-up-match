@@ -12,6 +12,8 @@ import MasterAddParticipantModal from "@/components/player/MasterAddParticipantM
 import FixedPartnerModal from "@/components/player/FixedPartnerModal";
 import MatchHistoryPanel from "@/components/history/MatchHistoryPanel";
 import {
+  adminNames,
+  masterNames,
   useAccessSession,
 } from "@/auth/access";
 
@@ -30,6 +32,7 @@ import {
   publishLiveSessionEvent,
 } from "@/services/liveSessionService";
 import {
+  createGuestUser,
   ensureTodayCheckIn,
   getOrCreateUser,
   getUsers,
@@ -111,6 +114,10 @@ export default function AdminPage() {
     isMasterParticipantModalOpen,
     setIsMasterParticipantModalOpen,
   ] = useState(false);
+  const [
+    isMemberModalOpen,
+    setIsMemberModalOpen,
+  ] = useState(false);
 
   const [
     isFixedPartnerOpen,
@@ -145,6 +152,18 @@ console.log(
   const setCourts =
     useMatchStore(
       (state) => state.setCourts
+    );
+
+  const womenDoublesPriority =
+    useMatchStore(
+      (state) =>
+        state.womenDoublesPriority
+    );
+
+  const setWomenDoublesPriority =
+    useMatchStore(
+      (state) =>
+        state.setWomenDoublesPriority
     );
 
   const setFixedPartner =
@@ -827,12 +846,10 @@ console.log(
       }
 
       const user =
-        await getOrCreateUser({
+        await createGuestUser({
           name,
           gender,
           grade,
-          hiddenSkill:
-            skillMap[grade],
         });
       await ensureTodayCheckIn(
         user.id
@@ -904,12 +921,93 @@ console.log(
         newPlayer,
       ]);
 
+      addNotification({
+        audience: "ADMIN",
+        message: `${user.name} 게스트님이 오늘 운동에 참가했습니다.`,
+      });
+
+      currentPlayers
+        .filter(
+          (player) =>
+            player.status !==
+              "LEFT" &&
+            player.id !== user.id &&
+            !adminNames.includes(
+              player.name
+            ) &&
+            !masterNames.includes(
+              player.name
+            )
+        )
+        .forEach((player) => {
+          addNotification({
+            audience: "PLAYER",
+            recipientId: player.id,
+            message: `${user.name} 게스트님이 오늘 운동에 참가했습니다.`,
+          });
+        });
+
       await refreshAttendance();
     } catch (error) {
       console.error(error);
       window.alert(
         "참가자를 추가하지 못했습니다."
       );
+    }
+  };
+
+  const handleAddMember = async ({
+    name,
+    gender,
+    grade,
+  }: {
+    name: string;
+    gender: "M" | "F";
+    grade:
+      | "A"
+      | "B"
+      | "C"
+      | "D"
+      | "E"
+      | "F";
+  }) => {
+    if (!isMaster) {
+      return;
+    }
+
+    if (testMode.active) {
+      window.alert(
+        "신규 모임원 등록은 실제 서비스 모드에서만 가능합니다."
+      );
+      return;
+    }
+
+    const skillMap = {
+      A: 85,
+      B: 75,
+      C: 65,
+      D: 55,
+      E: 45,
+      F: 35,
+    };
+
+    try {
+      await getOrCreateUser({
+        name,
+        gender,
+        grade,
+        hiddenSkill:
+          skillMap[grade],
+      });
+      window.alert(
+        `${name.trim()}님을 모임원으로 등록했습니다. 이제 Player로 로그인할 수 있습니다.`
+      );
+    } catch (error) {
+      console.error(error);
+      window.alert(
+        "신규 모임원을 등록하지 못했습니다."
+      );
+      throw error;
     }
   };
 
@@ -1444,18 +1542,57 @@ console.log(
               참가자 추가
             </button>
 
-            {isMaster && (
-              <button
-                type="button"
-                onClick={() =>
-                  setIsMasterParticipantModalOpen(
-                    true
-                  )
+            <button
+              type="button"
+              onClick={() => {
+                if (isReadOnly) {
+                  window.alert(
+                    "조회 전용 로그인에서는 여복 우선 모드를 변경할 수 없습니다."
+                  );
+                  return;
                 }
-                className="rounded-2xl bg-purple-500 px-6 py-3 font-bold"
-              >
-                오늘 참가자 대신 등록
-              </button>
+
+                setWomenDoublesPriority(
+                  !womenDoublesPriority
+                );
+              }}
+              className={`rounded-2xl px-6 py-3 font-bold ${
+                womenDoublesPriority
+                  ? "bg-pink-400 text-slate-950"
+                  : "bg-slate-700 text-slate-200"
+              }`}
+            >
+              여복 우선{" "}
+              {womenDoublesPriority
+                ? "ON"
+                : "OFF"}
+            </button>
+
+            {isMaster && (
+              <>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setIsMasterParticipantModalOpen(
+                      true
+                    )
+                  }
+                  className="rounded-2xl bg-purple-500 px-6 py-3 font-bold"
+                >
+                  오늘 참가자 대신 등록
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setIsMemberModalOpen(
+                      true
+                    )
+                  }
+                  className="rounded-2xl bg-indigo-500 px-6 py-3 font-bold"
+                >
+                  신규 모임원 등록
+                </button>
+              </>
             )}
           </div>
           </details>
@@ -1911,9 +2048,9 @@ console.log(
         open={
           isAddModalOpen
         }
-        showGrade={
-          isMaster
-        }
+        showGrade
+        title="오늘 게스트 참가자 추가"
+        submitLabel="게스트 참가 등록"
         onClose={() =>
           setIsAddModalOpen(
             false
@@ -1921,6 +2058,23 @@ console.log(
         }
         onAdd={
           handleAddPlayer
+        }
+      />
+
+      <AddPlayerModal
+        open={
+          isMemberModalOpen
+        }
+        showGrade
+        title="신규 모임원 등록"
+        submitLabel="Player 계정 등록"
+        onClose={() =>
+          setIsMemberModalOpen(
+            false
+          )
+        }
+        onAdd={
+          handleAddMember
         }
       />
 

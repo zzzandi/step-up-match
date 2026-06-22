@@ -13,9 +13,11 @@ import {
 
 import {
   AccessRole,
+  adminNames,
   clearAccessSession,
   getAccessSession,
   getRolePath,
+  masterNames,
   setAccessSession,
   useAccessSession,
 } from "@/auth/access";
@@ -51,6 +53,8 @@ const AttendancePage =
   lazy(() => import("@/pages/AttendancePage"));
 const FixedPartnerPage =
   lazy(() => import("@/pages/FixedPartnerPage"));
+const GuestJoinPage =
+  lazy(() => import("@/pages/GuestJoinPage"));
 const JoinPage =
   lazy(() => import("@/pages/JoinPage"));
 const MyPage =
@@ -177,6 +181,8 @@ function publishStateSnapshot() {
         state.recommendations,
       selectedRecommendation:
         state.selectedRecommendation,
+      womenDoublesPriority:
+        state.womenDoublesPriority,
     },
   });
 }
@@ -262,28 +268,27 @@ async function activatePendingParticipant() {
     nextPlayer,
   ]);
 
+  state.addNotification({
+    audience: "ADMIN",
+    message: `${nextPlayer.name}님이 오늘 운동에 참가했습니다.`,
+  });
+
   state.players
     .filter(
       (player) =>
         player.id !==
           nextPlayer.id &&
-        player.status !== "LEFT"
+        player.status !== "LEFT" &&
+        !adminNames.includes(
+          player.name
+        ) &&
+        !masterNames.includes(
+          player.name
+        )
     )
     .forEach((player) => {
       state.addNotification({
-        audience:
-          player.name ===
-            "유원석" ||
-          player.name ===
-            "이주민" ||
-          player.name ===
-            "큰영진" ||
-          player.name ===
-            "김영진" ||
-          player.name ===
-            "박철상"
-            ? "ADMIN"
-            : "PLAYER",
+        audience: "PLAYER",
         recipientId:
           player.id,
         message: `${nextPlayer.name}님이 오늘 운동에 참가했습니다.`,
@@ -463,6 +468,8 @@ function App() {
                 state.recommendations,
               selectedRecommendation:
                 state.selectedRecommendation,
+              womenDoublesPriority:
+                state.womenDoublesPriority,
             },
           });
         }
@@ -584,6 +591,11 @@ function App() {
         <Route
           path="/join/:role"
           element={<JoinPage />}
+        />
+
+        <Route
+          path="/join/guest"
+          element={<GuestJoinPage />}
         />
 
         <Route

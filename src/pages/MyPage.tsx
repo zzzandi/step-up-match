@@ -16,6 +16,7 @@ import {
   getUserAttendanceHistory,
 } from "@/services/attendanceService";
 import {
+  getUsers,
   getUserById,
 } from "@/services/supabaseUserService";
 import {
@@ -147,13 +148,26 @@ function resultFor(
 
 function playerName(
   players: Player[],
-  id?: string
+  id?: string,
+  history?: MatchHistory,
+  memberNames?: Record<string, string>
 ) {
   return (
     players.find(
       (player) =>
         player.id === id
-    )?.name ?? "알 수 없음"
+    )?.name ??
+    (
+      id
+        ? history?.playerNames?.[id]
+        : undefined
+    ) ??
+    (
+      id
+        ? memberNames?.[id]
+        : undefined
+    ) ??
+    "알 수 없음"
   );
 }
 
@@ -161,10 +175,12 @@ function MatchScoreRow({
   history,
   userId,
   players,
+  memberNames,
 }: {
   history: MatchHistory;
   userId: string;
   players: Player[];
+  memberNames: Record<string, string>;
 }) {
   const updateMatchScore =
     useMatchStore(
@@ -240,7 +256,9 @@ function MatchScoreRow({
             파트너{" "}
             {playerName(
               players,
-              partnerId
+              partnerId,
+              history,
+              memberNames
             )}
           </div>
         </div>
@@ -366,6 +384,12 @@ export default function MyPage() {
     useState<UserProfile | null>(
       null
     );
+  const [
+    memberNames,
+    setMemberNames,
+  ] = useState<
+    Record<string, string>
+  >({});
   const [resetMessage, setResetMessage] =
     useState("");
 
@@ -465,6 +489,21 @@ export default function MyPage() {
       .then((data) =>
         setProfile(
           data as UserProfile
+        )
+      )
+      .catch(console.error);
+
+    getUsers()
+      .then((users) =>
+        setMemberNames(
+          Object.fromEntries(
+            (users ?? []).map(
+              (user) => [
+                user.id,
+                user.name,
+              ]
+            )
+          )
         )
       )
       .catch(console.error);
@@ -626,7 +665,15 @@ export default function MyPage() {
           partnerId,
           name: playerName(
             players,
-            partnerId
+            partnerId,
+            histories.find(
+              (history) =>
+                partnerIdFor(
+                  history,
+                  userId
+                ) === partnerId
+            ),
+            memberNames
           ),
           ...record,
           rate:
@@ -714,7 +761,16 @@ export default function MyPage() {
         favoritePartner
           ? playerName(
               players,
-              favoritePartner
+              favoritePartner,
+              histories.find(
+                (history) =>
+                  partnerIdFor(
+                    history,
+                    userId
+                  ) ===
+                  favoritePartner
+              ),
+              memberNames
             )
           : "-",
       monthMinutes:
@@ -730,6 +786,7 @@ export default function MyPage() {
   }, [
     effectiveAttendanceHistory,
     matchHistory,
+    memberNames,
     players,
     session?.userId,
     testMode.active,
@@ -998,6 +1055,9 @@ export default function MyPage() {
                       session.userId!
                     }
                     players={players}
+                    memberNames={
+                      memberNames
+                    }
                   />
                 ))
             )}

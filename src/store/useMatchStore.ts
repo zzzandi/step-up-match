@@ -57,12 +57,19 @@ interface MatchStore {
   selectedRecommendation:
     MatchRecommendation | null;
 
+  womenDoublesPriority:
+    boolean;
+
   setPlayers: (
     players: Player[]
   ) => void;
 
   setCourts: (
     courts: Court[]
+  ) => void;
+
+  setWomenDoublesPriority: (
+    enabled: boolean
   ) => void;
 
   setFixedPartner: (
@@ -154,6 +161,9 @@ export const useMatchStore =
       selectedRecommendation:
         null,
 
+      womenDoublesPriority:
+        false,
+
       setPlayers: (
         players
       ) =>
@@ -170,6 +180,13 @@ export const useMatchStore =
         set({
           courts,
         }),
+
+      setWomenDoublesPriority:
+        (enabled) =>
+          set({
+            womenDoublesPriority:
+              enabled,
+          }),
 
       setFixedPartner: (
         playerAId,
@@ -488,6 +505,8 @@ export const useMatchStore =
           recommendations: [],
           selectedRecommendation:
             null,
+          womenDoublesPriority:
+            false,
         });
       },
 
@@ -990,6 +1009,7 @@ export const useMatchStore =
         ) => {
           const {
             players,
+            womenDoublesPriority,
           } = get();
         
           const recommendations =
@@ -1000,7 +1020,8 @@ export const useMatchStore =
                   Math.random() -
                   0.5
               ),
-              get().courts.length
+              get().courts.length,
+              womenDoublesPriority
             );
         
           console.log(
@@ -1199,6 +1220,8 @@ export const useMatchStore =
               recommendations: [],
               selectedRecommendation:
                 null,
+              womenDoublesPriority:
+                false,
             };
           }
 
