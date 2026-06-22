@@ -136,21 +136,18 @@ export default function MasterManagementPanel({
         ),
       [members, selectedMemberId]
     );
-  const editableMembers =
-    useMemo(
-      () =>
-        members.filter(
-          (member) =>
-            !adminNames.includes(
-              member.name
-            ) &&
-            !masterNames.includes(
-              member.name
-            )
-        ),
-      [members]
+  const selectedIsOperator =
+    Boolean(
+      selectedMember &&
+      (
+        adminNames.includes(
+          selectedMember.name
+        ) ||
+        masterNames.includes(
+          selectedMember.name
+        )
+      )
     );
-
   function selectMember(
     memberId: string
   ) {
@@ -421,7 +418,7 @@ export default function MasterManagementPanel({
           회원 정보 수정
         </h3>
         <p className="mt-1 text-sm text-slate-400">
-          이름, 성별, 급수를 변경하면 회원 정보와 매칭 기준이 즉시 갱신됩니다.
+          일반 회원과 운영진의 이름, 성별, 급수를 변경할 수 있습니다. 성별과 급수는 저장 즉시 실제 경기 매칭 기준에 반영됩니다.
         </p>
         <select
           value={selectedMemberId}
@@ -435,12 +432,21 @@ export default function MasterManagementPanel({
           <option value="">
             수정할 회원 선택
           </option>
-          {editableMembers.map((member) => (
+          {members.map((member) => (
             <option
               key={member.id}
               value={member.id}
             >
               {member.name}
+              {masterNames.includes(
+                member.name
+              )
+                ? " · Master"
+                : adminNames.includes(
+                      member.name
+                    )
+                  ? " · Admin"
+                  : ""}
             </option>
           ))}
         </select>
@@ -449,12 +455,15 @@ export default function MasterManagementPanel({
           <div className="mt-3 grid gap-2 sm:grid-cols-[2fr_1fr_1fr_auto]">
             <input
               value={name}
+              disabled={
+                selectedIsOperator
+              }
               onChange={(event) =>
                 setName(
                   event.target.value
                 )
               }
-              className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2"
+              className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60"
               placeholder="이름"
             />
             <select
@@ -514,6 +523,11 @@ export default function MasterManagementPanel({
                 ? "저장 중..."
                 : "변경 저장"}
             </button>
+            {selectedIsOperator && (
+              <p className="text-xs text-amber-300 sm:col-span-4">
+                운영진 로그인 권한을 유지하기 위해 이름은 변경할 수 없으며, 성별과 급수는 수정할 수 있습니다.
+              </p>
+            )}
           </div>
         )}
       </div>

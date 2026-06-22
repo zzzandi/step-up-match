@@ -194,8 +194,12 @@ async function activatePendingParticipant() {
 
   if (
     !session?.userId ||
-    session.participationMode !==
-      "PENDING"
+    (
+      session.participationMode !==
+        "PENDING" &&
+      session.participationMode !==
+        "PENDING_MANAGER"
+    )
   ) {
     return false;
   }
@@ -499,7 +503,9 @@ function App() {
   useEffect(() => {
     if (
       accessSession?.participationMode !==
-      "PENDING"
+        "PENDING" &&
+      accessSession?.participationMode !==
+        "PENDING_MANAGER"
     ) {
       return;
     }

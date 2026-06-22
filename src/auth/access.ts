@@ -18,7 +18,8 @@ export interface AccessSession {
     | "PARTICIPANT"
     | "VIEWER"
     | "PREOPEN"
-    | "PENDING";
+    | "PENDING"
+    | "PENDING_MANAGER";
 }
 
 const ACCESS_SESSION_KEY =

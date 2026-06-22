@@ -29,7 +29,9 @@ export default function PreWorkoutQueueGate({
     useState(false);
   const registered =
     session.participationMode ===
-    "PENDING";
+      "PENDING" ||
+    session.participationMode ===
+      "PENDING_MANAGER";
 
   useEffect(() => {
     let cancelled = false;
@@ -99,6 +101,14 @@ export default function PreWorkoutQueueGate({
     });
   }
 
+  function continueManagingWithQueue() {
+    setAccessSession({
+      ...session,
+      participationMode:
+        "PENDING_MANAGER",
+    });
+  }
+
   return (
     <main className="flex min-h-[calc(100vh-60px)] items-center justify-center bg-slate-950 p-6 text-white">
       <div className="w-full max-w-xl rounded-3xl border border-amber-400/30 bg-slate-900 p-8 text-center">
@@ -150,16 +160,28 @@ export default function PreWorkoutQueueGate({
         )}
 
         {allowManagementWithoutQueue &&
-          !registered && (
-            <button
-              type="button"
-              onClick={
-                continueWithoutQueue
-              }
-              className="mt-3 w-full rounded-xl border border-slate-700 bg-slate-800 px-5 py-3 font-bold text-slate-200"
-            >
-              대기열에 참가하지 않고 관리 화면으로 이동
-            </button>
+          (
+            registered ? (
+              <button
+                type="button"
+                onClick={
+                  continueManagingWithQueue
+                }
+                className="mt-3 w-full rounded-xl bg-cyan-500 px-5 py-3 font-bold text-slate-950"
+              >
+                대기순서 유지하고 대시보드로 이동
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={
+                  continueWithoutQueue
+                }
+                className="mt-3 w-full rounded-xl border border-slate-700 bg-slate-800 px-5 py-3 font-bold text-slate-200"
+              >
+                대기열에 참가하지 않고 관리 화면으로 이동
+              </button>
+            )
           )}
 
         {message && (

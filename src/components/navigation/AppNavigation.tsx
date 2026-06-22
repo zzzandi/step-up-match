@@ -139,6 +139,9 @@ export default function AppNavigation() {
       "PENDING"
       ? " · 개설 대기"
       : activeSession.participationMode ===
+          "PENDING_MANAGER"
+        ? " · 대기등록 완료"
+      : activeSession.participationMode ===
           "PREOPEN"
         ? " · 대기열 미등록"
       : !isParticipant
