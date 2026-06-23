@@ -227,7 +227,7 @@ function applyActivatedParticipant(
 
     state.addNotification({
       audience: "ADMIN",
-      message: `${activatedPlayer.name}?섏씠 ?ㅻ뒛 ?대룞??李멸??덉뒿?덈떎.`,
+      message: `${activatedPlayer.name}님이 오늘 운동에 참가했습니다.`,
     });
 
     useMatchStore
@@ -251,7 +251,7 @@ function applyActivatedParticipant(
             audience: "PLAYER",
             recipientId:
               item.id,
-            message: `${activatedPlayer.name}?섏씠 ?ㅻ뒛 ?대룞??李멸??덉뒿?덈떎.`,
+            message: `${activatedPlayer.name}님이 오늘 운동에 참가했습니다.`,
           });
       });
   });

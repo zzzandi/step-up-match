@@ -193,6 +193,12 @@ console.log(
         state.fixedPartnerRequests
     );
 
+  const fixedPartnerAssignments =
+    useMatchStore(
+      (state) =>
+        state.fixedPartnerAssignments
+    );
+
   const approveFixedPartnerRequest =
     useMatchStore(
       (state) =>
@@ -2161,29 +2167,32 @@ console.log(
           </h2>
 
           <div className="space-y-2">
-            {players
-              .filter(
-                (player) =>
-                  player.fixedPartner &&
-                  player.id <
-                    player.fixedPartner
-              )
+            {fixedPartnerAssignments
               .map(
-                (player) => {
+                (assignment) => {
+                  const player =
+                    players.find(
+                      (p) =>
+                        p.id ===
+                        assignment.playerAId
+                    );
                   const partner =
                     players.find(
                       (p) =>
                         p.id ===
-                        player.fixedPartner
+                        assignment.playerBId
                     );
-
-                  if (!partner)
-                    return null;
+                  const playerName =
+                    player?.name ??
+                    assignment.playerAId;
+                  const partnerName =
+                    partner?.name ??
+                    assignment.playerBId;
 
                   return (
                     <div
                       key={
-                        player.id
+                        assignment.id
                       }
                       className="
                         flex
@@ -2196,18 +2205,18 @@ console.log(
                       "
                     >
                       <div>
-                        {player.name}
+                        {playerName}
                         {" ↔ "}
                         {
-                          partner.name
+                          partnerName
                         }
                       </div>
 
                       <button
                         onClick={() =>
                           handleRemoveFixedPartner(
-                            player.id,
-                            partner.id
+                            assignment.playerAId,
+                            assignment.playerBId
                           )
                         }
                         className="

@@ -2,6 +2,9 @@ import type { AccessRole } from "@/auth/access";
 import type {
   MatchStore,
 } from "@/store/useMatchStore";
+import {
+  normalizePersistedMatchState,
+} from "../store/persistedState.ts";
 
 export type LiveStateSnapshot = Pick<
   MatchStore,
@@ -97,6 +100,74 @@ export function createLiveStateSnapshot(
     excludedMatchPairs:
       state.excludedMatchPairs,
   };
+}
+
+function normalizeLiveStateSnapshot(
+  snapshot: LiveStateSnapshot
+): LiveStateSnapshot {
+  const normalized =
+    normalizePersistedMatchState(
+      snapshot
+    );
+  const removeUndefinedOptionalDates = <
+    T extends Record<string, unknown>,
+  >(
+    item: T
+  ) => {
+    const next = { ...item };
+
+    ["lastMatchAt"].forEach((key) => {
+      if (next[key] === undefined) {
+        delete next[key];
+      }
+    });
+
+    return next as T;
+  };
+  const normalizeCourtPlayers = (
+    players: unknown
+  ) =>
+    Array.isArray(players)
+      ? players.map((player) =>
+          removeUndefinedOptionalDates(
+            player as unknown as Record<
+              string,
+              unknown
+            >
+          )
+        )
+      : players;
+  const normalizedSnapshot = {
+    ...snapshot,
+    ...normalized,
+  } as LiveStateSnapshot;
+
+  normalizedSnapshot.players =
+    normalizedSnapshot.players.map(
+      (player) =>
+        removeUndefinedOptionalDates(
+          player as unknown as Record<
+            string,
+            unknown
+          >
+        ) as unknown as typeof player
+    );
+  normalizedSnapshot.courts =
+    normalizedSnapshot.courts.map(
+      (court) => ({
+        ...court,
+        teamA:
+          normalizeCourtPlayers(
+            court.teamA
+          ) as typeof court.teamA,
+        teamB:
+          normalizeCourtPlayers(
+            court.teamB
+          ) as typeof court.teamB,
+      })
+    );
+
+  return normalizedSnapshot;
 }
 
 const liveStateKeys: LiveStateKey[] =
@@ -800,6 +871,15 @@ export function mergeLiveStateSnapshot(
   sourceUserId?: string,
   patch?: LiveStatePatch
 ): LiveStateSnapshot {
+  current =
+    normalizeLiveStateSnapshot(
+      current
+    );
+  incoming =
+    normalizeLiveStateSnapshot(
+      incoming
+    );
+
   if (
     sourceRole === "ADMIN" ||
     sourceRole === "MASTER"
