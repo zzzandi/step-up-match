@@ -131,7 +131,8 @@ export function scoreMatch(
     balance +
     partnerDiversity +
     opponentDiversity +
-    genderBonus;
+    genderBonus +
+    fixedPartnerBonus * 100;
 
   return {
     total,

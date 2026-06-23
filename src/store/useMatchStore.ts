@@ -115,6 +115,11 @@ export interface MatchStore {
     playerBId: string
   ) => void;
 
+  removeFixedPartner: (
+    playerAId: string,
+    playerBId: string
+  ) => void;
+
   requestFixedPartner: (
     requesterId: string,
     partnerId: string,
@@ -709,6 +714,60 @@ export const useMatchStore =
         });
       },
 
+      removeFixedPartner: (
+        playerAId,
+        playerBId
+      ) => {
+        const assignments =
+          get().fixedPartnerAssignments.filter(
+            (assignment) =>
+              !(
+                (
+                  assignment.playerAId ===
+                    playerAId &&
+                  assignment.playerBId ===
+                    playerBId
+                ) ||
+                (
+                  assignment.playerAId ===
+                    playerBId &&
+                  assignment.playerBId ===
+                    playerAId
+                )
+              )
+          );
+        const partnerByPlayer =
+          new Map<string, string>();
+
+        assignments.forEach(
+          (assignment) => {
+            partnerByPlayer.set(
+              assignment.playerAId,
+              assignment.playerBId
+            );
+            partnerByPlayer.set(
+              assignment.playerBId,
+              assignment.playerAId
+            );
+          }
+        );
+
+        set({
+          fixedPartnerAssignments:
+            assignments,
+          players:
+            get().players.map(
+              (player) => ({
+                ...player,
+                fixedPartner:
+                  partnerByPlayer.get(
+                    player.id
+                  ),
+              })
+            ),
+        });
+      },
+
       resetTodayWorkoutData: (
         workoutDate
       ) => {
@@ -1065,6 +1124,7 @@ export const useMatchStore =
           courts,
           players,
           notifications,
+          excludedMatchPairs,
         } = get();
 
         const court =
@@ -1094,6 +1154,41 @@ export const useMatchStore =
           !incomingPlayer ||
           !outgoingPlayer
         ) {
+          return;
+        }
+
+        const replacementIds =
+          new Set(
+            [
+              ...court.teamA,
+              ...court.teamB,
+            ].map((player) =>
+              player.id ===
+              outgoingPlayerId
+                ? incomingPlayerId
+                : player.id
+            )
+          );
+        const violatesExcludedPair =
+          excludedMatchPairs.some(
+            ([
+              playerAId,
+              playerBId,
+            ]) =>
+              replacementIds.has(
+                playerAId
+              ) &&
+              replacementIds.has(
+                playerBId
+              )
+          );
+
+        if (
+          violatesExcludedPair
+        ) {
+          window.alert(
+            "서로 같은 경기에 배치하지 않도록 설정된 선수가 있어 교체할 수 없습니다."
+          );
           return;
         }
 
@@ -1518,10 +1613,26 @@ export const useMatchStore =
           ...teamAPlayerIds,
           ...teamBPlayerIds,
         ];
+        const selectedIdSet =
+          new Set(selectedIds);
+        const hasExcludedPair =
+          get().excludedMatchPairs.some(
+            ([
+              playerAId,
+              playerBId,
+            ]) =>
+              selectedIdSet.has(
+                playerAId
+              ) &&
+              selectedIdSet.has(
+                playerBId
+              )
+          );
 
         if (
           new Set(selectedIds)
-            .size !== 4
+            .size !== 4 ||
+          hasExcludedPair
         ) {
           return false;
         }

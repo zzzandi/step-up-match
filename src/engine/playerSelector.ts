@@ -31,6 +31,50 @@ function containsExcludedPair(
   );
 }
 
+function completeFixedPairCount(
+  group: Player[],
+  waitingPlayerIds: Set<string>
+) {
+  const groupIds =
+    new Set(
+      group.map(
+        (player) => player.id
+      )
+    );
+  const counted =
+    new Set<string>();
+  let count = 0;
+
+  group.forEach((player) => {
+    const partnerId =
+      player.fixedPartner;
+
+    if (
+      !partnerId ||
+      !waitingPlayerIds.has(
+        partnerId
+      ) ||
+      !groupIds.has(partnerId)
+    ) {
+      return;
+    }
+
+    const pairKey = [
+      player.id,
+      partnerId,
+    ]
+      .sort()
+      .join("|");
+
+    if (!counted.has(pairKey)) {
+      counted.add(pairKey);
+      count += 1;
+    }
+  });
+
+  return count;
+}
+
 export function selectCandidates(
   players: Player[],
   courtCount: number,
@@ -46,6 +90,12 @@ export function selectCandidates(
         player.status ===
           "WAITING" &&
         player.isPresent
+    );
+  const waitingPlayerIds =
+    new Set(
+      waitingPlayers.map(
+        (player) => player.id
+      )
     );
 
   if (womenDoublesPriority) {
@@ -287,7 +337,12 @@ export function selectCandidates(
           const score =
             scorePlayerSelection(
               group
-            ).total;
+            ).total +
+            completeFixedPairCount(
+              group,
+              waitingPlayerIds
+            ) *
+              100;
 
           if (score > bestScore) {
             bestScore = score;

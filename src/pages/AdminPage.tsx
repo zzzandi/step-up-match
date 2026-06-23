@@ -175,6 +175,11 @@ console.log(
       (state) =>
         state.setFixedPartner
     );
+  const removeFixedPartner =
+    useMatchStore(
+      (state) =>
+        state.removeFixedPartner
+    );
 
   const fixedPartnerRequests =
     useMatchStore(
@@ -1212,28 +1217,10 @@ console.log(
         return;
       }
 
-      const updated =
-        players.map(
-          (player) => {
-            if (
-              player.id ===
-                playerId ||
-              player.id ===
-                partnerId
-            ) {
-              return {
-                ...player,
-
-                fixedPartner:
-                  undefined,
-              };
-            }
-
-            return player;
-          }
-        );
-
-      setPlayers(updated);
+      removeFixedPartner(
+        playerId,
+        partnerId
+      );
 
       if (player) {
         addNotification({

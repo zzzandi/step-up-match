@@ -27,6 +27,7 @@ globalThis.window = {
   addEventListener() {},
   removeEventListener() {},
   dispatchEvent() {},
+  alert() {},
 };
 globalThis.alert = () => {};
 
@@ -1802,6 +1803,392 @@ try {
   );
 
   run(
+    "미로그인 고정 파트너는 승인돼도 대기열과 자동 대진 후보에 나타나지 않음",
+    () => {
+      resetStore(8, 1);
+      const state =
+        useMatchStore.getState();
+      state.requestFixedPartner(
+        "player-01",
+        "member-not-logged-in",
+        "선수01",
+        "미로그인회원"
+      );
+      const request =
+        useMatchStore.getState()
+          .fixedPartnerRequests[0];
+      state.approveFixedPartnerRequest(
+        request.id
+      );
+      state.rerollRecommendations(
+        1
+      );
+      const next =
+        useMatchStore.getState();
+      const recommendedIds =
+        next.recommendations.flatMap(
+          (recommendation) => [
+            ...recommendation.teamA,
+            ...recommendation.teamB,
+          ].map(
+            (player) => player.id
+          )
+        );
+
+      assert.equal(
+        next.players.some(
+          (player) =>
+            player.id ===
+            "member-not-logged-in"
+        ),
+        false
+      );
+      assert.equal(
+        recommendedIds.includes(
+          "member-not-logged-in"
+        ),
+        false
+      );
+    }
+  );
+
+  run(
+    "고정 파트너 두 명이 모두 로그인하면 자동 대진에서 같은 팀 우선",
+    () => {
+      resetStore(8, 1);
+      const state =
+        useMatchStore.getState();
+      state.setPlayers(
+        state.players.map(
+          (player) => ({
+            ...player,
+            gender: "M",
+            hiddenSkill: 50,
+          })
+        )
+      );
+      state.setFixedPartner(
+        "player-01",
+        "player-02"
+      );
+      state.rerollRecommendations(
+        1
+      );
+      const recommendation =
+        useMatchStore.getState()
+          .selectedRecommendation;
+
+      assert.ok(recommendation);
+      const sameTeam =
+        recommendation.teamA
+          .map(
+            (player) => player.id
+          )
+          .includes(
+            "player-01"
+          ) &&
+        recommendation.teamA
+          .map(
+            (player) => player.id
+          )
+          .includes(
+            "player-02"
+          ) ||
+        recommendation.teamB
+          .map(
+            (player) => player.id
+          )
+          .includes(
+            "player-01"
+          ) &&
+        recommendation.teamB
+          .map(
+            (player) => player.id
+          )
+          .includes(
+            "player-02"
+          );
+
+      assert.equal(
+        sameTeam,
+        true
+      );
+    }
+  );
+
+  run(
+    "고정 파트너 해제 후 재로그인해도 관계가 다시 생기지 않음",
+    () => {
+      resetStore(8, 1);
+      const state =
+        useMatchStore.getState();
+      state.setFixedPartner(
+        "player-01",
+        "player-02"
+      );
+      state.removeFixedPartner(
+        "player-01",
+        "player-02"
+      );
+      const players =
+        useMatchStore.getState()
+          .players.map(
+            (player) => ({
+              ...player,
+              fixedPartner:
+                undefined,
+            })
+          );
+      useMatchStore
+        .getState()
+        .setPlayers(players);
+      const next =
+        useMatchStore.getState();
+
+      assert.equal(
+        next.fixedPartnerAssignments
+          .length,
+        0
+      );
+      assert.equal(
+        next.players.find(
+          (player) =>
+            player.id ===
+            "player-01"
+        ).fixedPartner,
+        undefined
+      );
+    }
+  );
+
+  run(
+    "운동 종료 후 다시 로그인해도 고정 파트너와 만나지 않기 설정 유지",
+    () => {
+      resetStore(8, 1);
+      const state =
+        useMatchStore.getState();
+      state.setFixedPartner(
+        "player-01",
+        "player-02"
+      );
+      state.addExcludedMatchPair(
+        "player-03",
+        "player-04"
+      );
+      const returningPlayers =
+        state.players.map(
+          (player) => ({
+            ...player,
+            status: "WAITING",
+            isPresent: true,
+          })
+        );
+      state.endTodaySession();
+      useMatchStore
+        .getState()
+        .setPlayers(
+          returningPlayers
+        );
+      const next =
+        useMatchStore.getState();
+
+      assert.equal(
+        next.players.find(
+          (player) =>
+            player.id ===
+            "player-01"
+        ).fixedPartner,
+        "player-02"
+      );
+      assert.deepEqual(
+        next.excludedMatchPairs,
+        [
+          [
+            "player-03",
+            "player-04",
+          ],
+        ]
+      );
+    }
+  );
+
+  run(
+    "미로그인 만나지 않기 대상은 대진에 없고 로그인 후에는 같은 경기 배치 차단",
+    () => {
+      resetStore(7, 1);
+      const state =
+        useMatchStore.getState();
+      state.addExcludedMatchPair(
+        "player-01",
+        "member-not-logged-in"
+      );
+      state.rerollRecommendations(
+        1
+      );
+      assert.equal(
+        useMatchStore
+          .getState()
+          .recommendations.flatMap(
+            (recommendation) => [
+              ...recommendation.teamA,
+              ...recommendation.teamB,
+            ]
+          )
+          .some(
+            (player) =>
+              player.id ===
+              "member-not-logged-in"
+          ),
+        false
+      );
+
+      const lateMember = {
+        ...makePlayer(20),
+        id: "member-not-logged-in",
+        name: "미로그인회원",
+      };
+      state.setPlayers([
+        ...useMatchStore
+          .getState().players,
+        lateMember,
+      ]);
+      state.rerollRecommendations(
+        1
+      );
+      const recommendations =
+        useMatchStore.getState()
+          .recommendations;
+
+      assert.equal(
+        recommendations.some(
+          (recommendation) => {
+            const ids = [
+              ...recommendation.teamA,
+              ...recommendation.teamB,
+            ].map(
+              (player) => player.id
+            );
+            return (
+              ids.includes(
+                "player-01"
+              ) &&
+              ids.includes(
+                "member-not-logged-in"
+              )
+            );
+          }
+        ),
+        false
+      );
+    }
+  );
+
+  run(
+    "만나지 않기 대상 두 명을 수동 대진에 함께 넣으면 거부",
+    () => {
+      resetStore(8, 1);
+      const state =
+        useMatchStore.getState();
+      state.addExcludedMatchPair(
+        "player-01",
+        "player-02"
+      );
+      const assigned =
+        state.assignManualMatch(
+          1,
+          [
+            "player-01",
+            "player-03",
+          ],
+          [
+            "player-02",
+            "player-04",
+          ]
+        );
+
+      assert.equal(
+        assigned,
+        false
+      );
+      assert.equal(
+        useMatchStore.getState()
+          .courts[0].status,
+        "EMPTY"
+      );
+    }
+  );
+
+  run(
+    "신규 참가자 20명이 로그인해도 기존 고정 파트너와 만나지 않기 설정 유지",
+    () => {
+      resetStore(10, 2);
+      const state =
+        useMatchStore.getState();
+      state.setFixedPartner(
+        "player-01",
+        "player-02"
+      );
+      state.addExcludedMatchPair(
+        "player-03",
+        "player-04"
+      );
+      let live =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+
+      for (
+        let index = 10;
+        index < 30;
+        index += 1
+      ) {
+        const newcomer =
+          makePlayer(index);
+        live =
+          mergeLiveStateSnapshot(
+            live,
+            {
+              ...live,
+              players: [
+                newcomer,
+              ],
+              courts: [],
+              fixedPartnerAssignments:
+                [],
+              excludedMatchPairs:
+                [],
+            },
+            "PLAYER",
+            newcomer.id
+          );
+      }
+
+      assert.equal(
+        live.fixedPartnerAssignments
+          .length,
+        1
+      );
+      assert.equal(
+        live.players.find(
+          (player) =>
+            player.id ===
+            "player-01"
+        ).fixedPartner,
+        "player-02"
+      );
+      assert.deepEqual(
+        live.excludedMatchPairs,
+        [
+          [
+            "player-03",
+            "player-04",
+          ],
+        ]
+      );
+    }
+  );
+
+  run(
     "여러 운영진이 같은 고정 파트너 신청을 동시에 승인해도 한 번만 적용",
     () => {
       resetStore(8, 1);
@@ -2503,6 +2890,338 @@ try {
         ).length,
         4
       );
+    }
+  );
+
+  run(
+    "30명·4코트에서 500회 무작위 동시 동작 후에도 핵심 상태 불변식 유지",
+    () => {
+      resetStore(30, 4);
+      let seed = 20260623;
+      const random = () => {
+        seed =
+          (
+            seed * 1664525 +
+            1013904223
+          ) %
+          4294967296;
+        return seed / 4294967296;
+      };
+      const pick = (items) =>
+        items[
+          Math.floor(
+            random() *
+              items.length
+          )
+        ];
+
+      for (
+        let operation = 0;
+        operation < 500;
+        operation += 1
+      ) {
+        const state =
+          useMatchStore.getState();
+        const emptyCourts =
+          state.courts.filter(
+            (court) =>
+              court.status ===
+              "EMPTY"
+          );
+        const playingCourts =
+          state.courts.filter(
+            (court) =>
+              court.status ===
+              "PLAYING"
+          );
+        const waitingPlayers =
+          state.players.filter(
+            (player) =>
+              player.status ===
+                "WAITING" &&
+              player.isPresent
+          );
+        const action =
+          Math.floor(
+            random() * 9
+          );
+
+        if (
+          action === 0 &&
+          emptyCourts.length > 0 &&
+          waitingPlayers.length >= 4
+        ) {
+          state.rerollRecommendations(
+            pick(emptyCourts).id
+          );
+          useMatchStore
+            .getState()
+            .approveRecommendation();
+        } else if (
+          action === 1 &&
+          emptyCourts.length > 0 &&
+          waitingPlayers.length >= 4
+        ) {
+          const selected =
+            waitingPlayers
+              .slice()
+              .sort(
+                () =>
+                  random() - 0.5
+              )
+              .slice(0, 4);
+          state.assignManualMatch(
+            pick(emptyCourts).id,
+            [
+              selected[0].id,
+              selected[1].id,
+            ],
+            [
+              selected[2].id,
+              selected[3].id,
+            ]
+          );
+        } else if (
+          action === 2 &&
+          playingCourts.length > 0
+        ) {
+          state.finishCourtMatch(
+            pick(playingCourts).id
+          );
+        } else if (
+          action === 3 &&
+          playingCourts.length > 0
+        ) {
+          const court =
+            pick(playingCourts);
+          const assigned = [
+            ...court.teamA,
+            ...court.teamB,
+          ];
+          const first =
+            pick(assigned);
+          const second =
+            pick(
+              assigned.filter(
+                (player) =>
+                  player.id !==
+                  first.id
+              )
+            );
+          state.swapCourtPlayers(
+            court.id,
+            first.id,
+            second.id
+          );
+        } else if (
+          action === 4 &&
+          playingCourts.length > 0 &&
+          waitingPlayers.length > 0
+        ) {
+          const court =
+            pick(playingCourts);
+          state.replaceCourtPlayer(
+            court.id,
+            pick([
+              ...court.teamA,
+              ...court.teamB,
+            ]).id,
+            pick(waitingPlayers).id
+          );
+        } else if (
+          action === 5 &&
+          state.players.length > 0
+        ) {
+          const source =
+            pick(state.players);
+          const merged =
+            mergeLiveStateSnapshot(
+              createLiveStateSnapshot(
+                state
+              ),
+              {
+                ...createLiveStateSnapshot(
+                  state
+                ),
+                players: [
+                  {
+                    ...source,
+                  },
+                ],
+                courts: [],
+              },
+              "PLAYER",
+              source.id
+            );
+          useMatchStore.setState(
+            merged
+          );
+        } else if (
+          action === 6 &&
+          waitingPlayers.length > 0
+        ) {
+          const source =
+            pick(waitingPlayers);
+          const current =
+            createLiveStateSnapshot(
+              state
+            );
+          const merged =
+            mergeLiveStateSnapshot(
+              current,
+              {
+                ...current,
+                players: [
+                  {
+                    ...source,
+                    status: "LEFT",
+                    isPresent: false,
+                  },
+                ],
+              },
+              "PLAYER",
+              source.id
+            );
+          useMatchStore.setState(
+            merged
+          );
+        } else if (
+          action === 7 &&
+          state.players.length >= 2
+        ) {
+          const first =
+            pick(state.players);
+          const second =
+            pick(
+              state.players.filter(
+                (player) =>
+                  player.id !==
+                  first.id
+              )
+            );
+          state.setFixedPartner(
+            first.id,
+            second.id
+          );
+        } else if (
+          action === 8 &&
+          waitingPlayers.length >= 2
+        ) {
+          const first =
+            pick(waitingPlayers);
+          const second =
+            pick(
+              waitingPlayers.filter(
+                (player) =>
+                  player.id !==
+                  first.id
+              )
+            );
+          state.addExcludedMatchPair(
+            first.id,
+            second.id
+          );
+        }
+
+        const next =
+          useMatchStore.getState();
+        const assignedIds =
+          next.courts.flatMap(
+            (court) =>
+              court.status ===
+                "PLAYING"
+                ? [
+                    ...court.teamA,
+                    ...court.teamB,
+                  ].map(
+                    (player) =>
+                      player.id
+                  )
+                : []
+          );
+        const playingIds =
+          next.players
+            .filter(
+              (player) =>
+                player.status ===
+                "PLAYING"
+            )
+            .map(
+              (player) =>
+                player.id
+            )
+            .sort();
+        const assignmentMemberIds =
+          next.fixedPartnerAssignments.flatMap(
+            (assignment) => [
+              assignment.playerAId,
+              assignment.playerBId,
+            ]
+          );
+
+        assert.equal(
+          new Set(
+            next.players.map(
+              (player) =>
+                player.id
+            )
+          ).size,
+          next.players.length,
+          `${operation}번째 동작 후 참가자 중복`
+        );
+        assert.equal(
+          new Set(assignedIds).size,
+          assignedIds.length,
+          `${operation}번째 동작 후 복수 코트 배정`
+        );
+        assert.deepEqual(
+          [...assignedIds].sort(),
+          playingIds,
+          `${operation}번째 동작 후 코트와 PLAYING 상태 불일치`
+        );
+        assert.equal(
+          new Set(
+            assignmentMemberIds
+          ).size,
+          assignmentMemberIds.length,
+          `${operation}번째 동작 후 고정 파트너 중복 관계`
+        );
+        next.courts
+          .filter(
+            (court) =>
+              court.status ===
+              "PLAYING"
+          )
+          .forEach((court) => {
+            const courtPlayerIds =
+              new Set(
+                [
+                  ...court.teamA,
+                  ...court.teamB,
+                ].map(
+                  (player) =>
+                    player.id
+                )
+              );
+
+            assert.equal(
+              next.excludedMatchPairs.some(
+                ([
+                  playerAId,
+                  playerBId,
+                ]) =>
+                  courtPlayerIds.has(
+                    playerAId
+                  ) &&
+                  courtPlayerIds.has(
+                    playerBId
+                  )
+              ),
+              false,
+              `${operation}번째 동작 후 만나지 않기 대상이 같은 코트에 배정`
+            );
+          });
+      }
     }
   );
 
