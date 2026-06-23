@@ -24,6 +24,9 @@ import {
 import {
   uniqueByUserId,
 } from "@/utils/participants";
+import {
+  runLocalOnlyMutation,
+} from "@/services/localStateMutationGuard";
 
 export default function PlayerPage() {
   const navigate =
@@ -154,10 +157,12 @@ export default function PlayerPage() {
               );
 
           if (newPlayers.length > 0) {
-            setPlayers([
-              ...currentPlayers,
-              ...newPlayers,
-            ]);
+            runLocalOnlyMutation(() => {
+              setPlayers([
+                ...currentPlayers,
+                ...newPlayers,
+              ]);
+            });
           }
 
           return;
@@ -199,7 +204,9 @@ export default function PlayerPage() {
             })
           );
 
-        setPlayers(playerList);
+        runLocalOnlyMutation(() => {
+          setPlayers(playerList);
+        });
       })
       .catch(console.error);
   }, [

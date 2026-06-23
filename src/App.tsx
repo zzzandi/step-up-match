@@ -4,7 +4,6 @@ import {
   type ReactElement,
   useCallback,
   useEffect,
-  useRef,
 } from "react";
 import {
   Navigate,
@@ -66,6 +65,10 @@ import type {
 import {
   getDashboardDateAction,
 } from "@/services/dashboardDateRollover";
+import {
+  isLocalOnlyMutationActive,
+  runLocalOnlyMutationAsync,
+} from "@/services/localStateMutationGuard";
 
 const AdminPage =
   lazy(() => import("@/pages/AdminPage"));
@@ -307,19 +310,12 @@ function App() {
     useNavigate();
   const accessSession =
     useAccessSession();
-  const suppressLiveSnapshotRef =
-    useRef(false);
 
   const recoverDashboardLocally =
     useCallback(async () => {
-      suppressLiveSnapshotRef.current =
-        true;
-      try {
-        return await recoverOpenWorkoutDashboard();
-      } finally {
-        suppressLiveSnapshotRef.current =
-          false;
-      }
+      return runLocalOnlyMutationAsync(
+        recoverOpenWorkoutDashboard
+      );
     }, []);
 
   useEffect(() => {
@@ -595,6 +591,25 @@ function App() {
 
           if (
             event.type ===
+            "WORKOUT_CLOSED"
+          ) {
+            if (
+              event.workoutDate ===
+              getWorkoutDateKey()
+            ) {
+              useMatchStore
+                .getState()
+                .endTodaySession();
+              window.localStorage.setItem(
+                DASHBOARD_DATE_KEY,
+                getWorkoutDateKey()
+              );
+            }
+            return;
+          }
+
+          if (
+            event.type ===
             "END_TODAY"
           ) {
             useMatchStore
@@ -638,7 +653,7 @@ function App() {
           if (
             applyingRemoteSnapshot
             ||
-            suppressLiveSnapshotRef.current
+            isLocalOnlyMutationActive()
             ||
             (
               session &&

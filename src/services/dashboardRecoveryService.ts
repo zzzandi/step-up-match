@@ -2,6 +2,9 @@ import {
   getActiveWorkoutAttendanceList,
 } from "@/services/attendanceService";
 import {
+  isWorkoutOpen,
+} from "@/services/workoutSessionService";
+import {
   useMatchStore,
 } from "@/store/useMatchStore";
 import type {
@@ -182,6 +185,16 @@ export function createDefaultCourts() {
 }
 
 export async function recoverOpenWorkoutDashboard() {
+  const open =
+    await isWorkoutOpen();
+
+  if (!open) {
+    useMatchStore
+      .getState()
+      .endTodaySession();
+    return false;
+  }
+
   const attendance =
     await getActiveWorkoutAttendanceList();
 

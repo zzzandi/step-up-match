@@ -26,6 +26,9 @@ import {
   uniqueByUserId,
 } from "@/utils/participants";
 import {
+  runLocalOnlyMutation,
+} from "@/services/localStateMutationGuard";
+import {
   getKstDateKey,
   isWorkoutOpen,
   openWorkout,
@@ -649,7 +652,9 @@ console.log(
         }
       );
 
-      setPlayers(refreshedPlayers);
+      runLocalOnlyMutation(() => {
+        setPlayers(refreshedPlayers);
+      });
     } catch (error) {
       console.error(error);
     }
@@ -751,10 +756,12 @@ console.log(
                     );
               
                 if (newPlayers.length > 0) {
-                  setPlayers([
-                    ...players,
-                    ...newPlayers,
-                  ]);
+                  runLocalOnlyMutation(() => {
+                    setPlayers([
+                      ...players,
+                      ...newPlayers,
+                    ]);
+                  });
                 }
               
                 return;
@@ -793,34 +800,38 @@ console.log(
       undefined,
   }));
       
-            setPlayers(playerList);
+            runLocalOnlyMutation(() => {
+              setPlayers(playerList);
+            });
       
             if (
               courts.length === 0
             ) {
-              setCourts([
-                {
-                  id: 1,
-                  status: "EMPTY",
-                  teamA: null,
-                  teamB: null,
-                  startedAt: null,
-                },
-                {
-                  id: 2,
-                  status: "EMPTY",
-                  teamA: null,
-                  teamB: null,
-                  startedAt: null,
-                },
-                {
-                  id: 3,
-                  status: "EMPTY",
-                  teamA: null,
-                  teamB: null,
-                  startedAt: null,
-                },
-              ]);
+              runLocalOnlyMutation(() => {
+                setCourts([
+                  {
+                    id: 1,
+                    status: "EMPTY",
+                    teamA: null,
+                    teamB: null,
+                    startedAt: null,
+                  },
+                  {
+                    id: 2,
+                    status: "EMPTY",
+                    teamA: null,
+                    teamB: null,
+                    startedAt: null,
+                  },
+                  {
+                    id: 3,
+                    status: "EMPTY",
+                    teamA: null,
+                    teamB: null,
+                    startedAt: null,
+                  },
+                ]);
+              });
             }
           })
           .catch(console.error);
