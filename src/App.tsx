@@ -276,6 +276,7 @@ async function activatePendingParticipant() {
     lastOpponents:
       existing?.lastOpponents ?? [],
     fixedPartner:
+      user.fixed_partner_id ??
       existing?.fixedPartner,
   };
 

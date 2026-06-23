@@ -241,9 +241,43 @@ export const useMatchStore =
       setPlayers: (
         players
       ) => {
-        const assignments =
+        const storedAssignments =
           get()
             .fixedPartnerAssignments;
+        const incomingAssignments =
+          players
+            .filter(
+              (player) =>
+                player.fixedPartner
+            )
+            .map((player) => {
+              const pair = [
+                player.id,
+                player.fixedPartner!,
+              ].sort();
+
+              return {
+                id: pair.join("|"),
+                playerAId: pair[0],
+                playerBId: pair[1],
+                approvedAt:
+                  new Date(0).toISOString(),
+              };
+            });
+        const assignments =
+          Array.from(
+            new Map(
+              [
+                ...storedAssignments,
+                ...incomingAssignments,
+              ].map(
+                (assignment) => [
+                  assignment.id,
+                  assignment,
+                ]
+              )
+            ).values()
+          );
         const partnerByPlayer =
           new Map<string, string>();
 
@@ -261,6 +295,8 @@ export const useMatchStore =
         );
 
         set({
+          fixedPartnerAssignments:
+            assignments,
           players:
             uniquePlayers(
               players

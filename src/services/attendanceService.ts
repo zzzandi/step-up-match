@@ -28,7 +28,8 @@ export async function getTodayAttendanceList() {
           name,
           gender,
           grade,
-          hidden_skill
+          hidden_skill,
+          fixed_partner_id
         )
       `)
       .eq(
@@ -104,7 +105,8 @@ export async function getAttendanceListByDate(
           name,
           gender,
           grade,
-          hidden_skill
+          hidden_skill,
+          fixed_partner_id
         )
       `)
       .eq(

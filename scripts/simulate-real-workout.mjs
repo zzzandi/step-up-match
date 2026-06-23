@@ -1962,6 +1962,48 @@ try {
   );
 
   run(
+    "새 기기가 서버 회원 정보의 고정 파트너를 불러오면 양방향 관계 복원",
+    () => {
+      resetStore(0, 1);
+      const playerA = {
+        ...makePlayer(0),
+        fixedPartner:
+          "player-02",
+      };
+      const playerB = {
+        ...makePlayer(1),
+        fixedPartner:
+          "player-01",
+      };
+
+      useMatchStore
+        .getState()
+        .setPlayers([
+          playerA,
+          playerB,
+        ]);
+      const next =
+        useMatchStore.getState();
+
+      assert.equal(
+        next.fixedPartnerAssignments
+          .length,
+        1
+      );
+      assert.equal(
+        next.players[0]
+          .fixedPartner,
+        "player-02"
+      );
+      assert.equal(
+        next.players[1]
+          .fixedPartner,
+        "player-01"
+      );
+    }
+  );
+
+  run(
     "운동 종료 후 다시 로그인해도 고정 파트너와 만나지 않기 설정 유지",
     () => {
       resetStore(8, 1);

@@ -146,6 +146,10 @@ export default function PlayerPage() {
                     ),
                   lastPartners: [],
                   lastOpponents: [],
+                  fixedPartner:
+                    attendance.users
+                      .fixed_partner_id ??
+                    undefined,
                 })
               );
 
@@ -188,6 +192,10 @@ export default function PlayerPage() {
                 ),
               lastPartners: [],
               lastOpponents: [],
+              fixedPartner:
+                attendance.users
+                  .fixed_partner_id ??
+                undefined,
             })
           );
 

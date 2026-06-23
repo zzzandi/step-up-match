@@ -131,6 +131,76 @@ export async function getUserById(
   return data;
 }
 
+export async function saveFixedPartner({
+  playerAId,
+  playerBId,
+}: {
+  playerAId: string;
+  playerBId: string;
+}) {
+  ensureSupabaseConfigured();
+
+  const { error: clearError } =
+    await supabase
+      .from("users")
+      .update({
+        fixed_partner_id: null,
+      })
+      .or(
+        `id.in.(${playerAId},${playerBId}),fixed_partner_id.in.(${playerAId},${playerBId})`
+      );
+
+  if (clearError) {
+    throw clearError;
+  }
+
+  for (const [
+    id,
+    fixedPartnerId,
+  ] of [
+    [playerAId, playerBId],
+    [playerBId, playerAId],
+  ]) {
+    const { error } =
+      await supabase
+        .from("users")
+        .update({
+          fixed_partner_id:
+            fixedPartnerId,
+        })
+        .eq("id", id);
+
+    if (error) {
+      throw error;
+    }
+  }
+}
+
+export async function clearFixedPartner({
+  playerAId,
+  playerBId,
+}: {
+  playerAId: string;
+  playerBId: string;
+}) {
+  ensureSupabaseConfigured();
+
+  const { error } =
+    await supabase
+      .from("users")
+      .update({
+        fixed_partner_id: null,
+      })
+      .in("id", [
+        playerAId,
+        playerBId,
+      ]);
+
+  if (error) {
+    throw error;
+  }
+}
+
 export async function getOrCreateUser({
   name,
   gender,

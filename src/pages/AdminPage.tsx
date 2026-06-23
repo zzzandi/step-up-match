@@ -40,6 +40,8 @@ import {
   ensureTodayCheckIn,
   getOrCreateUser,
   getUsers,
+  clearFixedPartner,
+  saveFixedPartner,
 } from "@/services/supabaseUserService";
 import {
   getTestRosterDate,
@@ -56,6 +58,7 @@ interface TestAttendanceUser {
   gender?: "M" | "F" | null;
   grade?: Player["grade"] | null;
   hidden_skill?: number | null;
+  fixed_partner_id?: string | null;
 }
 
 interface TestAttendanceRow {
@@ -640,6 +643,10 @@ console.log(
                     ),
                   lastPartners: [],
                   lastOpponents: [],
+                  fixedPartner:
+                    attendance.users
+                      .fixed_partner_id ??
+                    undefined,
                 });
           }
         }
@@ -739,6 +746,10 @@ console.log(
                         lastPartners: [],
               
                         lastOpponents: [],
+                        fixedPartner:
+                          attendance.users
+                            .fixed_partner_id ??
+                          undefined,
                       })
                     );
               
@@ -779,6 +790,10 @@ console.log(
       ),
     lastPartners: [],
     lastOpponents: [],
+    fixedPartner:
+      attendance.users
+        .fixed_partner_id ??
+      undefined,
   }));
       
             setPlayers(playerList);
@@ -942,6 +957,7 @@ console.log(
           existingPlayer?.lastOpponents ??
           [],
         fixedPartner:
+          user.fixed_partner_id ??
           existingPlayer?.fixedPartner,
       };
 
@@ -1057,6 +1073,7 @@ console.log(
         | "F"
         | null;
       hidden_skill?: number | null;
+      fixed_partner_id?: string | null;
     }) => {
       try {
         if (testMode.active) {
@@ -1121,6 +1138,7 @@ console.log(
             existingPlayer?.lastOpponents ??
             [],
           fixedPartner:
+            member.fixed_partner_id ??
             existingPlayer?.fixedPartner,
         };
 
@@ -1217,6 +1235,15 @@ console.log(
         return;
       }
 
+      void clearFixedPartner({
+        playerAId: playerId,
+        playerBId: partnerId,
+      }).catch((error) => {
+        console.error(error);
+        window.alert(
+          "고정 파트너 해제를 서버에 저장하지 못했습니다."
+        );
+      });
       removeFixedPartner(
         playerId,
         partnerId
@@ -1260,6 +1287,15 @@ console.log(
         playerAId,
         playerBId
       );
+      void saveFixedPartner({
+        playerAId,
+        playerBId,
+      }).catch((error) => {
+        console.error(error);
+        window.alert(
+          "고정 파트너를 서버에 저장하지 못했습니다."
+        );
+      });
 
       if (playerA) {
         addNotification({
@@ -2045,6 +2081,21 @@ console.log(
 
                           approveFixedPartnerRequest(
                             request.id
+                          );
+                          void saveFixedPartner({
+                            playerAId:
+                              request.requesterId,
+                            playerBId:
+                              request.partnerId,
+                          }).catch(
+                            (error) => {
+                              console.error(
+                                error
+                              );
+                              window.alert(
+                                "고정 파트너 승인을 서버에 저장하지 못했습니다."
+                              );
+                            }
                           );
                         }}
                         className="
