@@ -52,7 +52,6 @@ import {
   getUserById,
 } from "@/services/supabaseUserService";
 import {
-  closeWorkout,
   getKstDateKey as getWorkoutDateKey,
   isWorkoutOpen,
 } from "@/services/workoutSessionService";
@@ -62,6 +61,9 @@ import {
 import type {
   Player,
 } from "@/types/player";
+import {
+  getDashboardDateAction,
+} from "@/services/dashboardDateRollover";
 
 const AdminPage =
   lazy(() => import("@/pages/AdminPage"));
@@ -84,34 +86,6 @@ const ParticipantsPage =
 
 const DASHBOARD_DATE_KEY =
   "step-up-match-dashboard-date";
-
-function getMillisecondsUntilKstMidnight() {
-  const now = new Date();
-  const kstNow = new Date(
-    now.toLocaleString(
-      "en-US",
-      {
-        timeZone:
-          "Asia/Seoul",
-      }
-    )
-  );
-  const nextMidnight =
-    new Date(kstNow);
-
-  nextMidnight.setHours(
-    24,
-    0,
-    0,
-    0
-  );
-
-  return Math.max(
-    1000,
-    nextMidnight.getTime() -
-      kstNow.getTime()
-  );
-}
 
 function ProtectedRoute({
   role,
@@ -339,22 +313,25 @@ function App() {
       window.localStorage.getItem(
         DASHBOARD_DATE_KEY
       );
-
-    if (
-      storedDate &&
-      storedDate !== todayKey
-    ) {
-      useMatchStore
-        .getState()
-        .endTodaySession();
-      clearAccessSession();
-      navigate("/");
-    }
+    const action =
+      getDashboardDateAction(
+        storedDate,
+        todayKey
+      );
 
     window.localStorage.setItem(
       DASHBOARD_DATE_KEY,
       todayKey
     );
+
+    if (
+      action === "RECOVER" &&
+      getAccessSession() &&
+      !getTestModeState().active
+    ) {
+      void recoverOpenWorkoutDashboard()
+        .catch(console.error);
+    }
   }, [navigate]);
 
   useEffect(() => {
@@ -809,33 +786,6 @@ function App() {
     accessSession?.userId,
     accessSession?.participationMode,
   ]);
-
-  useEffect(() => {
-    let timer = 0;
-
-    function scheduleNextMidnight() {
-      timer =
-        window.setTimeout(() => {
-          void closeWorkout(
-            getWorkoutDateKey()
-          );
-          publishLiveSessionEvent({
-            type: "END_TODAY",
-            reason: "MIDNIGHT",
-          });
-          publishLiveSessionEvent({
-            type: "FORCE_LOGOUT",
-            reason: "END_TODAY",
-          });
-          scheduleNextMidnight();
-        }, getMillisecondsUntilKstMidnight());
-    }
-
-    scheduleNextMidnight();
-
-    return () =>
-      window.clearTimeout(timer);
-  }, []);
 
   return (
     <Suspense

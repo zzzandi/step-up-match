@@ -12,6 +12,7 @@
     "test:live-state": "node --experimental-strip-types scripts/verify-live-state.ts",
     "test:preworkout-queue": "node --experimental-strip-types scripts/verify-preworkout-queue.ts",
     "test:persisted-state": "node --experimental-strip-types scripts/verify-persisted-state.ts",
+    "test:dashboard-date": "node --experimental-strip-types scripts/verify-dashboard-date-rollover.ts",
     "test:real-workout": "node scripts/simulate-real-workout.mjs",
     "preview": "vite preview"
   },
