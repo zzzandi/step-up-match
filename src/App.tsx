@@ -82,18 +82,6 @@ const ParticipantsPage =
 const DASHBOARD_DATE_KEY =
   "step-up-match-dashboard-date";
 
-function getKstDateKey() {
-  return new Intl.DateTimeFormat(
-    "en-CA",
-    {
-      timeZone: "Asia/Seoul",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }
-  ).format(new Date());
-}
-
 function getMillisecondsUntilKstMidnight() {
   const now = new Date();
   const kstNow = new Date(
@@ -343,7 +331,7 @@ function App() {
 
   useEffect(() => {
     const todayKey =
-      getKstDateKey();
+      getWorkoutDateKey();
     const storedDate =
       window.localStorage.getItem(
         DASHBOARD_DATE_KEY
@@ -614,7 +602,7 @@ function App() {
             clearAccessSession();
             window.localStorage.setItem(
               DASHBOARD_DATE_KEY,
-              getKstDateKey()
+              getWorkoutDateKey()
             );
             navigate("/");
             return;

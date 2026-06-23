@@ -5,18 +5,12 @@ import {
 import {
   isActiveAttendance,
 } from "@/utils/attendanceState";
+import {
+  getKstDateKey,
+} from "@/utils/kstDate";
 
 export async function getTodayAttendanceList() {
-  const today =
-    new Intl.DateTimeFormat(
-      "en-CA",
-      {
-        timeZone: "Asia/Seoul",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }
-    ).format(new Date());
+  const today = getKstDateKey();
 
   const { data, error } =
     await supabase

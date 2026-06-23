@@ -2,21 +2,14 @@ import {
   isSupabaseConfigured,
   supabase,
 } from "@/lib/supabase";
+import {
+  getKstDateKey,
+} from "@/utils/kstDate";
 
 const SESSION_ID =
   "c3112be7-3e3d-4db4-9850-2ff305095a76";
 
-export function getKstDateKey() {
-  return new Intl.DateTimeFormat(
-    "en-CA",
-    {
-      timeZone: "Asia/Seoul",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }
-  ).format(new Date());
-}
+export { getKstDateKey };
 
 function ensureConfigured() {
   if (!isSupabaseConfigured) {
