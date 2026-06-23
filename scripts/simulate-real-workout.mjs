@@ -3385,6 +3385,137 @@ try {
     }
   );
 
+  run(
+    "운동 개설 직후 지연된 빈 운영진 응답이 도착해도 참가자·코트·설정 유지",
+    () => {
+      resetStore(12, 3);
+      const liveState =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const merged =
+        mergeLiveStateSnapshot(
+          liveState,
+          {
+            ...liveState,
+            players: [],
+            courts: [],
+            fixedPartnerRequests:
+              [],
+            fixedPartnerAssignments:
+              [],
+            fixedPartnerRequestResolutions:
+              [],
+            notifications: [],
+            matchHistory: [],
+            womenDoublesPriority:
+              false,
+            excludedMatchPairs:
+              [],
+          },
+          "ADMIN"
+        );
+
+      useMatchStore.setState(
+        merged
+      );
+      const next =
+        useMatchStore.getState();
+
+      assert.equal(
+        next.players.length,
+        12
+      );
+      assert.equal(
+        next.courts.length,
+        3
+      );
+    }
+  );
+
+  run(
+    "지연된 빈 응답 직후 수동 대진을 생성해도 전체 정보가 사라지지 않음",
+    () => {
+      resetStore(12, 3);
+      const before =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const merged =
+        mergeLiveStateSnapshot(
+          before,
+          {
+            ...before,
+            players: [],
+            courts: [],
+            fixedPartnerRequests:
+              [],
+            fixedPartnerAssignments:
+              [],
+            fixedPartnerRequestResolutions:
+              [],
+            notifications: [],
+            matchHistory: [],
+            womenDoublesPriority:
+              false,
+            excludedMatchPairs:
+              [],
+          },
+          "MASTER"
+        );
+
+      useMatchStore.setState(
+        merged
+      );
+      const waiting =
+        useMatchStore
+          .getState()
+          .players.filter(
+            (player) =>
+              player.status ===
+              "WAITING"
+          );
+      const assigned =
+        useMatchStore
+          .getState()
+          .assignManualMatch(
+            1,
+            [
+              waiting[0].id,
+              waiting[1].id,
+            ],
+            [
+              waiting[2].id,
+              waiting[3].id,
+            ]
+          );
+      const next =
+        useMatchStore.getState();
+
+      assert.equal(assigned, true);
+      assert.equal(
+        next.players.length,
+        12
+      );
+      assert.equal(
+        next.courts.length,
+        3
+      );
+      assert.equal(
+        next.courts[0].status,
+        "PLAYING"
+      );
+      assert.equal(
+        next.players.filter(
+          (player) =>
+            player.status ===
+            "PLAYING"
+        ).length,
+        4
+      );
+    }
+  );
+
   console.log(
     `real-workout simulation: PASS (${results.length} scenarios)`
   );

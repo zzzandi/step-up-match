@@ -486,6 +486,119 @@ function applyFixedPartners(
   };
 }
 
+function mergeBootstrapSnapshots(
+  current: LiveStateSnapshot,
+  incoming: LiveStateSnapshot
+) {
+  const currentHasLiveState =
+    current.players.length > 0 ||
+    current.courts.length > 0 ||
+    current.fixedPartnerRequests
+      .length > 0 ||
+    current.fixedPartnerAssignments
+      .length > 0 ||
+    current.matchHistory.length > 0 ||
+    current.excludedMatchPairs.length >
+      0;
+
+  if (!currentHasLiveState) {
+    return incoming;
+  }
+
+  const currentCourtById =
+    new Map(
+      current.courts.map(
+        (court) => [
+          court.id,
+          court,
+        ]
+      )
+    );
+  const courts =
+    current.courts.slice();
+
+  incoming.courts.forEach(
+    (incomingCourt) => {
+      const currentCourt =
+        currentCourtById.get(
+          incomingCourt.id
+        );
+
+      if (!currentCourt) {
+        courts.push(incomingCourt);
+      }
+    }
+  );
+
+  const excludedPairs =
+    new Map(
+      current.excludedMatchPairs.map(
+        (pair) => [
+          excludedPairKey(pair),
+          pair,
+        ]
+      )
+    );
+
+  incoming.excludedMatchPairs.forEach(
+    (pair) =>
+      excludedPairs.set(
+        excludedPairKey(pair),
+        pair
+      )
+  );
+
+  return {
+    ...current,
+    players: mergeById(
+      incoming.players,
+      current.players
+    ),
+    courts,
+    fixedPartnerRequests:
+      dedupeFixedPartnerRequests(
+        mergeById(
+          incoming.fixedPartnerRequests,
+          current.fixedPartnerRequests
+        )
+      ),
+    fixedPartnerAssignments:
+      reconcileFixedPartnerAssignments(
+        mergeById(
+          incoming.fixedPartnerAssignments,
+          current.fixedPartnerAssignments
+        )
+      ),
+    fixedPartnerRequestResolutions:
+      mergeById(
+        incoming.fixedPartnerRequestResolutions,
+        current.fixedPartnerRequestResolutions
+      ),
+    notifications:
+      dedupeNotifications(
+        mergeById(
+          incoming.notifications,
+          current.notifications
+        )
+      ),
+    matchHistory:
+      dedupeMatchHistory(
+        mergeById(
+          incoming.matchHistory,
+          current.matchHistory,
+          true
+        )
+      ),
+    womenDoublesPriority:
+      current.womenDoublesPriority ||
+      incoming.womenDoublesPriority,
+    excludedMatchPairs:
+      Array.from(
+        excludedPairs.values()
+      ),
+  };
+}
+
 function dedupeMatchHistory(
   histories:
     LiveStateSnapshot["matchHistory"]
@@ -692,9 +805,14 @@ export function mergeLiveStateSnapshot(
     sourceRole === "MASTER"
   ) {
     if (!patch) {
-      return applyFixedPartners(
-        reconcilePlayingPlayers(
-          incoming
+      return filterResolvedPartnerRequests(
+        applyFixedPartners(
+          reconcilePlayingPlayers(
+            mergeBootstrapSnapshots(
+              current,
+              incoming
+            )
+          )
         )
       );
     }

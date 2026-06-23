@@ -308,6 +308,124 @@ for (const role of [
   );
 }
 
+for (const role of [
+  "ADMIN",
+  "MASTER",
+] as const) {
+  const result =
+    mergeLiveStateSnapshot(
+      live,
+      snapshot({
+        players: [],
+        courts: [],
+        fixedPartnerRequests: [],
+        fixedPartnerAssignments:
+          [],
+        fixedPartnerRequestResolutions:
+          [],
+        notifications: [],
+        matchHistory: [],
+        womenDoublesPriority:
+          false,
+        excludedMatchPairs: [],
+      }),
+      role
+    );
+
+  assert.deepEqual(
+    result.players.map(
+      (item) => item.id
+    ),
+    live.players.map(
+      (item) => item.id
+    ),
+    `${role}의 지연된 빈 전체 응답이 현재 참가자를 삭제하면 안 됩니다.`
+  );
+  assert.deepEqual(
+    result.courts,
+    live.courts,
+    `${role}의 지연된 빈 전체 응답이 현재 코트와 대진을 삭제하면 안 됩니다.`
+  );
+  assert.deepEqual(
+    result.fixedPartnerRequests,
+    live.fixedPartnerRequests,
+    `${role}의 지연된 빈 전체 응답이 고정 파트너 신청을 삭제하면 안 됩니다.`
+  );
+  assert.deepEqual(
+    result.excludedMatchPairs,
+    live.excludedMatchPairs,
+    `${role}의 지연된 빈 전체 응답이 매칭 제외 설정을 삭제하면 안 됩니다.`
+  );
+}
+
+const emptyRequesterResult =
+  mergeLiveStateSnapshot(
+    snapshot({
+      players: [],
+      courts: [],
+      fixedPartnerRequests: [],
+      fixedPartnerAssignments: [],
+      fixedPartnerRequestResolutions:
+        [],
+      notifications: [],
+      matchHistory: [],
+      womenDoublesPriority: false,
+      excludedMatchPairs: [],
+    }),
+    live,
+    "MASTER"
+  );
+
+assert.deepEqual(
+  emptyRequesterResult.courts,
+  live.courts,
+  "상태가 없는 신규 기기는 운영 중인 코트와 대진을 복구해야 합니다."
+);
+assert.deepEqual(
+  emptyRequesterResult.players.map(
+    (item) => item.id
+  ),
+  live.players.map(
+    (item) => item.id
+  ),
+  "상태가 없는 신규 기기는 현재 참가자를 복구해야 합니다."
+);
+
+const finishedCourtState =
+  snapshot({
+    courts: [
+      {
+        id: 1,
+        status: "EMPTY",
+        teamA: null,
+        teamB: null,
+        startedAt: null,
+      },
+    ],
+    players: live.players.map(
+      (item) => ({
+        ...item,
+        status:
+          "WAITING" as const,
+        playingStartedAt:
+          undefined,
+      })
+    ),
+  });
+const stalePlayingResult =
+  mergeLiveStateSnapshot(
+    finishedCourtState,
+    live,
+    "ADMIN"
+  );
+
+assert.equal(
+  stalePlayingResult.courts[0]
+    .status,
+  "EMPTY",
+  "지연된 전체 응답이 이미 종료된 경기를 다시 진행 중으로 되살리면 안 됩니다."
+);
+
 const localUiState = {
   ...live,
   recommendations: [],
@@ -341,5 +459,5 @@ assert.deepEqual(
 );
 
 console.log(
-  "live-state regression scenarios: PASS (9)"
+  "live-state regression scenarios: PASS (16)"
 );

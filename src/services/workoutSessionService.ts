@@ -62,7 +62,31 @@ export async function openWorkout(
       workoutDate
     )
   ) {
-    return false;
+    const {
+      data: existingMarker,
+      error: existingMarkerError,
+    } = await supabase
+      .from("attendances")
+      .select("*")
+      .eq(
+        "attendance_date",
+        workoutDate
+      )
+      .eq("status", "OPEN")
+      .order("arrival_time", {
+        ascending: true,
+      })
+      .order("id", {
+        ascending: true,
+      })
+      .limit(1)
+      .single();
+
+    if (existingMarkerError) {
+      throw existingMarkerError;
+    }
+
+    return existingMarker;
   }
 
   const { data, error } =
