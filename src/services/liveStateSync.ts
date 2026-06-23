@@ -8,6 +8,8 @@ export type LiveStateSnapshot = Pick<
   | "players"
   | "courts"
   | "fixedPartnerRequests"
+  | "fixedPartnerAssignments"
+  | "fixedPartnerRequestResolutions"
   | "notifications"
   | "matchHistory"
   | "womenDoublesPriority"
@@ -21,6 +23,8 @@ export type LiveStateEntityKey =
   | "players"
   | "courts"
   | "fixedPartnerRequests"
+  | "fixedPartnerAssignments"
+  | "fixedPartnerRequestResolutions"
   | "notifications"
   | "matchHistory";
 
@@ -80,6 +84,10 @@ export function createLiveStateSnapshot(
     courts: state.courts,
     fixedPartnerRequests:
       state.fixedPartnerRequests,
+    fixedPartnerAssignments:
+      state.fixedPartnerAssignments,
+    fixedPartnerRequestResolutions:
+      state.fixedPartnerRequestResolutions,
     notifications:
       state.notifications,
     matchHistory:
@@ -96,6 +104,8 @@ const liveStateKeys: LiveStateKey[] =
     "players",
     "courts",
     "fixedPartnerRequests",
+    "fixedPartnerAssignments",
+    "fixedPartnerRequestResolutions",
     "notifications",
     "matchHistory",
     "womenDoublesPriority",
@@ -107,6 +117,8 @@ const entityKeys:
     "players",
     "courts",
     "fixedPartnerRequests",
+    "fixedPartnerAssignments",
+    "fixedPartnerRequestResolutions",
     "notifications",
     "matchHistory",
   ];
@@ -361,6 +373,119 @@ function dedupeFixedPartnerRequests(
   );
 }
 
+function reconcileFixedPartnerAssignments(
+  assignments:
+    LiveStateSnapshot["fixedPartnerAssignments"]
+) {
+  const usedPlayerIds =
+    new Set<string>();
+
+  return assignments
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(
+          a.approvedAt
+        ).getTime() -
+          new Date(
+            b.approvedAt
+          ).getTime() ||
+        a.id.localeCompare(b.id)
+    )
+    .filter((assignment) => {
+      if (
+        usedPlayerIds.has(
+          assignment.playerAId
+        ) ||
+        usedPlayerIds.has(
+          assignment.playerBId
+        )
+      ) {
+        return false;
+      }
+
+      usedPlayerIds.add(
+        assignment.playerAId
+      );
+      usedPlayerIds.add(
+        assignment.playerBId
+      );
+      return true;
+    });
+}
+
+function filterResolvedPartnerRequests(
+  snapshot: LiveStateSnapshot
+) {
+  const resolvedIds =
+    new Set(
+      snapshot.fixedPartnerRequestResolutions.map(
+        (resolution) =>
+          resolution.requestId
+      )
+    );
+  const assignedPlayerIds =
+    new Set(
+      snapshot.fixedPartnerAssignments.flatMap(
+        (assignment) => [
+          assignment.playerAId,
+          assignment.playerBId,
+        ]
+      )
+    );
+
+  return {
+    ...snapshot,
+    fixedPartnerRequests:
+      snapshot.fixedPartnerRequests.filter(
+        (request) =>
+          !resolvedIds.has(
+            request.id
+          ) &&
+          !assignedPlayerIds.has(
+            request.requesterId
+          ) &&
+          !assignedPlayerIds.has(
+            request.partnerId
+          )
+      ),
+  };
+}
+
+function applyFixedPartners(
+  snapshot: LiveStateSnapshot
+) {
+  const partnerByPlayer =
+    new Map<string, string>();
+
+  snapshot.fixedPartnerAssignments.forEach(
+    (assignment) => {
+      partnerByPlayer.set(
+        assignment.playerAId,
+        assignment.playerBId
+      );
+      partnerByPlayer.set(
+        assignment.playerBId,
+        assignment.playerAId
+      );
+    }
+  );
+
+  return {
+    ...snapshot,
+    players:
+      snapshot.players.map(
+        (player) => ({
+          ...player,
+          fixedPartner:
+            partnerByPlayer.get(
+              player.id
+            ),
+        })
+      ),
+  };
+}
+
 function dedupeMatchHistory(
   histories:
     LiveStateSnapshot["matchHistory"]
@@ -567,7 +692,11 @@ export function mergeLiveStateSnapshot(
     sourceRole === "MASTER"
   ) {
     if (!patch) {
-      return incoming;
+      return applyFixedPartners(
+        reconcilePlayingPlayers(
+          incoming
+        )
+      );
     }
 
     const changed =
@@ -617,6 +746,40 @@ export function mergeLiveStateSnapshot(
             patch.removedEntityIds
               ?.fixedPartnerRequests
           )
+      );
+    }
+
+    if (
+      changed.has(
+        "fixedPartnerAssignments"
+      )
+    ) {
+      next.fixedPartnerAssignments =
+        reconcileFixedPartnerAssignments(
+          mergeChangedEntities(
+            current.fixedPartnerAssignments,
+            incoming.fixedPartnerAssignments,
+            patch.changedEntityIds
+              ?.fixedPartnerAssignments,
+            patch.removedEntityIds
+              ?.fixedPartnerAssignments
+          )
+      );
+    }
+
+    if (
+      changed.has(
+        "fixedPartnerRequestResolutions"
+      )
+    ) {
+      next.fixedPartnerRequestResolutions =
+        mergeChangedEntities(
+          current.fixedPartnerRequestResolutions,
+          incoming.fixedPartnerRequestResolutions,
+          patch.changedEntityIds
+            ?.fixedPartnerRequestResolutions,
+          patch.removedEntityIds
+            ?.fixedPartnerRequestResolutions
         );
     }
 
@@ -713,11 +876,34 @@ export function mergeLiveStateSnapshot(
         );
     }
 
-    return changed.has("courts")
-      ? reconcilePlayingPlayers(
-          next
+    const reconciled =
+      changed.has("courts")
+        ? reconcilePlayingPlayers(
+            next
+          )
+        : next;
+
+    const withPartners =
+      changed.has(
+        "fixedPartnerAssignments"
+      )
+        ? applyFixedPartners(
+            reconciled
+          )
+        : reconciled;
+
+    return (
+      changed.has(
+        "fixedPartnerAssignments"
+      ) ||
+      changed.has(
+        "fixedPartnerRequestResolutions"
+      )
+    )
+      ? filterResolvedPartnerRequests(
+          withPartners
         )
-      : next;
+      : withPartners;
   }
 
   const players =
@@ -774,15 +960,111 @@ export function mergeLiveStateSnapshot(
     }
   }
 
-  return {
+  const sourceLeft =
+    sourcePlayer?.status ===
+    "LEFT";
+  const affectedCourtIds =
+    sourceLeft
+      ? new Set(
+          current.courts
+            .filter(
+              (court) =>
+                [
+                  ...(court.teamA ??
+                    []),
+                  ...(court.teamB ??
+                    []),
+                ].some(
+                  (player) =>
+                    player.id ===
+                    sourcePlayer.id
+                )
+            )
+            .map(
+              (court) => court.id
+            )
+        )
+      : new Set<number>();
+  const courts =
+    affectedCourtIds.size > 0
+      ? current.courts.map(
+          (court) =>
+            affectedCourtIds.has(
+              court.id
+            )
+              ? {
+                  ...court,
+                  status:
+                    "EMPTY" as const,
+                  teamA: null,
+                  teamB: null,
+                  startedAt: null,
+                }
+              : court
+        )
+      : current.courts;
+  const normalizedPlayers =
+    affectedCourtIds.size > 0
+      ? players.map((player) => {
+          if (
+            player.id ===
+            sourcePlayer?.id
+          ) {
+            return player;
+          }
+
+          const wasAssigned =
+            current.courts.some(
+              (court) =>
+                affectedCourtIds.has(
+                  court.id
+                ) &&
+                [
+                  ...(court.teamA ??
+                    []),
+                  ...(court.teamB ??
+                    []),
+                ].some(
+                  (assigned) =>
+                    assigned.id ===
+                    player.id
+                )
+            );
+
+          return wasAssigned
+            ? {
+                ...player,
+                status:
+                  "WAITING" as const,
+                playingStartedAt:
+                  undefined,
+                waitingStartedAt:
+                  new Date(),
+                consecutiveMatches: 0,
+              }
+            : player;
+        })
+      : players;
+
+  return filterResolvedPartnerRequests(
+    applyFixedPartners({
     ...current,
-    players,
+    players:
+      normalizedPlayers,
+    courts,
     fixedPartnerRequests:
       dedupeFixedPartnerRequests(
         mergeById(
           current.fixedPartnerRequests,
           incoming.fixedPartnerRequests
         )
+      ),
+    fixedPartnerAssignments:
+      current.fixedPartnerAssignments,
+    fixedPartnerRequestResolutions:
+      mergeById(
+        current.fixedPartnerRequestResolutions,
+        incoming.fixedPartnerRequestResolutions
       ),
     notifications:
       dedupeNotifications(
@@ -799,5 +1081,6 @@ export function mergeLiveStateSnapshot(
           true
         )
       ),
-  };
+    })
+  );
 }

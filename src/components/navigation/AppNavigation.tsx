@@ -64,6 +64,14 @@ export default function AppNavigation() {
     useMatchStore(
       (state) => state.setPlayers
     );
+  const courts =
+    useMatchStore(
+      (state) => state.courts
+    );
+  const setCourts =
+    useMatchStore(
+      (state) => state.setCourts
+    );
   const endTodaySession =
     useMatchStore(
       (state) =>
@@ -238,17 +246,93 @@ export default function AppNavigation() {
       return;
     }
 
+    const affectedCourtIds =
+      new Set(
+        courts
+          .filter(
+            (court) =>
+              [
+                ...(court.teamA ??
+                  []),
+                ...(court.teamB ??
+                  []),
+              ].some(
+                (player) =>
+                  player.id ===
+                  currentUserId
+              )
+          )
+          .map((court) => court.id)
+      );
+
     setPlayers(
-      players.map((player) =>
-        player.id === currentUserId
+      players.map((player) => {
+        if (
+          player.id ===
+          currentUserId
+        ) {
+          return {
+            ...player,
+            status:
+              "LEFT" as const,
+            isPresent: false,
+            playingStartedAt:
+              undefined,
+          };
+        }
+
+        const wasAssigned =
+          courts.some(
+            (court) =>
+              affectedCourtIds.has(
+                court.id
+              ) &&
+              [
+                ...(court.teamA ??
+                  []),
+                ...(court.teamB ??
+                  []),
+              ].some(
+                (assigned) =>
+                  assigned.id ===
+                  player.id
+              )
+          );
+
+        return wasAssigned
           ? {
               ...player,
-              status: "LEFT",
-              isPresent: false,
+              status:
+                "WAITING" as const,
+              playingStartedAt:
+                undefined,
+              waitingStartedAt:
+                new Date(),
+              consecutiveMatches: 0,
             }
-          : player
-      )
+          : player;
+      })
     );
+    if (
+      affectedCourtIds.size > 0
+    ) {
+      setCourts(
+        courts.map((court) =>
+          affectedCourtIds.has(
+            court.id
+          )
+            ? {
+                ...court,
+                status:
+                  "EMPTY" as const,
+                teamA: null,
+                teamB: null,
+                startedAt: null,
+              }
+            : court
+        )
+      );
+    }
     notifyPlayerLeft();
 
     if (

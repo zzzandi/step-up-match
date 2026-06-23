@@ -159,6 +159,9 @@ try {
         })
       ),
       fixedPartnerRequests: [],
+      fixedPartnerAssignments: [],
+      fixedPartnerRequestResolutions:
+        [],
       notifications: [],
       matchHistory: [],
       recommendations: [],
@@ -1735,6 +1738,729 @@ try {
         next.fixedPartnerRequests
           .length,
         0
+      );
+    }
+  );
+
+  run(
+    "아직 로그인하지 않은 회원에게 고정 파트너 신청 후 승인 가능",
+    () => {
+      resetStore(8, 1);
+      const state =
+        useMatchStore.getState();
+      state.requestFixedPartner(
+        "player-01",
+        "member-not-logged-in",
+        "선수01",
+        "미로그인회원"
+      );
+      const request =
+        useMatchStore.getState()
+          .fixedPartnerRequests[0];
+
+      assert.ok(request);
+      useMatchStore
+        .getState()
+        .approveFixedPartnerRequest(
+          request.id
+        );
+      let next =
+        useMatchStore.getState();
+
+      assert.equal(
+        next.fixedPartnerAssignments
+          .length,
+        1
+      );
+      assert.equal(
+        next.players[0]
+          .fixedPartner,
+        "member-not-logged-in"
+      );
+
+      const lateMember = {
+        ...makePlayer(20),
+        id: "member-not-logged-in",
+        name: "미로그인회원",
+      };
+      next.setPlayers([
+        ...next.players,
+        lateMember,
+      ]);
+      next =
+        useMatchStore.getState();
+
+      assert.equal(
+        next.players.find(
+          (player) =>
+            player.id ===
+            "member-not-logged-in"
+        ).fixedPartner,
+        "player-01"
+      );
+    }
+  );
+
+  run(
+    "여러 운영진이 같은 고정 파트너 신청을 동시에 승인해도 한 번만 적용",
+    () => {
+      resetStore(8, 1);
+      const baseStore =
+        useMatchStore.getState();
+      baseStore.requestFixedPartner(
+        "player-01",
+        "player-02"
+      );
+      const base =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const request =
+        base.fixedPartnerRequests[0];
+      const approvedAt =
+        "2026-06-22T11:00:00.000Z";
+      const approved = {
+        ...base,
+        fixedPartnerRequests: [],
+        fixedPartnerAssignments: [
+          {
+            id:
+              "player-01|player-02",
+            playerAId:
+              "player-01",
+            playerBId:
+              "player-02",
+            approvedAt,
+          },
+        ],
+        fixedPartnerRequestResolutions:
+          [
+            {
+              id: request.id,
+              requestId:
+                request.id,
+              resolvedAt:
+                approvedAt,
+              result:
+                "APPROVED",
+            },
+          ],
+      };
+      let merged =
+        mergeLiveStateSnapshot(
+          base,
+          approved,
+          "ADMIN",
+          "admin-1",
+          createLiveStatePatch(
+            base,
+            approved
+          )
+        );
+      merged =
+        mergeLiveStateSnapshot(
+          merged,
+          approved,
+          "MASTER",
+          "master",
+          createLiveStatePatch(
+            base,
+            approved
+          )
+        );
+
+      assert.equal(
+        merged.fixedPartnerAssignments
+          .length,
+        1
+      );
+      assert.equal(
+        merged.fixedPartnerRequests
+          .length,
+        0
+      );
+      assert.equal(
+        merged.players.find(
+          (player) =>
+            player.id ===
+            "player-01"
+        ).fixedPartner,
+        "player-02"
+      );
+    }
+  );
+
+  run(
+    "승인 완료 후 플레이어가 오래된 화면을 새로고침해도 신청이 되살아나지 않음",
+    () => {
+      resetStore(8, 1);
+      useMatchStore
+        .getState()
+        .requestFixedPartner(
+          "player-01",
+          "player-02"
+        );
+      const stalePlayerSnapshot =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const request =
+        stalePlayerSnapshot
+          .fixedPartnerRequests[0];
+      const approved = {
+        ...stalePlayerSnapshot,
+        fixedPartnerRequests: [],
+        fixedPartnerAssignments: [
+          {
+            id:
+              "player-01|player-02",
+            playerAId:
+              "player-01",
+            playerBId:
+              "player-02",
+            approvedAt:
+              "2026-06-22T11:00:00.000Z",
+          },
+        ],
+        fixedPartnerRequestResolutions:
+          [
+            {
+              id: request.id,
+              requestId:
+                request.id,
+              resolvedAt:
+                "2026-06-22T11:00:00.000Z",
+              result:
+                "APPROVED",
+            },
+          ],
+      };
+      let live =
+        mergeLiveStateSnapshot(
+          stalePlayerSnapshot,
+          approved,
+          "ADMIN",
+          "admin-1",
+          createLiveStatePatch(
+            stalePlayerSnapshot,
+            approved
+          )
+        );
+      live =
+        mergeLiveStateSnapshot(
+          live,
+          stalePlayerSnapshot,
+          "PLAYER",
+          "player-01"
+        );
+
+      assert.equal(
+        live.fixedPartnerRequests
+          .length,
+        0
+      );
+      assert.equal(
+        live.fixedPartnerAssignments
+          .length,
+        1
+      );
+    }
+  );
+
+  run(
+    "거절 완료 후 플레이어가 오래된 화면을 새로고침해도 신청이 되살아나지 않음",
+    () => {
+      resetStore(8, 1);
+      useMatchStore
+        .getState()
+        .requestFixedPartner(
+          "player-01",
+          "player-02"
+        );
+      const stalePlayerSnapshot =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const request =
+        stalePlayerSnapshot
+          .fixedPartnerRequests[0];
+      const rejected = {
+        ...stalePlayerSnapshot,
+        fixedPartnerRequests: [],
+        fixedPartnerRequestResolutions:
+          [
+            {
+              id: request.id,
+              requestId:
+                request.id,
+              resolvedAt:
+                "2026-06-22T11:00:00.000Z",
+              result:
+                "REJECTED",
+            },
+          ],
+      };
+      let live =
+        mergeLiveStateSnapshot(
+          stalePlayerSnapshot,
+          rejected,
+          "ADMIN",
+          "admin-1",
+          createLiveStatePatch(
+            stalePlayerSnapshot,
+            rejected
+          )
+        );
+      live =
+        mergeLiveStateSnapshot(
+          live,
+          stalePlayerSnapshot,
+          "PLAYER",
+          "player-01"
+        );
+
+      assert.equal(
+        live.fixedPartnerRequests
+          .length,
+        0
+      );
+      assert.equal(
+        live.fixedPartnerAssignments
+          .length,
+        0
+      );
+    }
+  );
+
+  run(
+    "두 플레이어가 같은 고정 파트너 신청을 동시에 보내도 한 건만 유지",
+    () => {
+      resetStore(8, 1);
+      const base =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const requestA = {
+        id: "request-a",
+        requesterId:
+          "player-01",
+        requesterName:
+          "선수01",
+        partnerId:
+          "player-02",
+        partnerName:
+          "선수02",
+        createdAt:
+          "2026-06-22T10:00:00.000Z",
+      };
+      const requestB = {
+        id: "request-b",
+        requesterId:
+          "player-02",
+        requesterName:
+          "선수02",
+        partnerId:
+          "player-01",
+        partnerName:
+          "선수01",
+        createdAt:
+          "2026-06-22T10:00:00.050Z",
+      };
+      let live =
+        mergeLiveStateSnapshot(
+          base,
+          {
+            ...base,
+            fixedPartnerRequests: [
+              requestA,
+            ],
+          },
+          "PLAYER",
+          "player-01"
+        );
+      live =
+        mergeLiveStateSnapshot(
+          live,
+          {
+            ...base,
+            fixedPartnerRequests: [
+              requestB,
+            ],
+          },
+          "PLAYER",
+          "player-02"
+        );
+
+      assert.equal(
+        live.fixedPartnerRequests
+          .length,
+        1
+      );
+    }
+  );
+
+  run(
+    "한 회원에 대한 서로 다른 고정 파트너 동시 승인 시 하나의 관계만 유지",
+    () => {
+      resetStore(8, 1);
+      const base =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const adminA = {
+        ...base,
+        fixedPartnerAssignments: [
+          {
+            id:
+              "player-01|player-02",
+            playerAId:
+              "player-01",
+            playerBId:
+              "player-02",
+            approvedAt:
+              "2026-06-22T11:00:00.000Z",
+          },
+        ],
+      };
+      const adminB = {
+        ...base,
+        fixedPartnerAssignments: [
+          {
+            id:
+              "player-01|player-03",
+            playerAId:
+              "player-01",
+            playerBId:
+              "player-03",
+            approvedAt:
+              "2026-06-22T11:00:00.050Z",
+          },
+        ],
+      };
+      let merged =
+        mergeLiveStateSnapshot(
+          base,
+          adminA,
+          "ADMIN",
+          "admin-1",
+          createLiveStatePatch(
+            base,
+            adminA
+          )
+        );
+      merged =
+        mergeLiveStateSnapshot(
+          merged,
+          adminB,
+          "MASTER",
+          "master",
+          createLiveStatePatch(
+            base,
+            adminB
+          )
+        );
+
+      assert.equal(
+        merged.fixedPartnerAssignments
+          .length,
+        1
+      );
+      assert.equal(
+        merged.players.find(
+          (player) =>
+            player.id ===
+            "player-01"
+        ).fixedPartner,
+        "player-02"
+      );
+      assert.equal(
+        merged.players.find(
+          (player) =>
+            player.id ===
+            "player-03"
+        ).fixedPartner,
+        undefined
+      );
+    }
+  );
+
+  run(
+    "경기 진행 중 신규 참가자 10명이 연속 로그인해도 코트와 대진 유지",
+    () => {
+      resetStore(20, 3);
+      for (
+        let courtId = 1;
+        courtId <= 3;
+        courtId += 1
+      ) {
+        useMatchStore
+          .getState()
+          .rerollRecommendations(
+            courtId
+          );
+        useMatchStore
+          .getState()
+          .approveRecommendation();
+      }
+      let live =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const originalCourtIds =
+        live.courts.map(
+          (court) => [
+            court.id,
+            ...court.teamA.map(
+              (player) => player.id
+            ),
+            ...court.teamB.map(
+              (player) => player.id
+            ),
+          ]
+        );
+
+      for (
+        let index = 20;
+        index < 30;
+        index += 1
+      ) {
+        const newcomer =
+          makePlayer(index);
+        live =
+          mergeLiveStateSnapshot(
+            live,
+            {
+              ...live,
+              players: [
+                newcomer,
+              ],
+              courts: [],
+            },
+            "PLAYER",
+            newcomer.id
+          );
+      }
+
+      assert.equal(
+        live.players.length,
+        30
+      );
+      assert.deepEqual(
+        live.courts.map(
+          (court) => [
+            court.id,
+            ...court.teamA.map(
+              (player) => player.id
+            ),
+            ...court.teamB.map(
+              (player) => player.id
+            ),
+          ]
+        ),
+        originalCourtIds
+      );
+    }
+  );
+
+  run(
+    "경기 중 선수가 퇴장하면 해당 코트는 비워지고 나머지 선수는 대기 복귀",
+    () => {
+      resetStore(12, 2);
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          [
+            "player-01",
+            "player-02",
+          ],
+          [
+            "player-03",
+            "player-04",
+          ]
+        );
+      const live =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const leavingPlayer = {
+        ...live.players.find(
+          (player) =>
+            player.id ===
+            "player-01"
+        ),
+        status: "LEFT",
+        isPresent: false,
+      };
+      const merged =
+        mergeLiveStateSnapshot(
+          live,
+          {
+            ...live,
+            players: [
+              leavingPlayer,
+            ],
+          },
+          "PLAYER",
+          "player-01"
+        );
+
+      assert.equal(
+        merged.courts[0].status,
+        "EMPTY"
+      );
+      assert.equal(
+        merged.players.find(
+          (player) =>
+            player.id ===
+            "player-01"
+        ).status,
+        "LEFT"
+      );
+      assert.equal(
+        [
+          "player-02",
+          "player-03",
+          "player-04",
+        ].every(
+          (playerId) =>
+            merged.players.find(
+              (player) =>
+                player.id ===
+                playerId
+            ).status ===
+            "WAITING"
+        ),
+        true
+      );
+    }
+  );
+
+  run(
+    "운영진 수동 대진 선택 중 다른 운영진이 자동 대진을 확정하면 수동 확정 거부",
+    () => {
+      resetStore(20, 2);
+      const manualSelection = [
+        "player-01",
+        "player-02",
+        "player-03",
+        "player-04",
+      ];
+      useMatchStore
+        .getState()
+        .rerollRecommendations(
+          1
+        );
+      useMatchStore
+        .getState()
+        .approveRecommendation();
+      const assigned =
+        useMatchStore
+          .getState()
+          .assignManualMatch(
+            1,
+            [
+              manualSelection[0],
+              manualSelection[1],
+            ],
+            [
+              manualSelection[2],
+              manualSelection[3],
+            ]
+          );
+
+      assert.equal(
+        assigned,
+        false
+      );
+      assert.equal(
+        useMatchStore.getState()
+          .courts.filter(
+            (court) =>
+              court.status ===
+              "PLAYING"
+          ).length,
+        1
+      );
+    }
+  );
+
+  run(
+    "대진 생성 완료 전후 플레이어 30명이 반복 새로고침해도 추천 창은 전파되지 않고 확정 코트 유지",
+    () => {
+      resetStore(30, 3);
+      useMatchStore
+        .getState()
+        .rerollRecommendations(
+          1
+        );
+      const beforeApproval =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+
+      assert.equal(
+        createLiveStatePatch(
+          beforeApproval,
+          createLiveStateSnapshot(
+            useMatchStore.getState()
+          )
+        ).changedKeys.length,
+        0
+      );
+
+      useMatchStore
+        .getState()
+        .approveRecommendation();
+      let live =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const courtIds = [
+        ...live.courts[0].teamA,
+        ...live.courts[0].teamB,
+      ].map((player) => player.id);
+
+      for (
+        let round = 0;
+        round < 3;
+        round += 1
+      ) {
+        for (
+          let index = 0;
+          index < 30;
+          index += 1
+        ) {
+          live =
+            mergeLiveStateSnapshot(
+              live,
+              {
+                ...live,
+                players: [
+                  makePlayer(index),
+                ],
+                courts: [],
+              },
+              "PLAYER",
+              makePlayer(index).id
+            );
+        }
+      }
+
+      assert.equal(
+        live.courts[0].status,
+        "PLAYING"
+      );
+      assert.deepEqual(
+        [
+          ...live.courts[0]
+            .teamA,
+          ...live.courts[0]
+            .teamB,
+        ].map(
+          (player) => player.id
+        ),
+        courtIds
       );
     }
   );

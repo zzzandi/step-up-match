@@ -38,6 +38,20 @@ export interface AppNotification {
   createdAt: string;
 }
 
+export interface FixedPartnerAssignment {
+  id: string;
+  playerAId: string;
+  playerBId: string;
+  approvedAt: string;
+}
+
+export interface FixedPartnerRequestResolution {
+  id: string;
+  requestId: string;
+  resolvedAt: string;
+  result: "APPROVED" | "REJECTED";
+}
+
 export type ExcludedMatchPair = [
   string,
   string,
@@ -50,6 +64,12 @@ export interface MatchStore {
 
   fixedPartnerRequests:
     FixedPartnerRequest[];
+
+  fixedPartnerAssignments:
+    FixedPartnerAssignment[];
+
+  fixedPartnerRequestResolutions:
+    FixedPartnerRequestResolution[];
 
   notifications:
     AppNotification[];
@@ -97,7 +117,9 @@ export interface MatchStore {
 
   requestFixedPartner: (
     requesterId: string,
-    partnerId: string
+    partnerId: string,
+    requesterName?: string,
+    partnerName?: string
   ) => void;
 
   approveFixedPartnerRequest: (
@@ -192,6 +214,11 @@ export const useMatchStore =
 
       fixedPartnerRequests: [],
 
+      fixedPartnerAssignments: [],
+
+      fixedPartnerRequestResolutions:
+        [],
+
       notifications: [],
 
       matchHistory: [],
@@ -208,13 +235,39 @@ export const useMatchStore =
 
       setPlayers: (
         players
-      ) =>
+      ) => {
+        const assignments =
+          get()
+            .fixedPartnerAssignments;
+        const partnerByPlayer =
+          new Map<string, string>();
+
+        assignments.forEach(
+          (assignment) => {
+            partnerByPlayer.set(
+              assignment.playerAId,
+              assignment.playerBId
+            );
+            partnerByPlayer.set(
+              assignment.playerBId,
+              assignment.playerAId
+            );
+          }
+        );
+
         set({
           players:
             uniquePlayers(
               players
-            ),
-        }),
+            ).map((player) => ({
+              ...player,
+              fixedPartner:
+                partnerByPlayer.get(
+                  player.id
+                ),
+            })),
+        });
+      },
 
       setCourts: (
         courts
@@ -288,58 +341,73 @@ export const useMatchStore =
       ) => {
         const {
           players,
+          fixedPartnerAssignments,
         } = get();
+        const pair = [
+          playerAId,
+          playerBId,
+        ].sort();
+        const assignment: FixedPartnerAssignment =
+          {
+            id: pair.join("|"),
+            playerAId: pair[0],
+            playerBId: pair[1],
+            approvedAt:
+              new Date().toISOString(),
+          };
+        const assignments = [
+          ...fixedPartnerAssignments.filter(
+            (item) =>
+              item.playerAId !==
+                playerAId &&
+              item.playerBId !==
+                playerAId &&
+              item.playerAId !==
+                playerBId &&
+              item.playerBId !==
+                playerBId
+          ),
+          assignment,
+        ];
+        const partnerByPlayer =
+          new Map<string, string>();
+
+        assignments.forEach(
+          (item) => {
+            partnerByPlayer.set(
+              item.playerAId,
+              item.playerBId
+            );
+            partnerByPlayer.set(
+              item.playerBId,
+              item.playerAId
+            );
+          }
+        );
 
         const updated =
           players.map(
-            (player) => {
-              if (
-                player.id ===
-                playerAId
-              ) {
-                return {
-                  ...player,
-                  fixedPartner:
-                    playerBId,
-                };
-              }
-
-              if (
-                player.id ===
-                playerBId
-              ) {
-                return {
-                  ...player,
-                  fixedPartner:
-                    playerAId,
-                };
-              }
-
-              if (
-                player.fixedPartner ===
-                  playerAId ||
-                player.fixedPartner ===
-                  playerBId
-              ) {
-                return {
-                  ...player,
-                  fixedPartner:
-                    undefined,
-                };
-              }
-
-              return player;
-            }
+            (player) => ({
+              ...player,
+              fixedPartner:
+                partnerByPlayer.get(
+                  player.id
+                ),
+            })
           );
 
         set({
           players: updated,
+          fixedPartnerAssignments:
+            assignments,
         });
       },
 
       requestFixedPartner: (
         requesterId,
-        partnerId
+        partnerId,
+        requesterName,
+        partnerName
       ) => {
         const {
           players,
@@ -367,9 +435,16 @@ export const useMatchStore =
               partnerId
           );
 
+        const resolvedRequesterName =
+          requester?.name ??
+          requesterName?.trim();
+        const resolvedPartnerName =
+          partner?.name ??
+          partnerName?.trim();
+
         if (
-          !requester ||
-          !partner
+          !resolvedRequesterName ||
+          !resolvedPartnerName
         ) {
           return;
         }
@@ -399,10 +474,10 @@ export const useMatchStore =
                 crypto.randomUUID(),
               requesterId,
               requesterName:
-                requester.name,
+                resolvedRequesterName,
               partnerId,
               partnerName:
-                partner.name,
+                resolvedPartnerName,
               createdAt:
                 new Date().toISOString(),
             },
@@ -413,7 +488,7 @@ export const useMatchStore =
               id:
                 crypto.randomUUID(),
               audience: "ADMIN",
-              message: `${requester.name}님이 ${partner.name}님에게 고정 파트너를 신청했습니다.`,
+              message: `${resolvedRequesterName}님이 ${resolvedPartnerName}님에게 고정 파트너를 신청했습니다.`,
               createdAt:
                 new Date().toISOString(),
             },
@@ -421,8 +496,8 @@ export const useMatchStore =
               id:
                 crypto.randomUUID(),
               audience: "PLAYER",
-              recipientId: partner.id,
-              message: `${requester.name}님이 고정 파트너를 신청했습니다.`,
+              recipientId: partnerId,
+              message: `${resolvedRequesterName}님이 고정 파트너를 신청했습니다.`,
               createdAt:
                 new Date().toISOString(),
             },
@@ -435,6 +510,7 @@ export const useMatchStore =
           const {
             fixedPartnerRequests,
             setFixedPartner,
+            fixedPartnerRequestResolutions,
           } = get();
 
           const request =
@@ -458,7 +534,20 @@ export const useMatchStore =
                 (item) =>
                   item.id !==
                   requestId
-              ),
+                ),
+            fixedPartnerRequestResolutions:
+              [
+                ...fixedPartnerRequestResolutions,
+                {
+                  id: request.id,
+                  requestId:
+                    request.id,
+                  resolvedAt:
+                    new Date().toISOString(),
+                  result:
+                    "APPROVED" as const,
+                },
+              ],
             notifications: [
               ...get().notifications,
               {
@@ -489,6 +578,7 @@ export const useMatchStore =
         (requestId) => {
           const {
             fixedPartnerRequests,
+            fixedPartnerRequestResolutions,
           } = get();
 
           const request =
@@ -504,6 +594,21 @@ export const useMatchStore =
                   item.id !==
                   requestId
               ),
+            fixedPartnerRequestResolutions:
+              request
+                ? [
+                    ...fixedPartnerRequestResolutions,
+                    {
+                      id: request.id,
+                      requestId:
+                        request.id,
+                      resolvedAt:
+                        new Date().toISOString(),
+                      result:
+                        "REJECTED" as const,
+                    },
+                  ]
+                : fixedPartnerRequestResolutions,
             notifications: request
               ? [
                   ...get().notifications,
@@ -1658,7 +1763,7 @@ export const useMatchStore =
       {
         name:
           "step-up-match-storage",
-        version: 6,
+        version: 8,
         partialize: (state) => ({
           ...state,
           recommendations: [],
@@ -1691,6 +1796,12 @@ export const useMatchStore =
               fixedPartnerRequests:
                 state.fixedPartnerRequests ??
                 [],
+              fixedPartnerAssignments:
+                state.fixedPartnerAssignments ??
+                [],
+              fixedPartnerRequestResolutions:
+                state.fixedPartnerRequestResolutions ??
+                [],
               excludedMatchPairs:
                 state.excludedMatchPairs ??
                 [],
@@ -1703,6 +1814,36 @@ export const useMatchStore =
               recommendations: [],
               selectedRecommendation:
                 null,
+              fixedPartnerAssignments:
+                state.fixedPartnerAssignments ??
+                [],
+              fixedPartnerRequestResolutions:
+                state.fixedPartnerRequestResolutions ??
+                [],
+            };
+          }
+
+          if (version < 7) {
+            return {
+              ...state,
+              fixedPartnerAssignments:
+                state.fixedPartnerAssignments ??
+                [],
+              fixedPartnerRequestResolutions:
+                state.fixedPartnerRequestResolutions ??
+                [],
+            };
+          }
+
+          if (version < 8) {
+            return {
+              ...state,
+              fixedPartnerAssignments:
+                state.fixedPartnerAssignments ??
+                [],
+              fixedPartnerRequestResolutions:
+                state.fixedPartnerRequestResolutions ??
+                [],
             };
           }
 

@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useState,
 } from "react";
 import {
@@ -11,6 +12,14 @@ import {
 import {
   useMatchStore,
 } from "@/store/useMatchStore";
+import {
+  getUsers,
+} from "@/services/supabaseUserService";
+
+interface Member {
+  id: string;
+  name: string;
+}
 
 export default function FixedPartnerPage() {
   const session =
@@ -21,6 +30,8 @@ export default function FixedPartnerPage() {
   ] = useState("");
   const [message, setMessage] =
     useState("");
+  const [members, setMembers] =
+    useState<Member[]>([]);
   const players =
     useMatchStore(
       (state) => state.players
@@ -35,6 +46,35 @@ export default function FixedPartnerPage() {
       (state) =>
         state.requestFixedPartner
     );
+  const assignments =
+    useMatchStore(
+      (state) =>
+        state.fixedPartnerAssignments
+    );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    getUsers()
+      .then((data) => {
+        if (!cancelled) {
+          setMembers(
+            (data ?? []) as Member[]
+          );
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMessage(
+            "전체 회원 목록을 불러오지 못했습니다."
+          );
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (!session) {
     return (
@@ -67,12 +107,32 @@ export default function FixedPartnerPage() {
         player.id ===
         currentUserId
     );
+  const currentAssignment =
+    assignments.find(
+      (assignment) =>
+        assignment.playerAId ===
+          currentUserId ||
+        assignment.playerBId ===
+          currentUserId
+    );
+  const currentPartnerId =
+    currentAssignment
+      ? currentAssignment.playerAId ===
+        currentUserId
+        ? currentAssignment.playerBId
+        : currentAssignment.playerAId
+      : currentPlayer?.fixedPartner;
   const currentPartner =
-    currentPlayer?.fixedPartner
-      ? players.find(
+    currentPartnerId
+      ? members.find(
+          (member) =>
+            member.id ===
+            currentPartnerId
+        ) ??
+        players.find(
           (player) =>
             player.id ===
-            currentPlayer.fixedPartner
+            currentPartnerId
         )
       : null;
   const pendingRequest =
@@ -84,11 +144,10 @@ export default function FixedPartnerPage() {
           currentUserId
     );
   const candidates =
-    players.filter(
-      (player) =>
-        player.id !==
-          currentUserId &&
-        player.status !== "LEFT"
+    members.filter(
+      (member) =>
+        member.id !==
+          currentUserId
     );
 
   function submitRequest() {
@@ -104,7 +163,14 @@ export default function FixedPartnerPage() {
 
     requestFixedPartner(
       currentUserId,
-      selectedPartnerId
+      selectedPartnerId,
+      currentPlayer?.name ??
+        session?.userName,
+      candidates.find(
+        (member) =>
+          member.id ===
+          selectedPartnerId
+      )?.name
     );
     setSelectedPartnerId("");
     setMessage(
@@ -203,24 +269,35 @@ export default function FixedPartnerPage() {
             고정 파트너 현황
           </h2>
           <div className="mt-4 space-y-2">
-            {players
-              .filter(
-                (player) =>
-                  player.fixedPartner &&
-                  player.id <
-                    player.fixedPartner
-              )
-              .map((player) => {
-                const partner =
+            {assignments
+              .map((assignment) => {
+                const player =
+                  members.find(
+                    (item) =>
+                      item.id ===
+                      assignment.playerAId
+                  ) ??
                   players.find(
                     (item) =>
                       item.id ===
-                      player.fixedPartner
+                      assignment.playerAId
+                  );
+                const partner =
+                  members.find(
+                    (item) =>
+                      item.id ===
+                      assignment.playerBId
+                  ) ??
+                  players.find(
+                    (item) =>
+                      item.id ===
+                      assignment.playerBId
                   );
 
-                return partner ? (
+                return player &&
+                  partner ? (
                   <div
-                    key={player.id}
+                    key={assignment.id}
                     className="rounded-xl bg-slate-800 px-4 py-3"
                   >
                     {player.name} ↔{" "}

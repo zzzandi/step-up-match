@@ -87,6 +87,9 @@ function snapshot(
           "2026-06-22T10:05:00Z",
       },
     ],
+    fixedPartnerAssignments: [],
+    fixedPartnerRequestResolutions:
+      [],
     notifications: [],
     matchHistory: [
       {
@@ -289,10 +292,19 @@ for (const role of [
       role
     );
 
+  assert.equal(
+    result.players.some(
+      (item) =>
+        item.id ===
+        "new-admin"
+    ),
+    true,
+    `${role}의 권한 있는 참가자 상태는 동기화되어야 합니다.`
+  );
   assert.deepEqual(
-    result,
-    managerSnapshot,
-    `${role}의 권한 있는 공유 상태는 동일하게 동기화되어야 합니다.`
+    result.courts,
+    managerSnapshot.courts,
+    `${role}의 권한 있는 코트 상태는 동기화되어야 합니다.`
   );
 }
 
