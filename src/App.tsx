@@ -56,6 +56,9 @@ import {
   getKstDateKey as getWorkoutDateKey,
   isWorkoutOpen,
 } from "@/services/workoutSessionService";
+import {
+  recoverOpenWorkoutDashboard,
+} from "@/services/dashboardRecoveryService";
 import type {
   Player,
 } from "@/types/player";
@@ -448,7 +451,9 @@ function App() {
             ) {
               void activatePendingParticipant()
                 .then(
-                  (activated) => {
+                  async (activated) => {
+                    await recoverOpenWorkoutDashboard();
+
                     if (activated) {
                       const activeRole =
                         getAccessSession()
@@ -728,6 +733,7 @@ function App() {
         ) {
           const activated =
             await activatePendingParticipant();
+          await recoverOpenWorkoutDashboard();
 
           if (activated) {
             const activeRole =
@@ -764,6 +770,44 @@ function App() {
   }, [
     accessSession?.participationMode,
     navigate,
+  ]);
+
+  useEffect(() => {
+    if (
+      !accessSession ||
+      getTestModeState().active
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function recoverDashboard() {
+      try {
+        if (!cancelled) {
+          await recoverOpenWorkoutDashboard();
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    void recoverDashboard();
+    const timer =
+      window.setInterval(
+        recoverDashboard,
+        3000
+      );
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [
+    accessSession,
+    accessSession?.role,
+    accessSession?.userId,
+    accessSession?.participationMode,
   ]);
 
   useEffect(() => {

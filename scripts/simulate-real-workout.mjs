@@ -71,6 +71,12 @@ try {
   } = await server.ssrLoadModule(
     "/src/utils/attendanceState.ts"
   );
+  const {
+    createDefaultCourts,
+    mergeAttendancePlayers,
+  } = await server.ssrLoadModule(
+    "/src/services/dashboardRecoveryService.ts"
+  );
 
   const results = [];
   const run = (
@@ -3512,6 +3518,125 @@ try {
             "PLAYING"
         ).length,
         4
+      );
+    }
+  );
+
+  run(
+    "인원수와 무관하게 운동 개설 후 DB 출석으로 대시보드 참가자 복구",
+    () => {
+      [
+        1,
+        2,
+        6,
+        9,
+        20,
+        30,
+      ].forEach((count) => {
+        const rows =
+          Array.from(
+            { length: count },
+            (_, index) => ({
+              user_id:
+                `recovery-${index}`,
+              arrival_time:
+                new Date(
+                  Date.parse(
+                    "2026-06-23T10:00:00.000Z"
+                  ) + index * 1000
+                ).toISOString(),
+              users: {
+                id:
+                  `recovery-${index}`,
+                name:
+                  `복구선수${index}`,
+                gender:
+                  index % 3 === 0
+                    ? "F"
+                    : "M",
+                grade: "E",
+                hidden_skill: 45,
+                fixed_partner_id:
+                  null,
+              },
+            })
+          );
+        const recovered =
+          mergeAttendancePlayers(
+            [],
+            rows
+          );
+
+        assert.equal(
+          recovered.length,
+          count,
+          `${count}명 복구 실패`
+        );
+        assert.equal(
+          recovered.every(
+            (player) =>
+              player.status ===
+                "WAITING" &&
+              player.isPresent
+          ),
+          true
+        );
+      });
+    }
+  );
+
+  run(
+    "DB 자동 복구가 진행 중 경기 상태를 훼손하거나 반복 갱신하지 않음",
+    () => {
+      const current = [
+        {
+          ...makePlayer(0),
+          status: "PLAYING",
+          waitingStartedAt:
+            undefined,
+          playingStartedAt:
+            new Date(
+              "2026-06-23T10:10:00.000Z"
+            ),
+        },
+      ];
+      const rows = [
+        {
+          user_id: current[0].id,
+          arrival_time:
+            current[0].arrivalTime.toISOString(),
+          users: {
+            id: current[0].id,
+            name: current[0].name,
+            gender:
+              current[0].gender,
+            grade: current[0].grade,
+            hidden_skill:
+              current[0].hiddenSkill,
+            fixed_partner_id:
+              null,
+          },
+        },
+      ];
+      const recovered =
+        mergeAttendancePlayers(
+          current,
+          rows
+        );
+
+      assert.equal(
+        recovered[0],
+        current[0],
+        "동일 데이터 복구는 상태 객체를 변경하면 안 됨"
+      );
+      assert.equal(
+        recovered[0].status,
+        "PLAYING"
+      );
+      assert.equal(
+        createDefaultCourts()
+          .length,
+        3
       );
     }
   );

@@ -87,8 +87,6 @@ function ensureChannel() {
       CHANNEL_NAME
     );
 
-  channel.subscribe();
-
   return channel;
 }
 
@@ -150,6 +148,7 @@ export function subscribeLiveSessionEvents(
       );
     }
   );
+  currentChannel?.subscribe();
 
   return () => {
     window.removeEventListener(
