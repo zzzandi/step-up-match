@@ -765,6 +765,506 @@ try {
   );
 
   run(
+    "운영진 4명과 마스터 1명의 자동 대진 검토 화면은 각 기기에만 유지",
+    () => {
+      resetStore(30, 4);
+      const before =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+
+      for (
+        let managerIndex = 0;
+        managerIndex < 5;
+        managerIndex += 1
+      ) {
+        useMatchStore
+          .getState()
+          .rerollRecommendations(
+            (managerIndex % 4) +
+              1
+          );
+        const after =
+          createLiveStateSnapshot(
+            useMatchStore.getState()
+          );
+        const patch =
+          createLiveStatePatch(
+            before,
+            after
+          );
+
+        assert.deepEqual(
+          patch.changedKeys,
+          []
+        );
+      }
+    }
+  );
+
+  run(
+    "운영진 4명·마스터 1명·플레이어 25명의 동시 변경 후에도 4개 코트와 설정 유지",
+    () => {
+      resetStore(30, 4);
+      const base =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const managerSnapshots =
+        Array.from(
+          {
+            length: 4,
+          },
+          (_, courtIndex) => {
+            const selected =
+              base.players.slice(
+                courtIndex * 4,
+                courtIndex * 4 + 4
+              );
+            const selectedIds =
+              new Set(
+                selected.map(
+                  (player) =>
+                    player.id
+                )
+              );
+
+            return {
+              ...base,
+              players:
+                base.players.map(
+                  (player) =>
+                    selectedIds.has(
+                      player.id
+                    )
+                      ? {
+                          ...player,
+                          status:
+                            "PLAYING",
+                          waitingStartedAt:
+                            undefined,
+                          playingStartedAt:
+                            new Date(
+                              `2026-06-22T11:0${courtIndex}:00.000Z`
+                            ),
+                        }
+                      : player
+                ),
+              courts:
+                base.courts.map(
+                  (court) =>
+                    court.id ===
+                    courtIndex + 1
+                      ? {
+                          ...court,
+                          status:
+                            "PLAYING",
+                          teamA: [
+                            selected[0],
+                            selected[1],
+                          ],
+                          teamB: [
+                            selected[2],
+                            selected[3],
+                          ],
+                          startedAt:
+                            new Date(
+                              `2026-06-22T11:0${courtIndex}:00.000Z`
+                            ),
+                        }
+                      : court
+                ),
+            };
+          }
+        );
+      const masterSnapshot = {
+        ...base,
+        womenDoublesPriority:
+          true,
+      };
+      let merged = base;
+
+      managerSnapshots.forEach(
+        (managerSnapshot, index) => {
+          merged =
+            mergeLiveStateSnapshot(
+              merged,
+              managerSnapshot,
+              "ADMIN",
+              `admin-${index + 1}`,
+              createLiveStatePatch(
+                base,
+                managerSnapshot
+              )
+            );
+        }
+      );
+      merged =
+        mergeLiveStateSnapshot(
+          merged,
+          masterSnapshot,
+          "MASTER",
+          "master",
+          createLiveStatePatch(
+            base,
+            masterSnapshot
+          )
+        );
+
+      for (
+        let index = 0;
+        index < 25;
+        index += 1
+      ) {
+        merged =
+          mergeLiveStateSnapshot(
+            merged,
+            {
+              ...base,
+              players: [
+                makePlayer(index),
+              ],
+              courts: [],
+            },
+            "PLAYER",
+            makePlayer(index).id
+          );
+      }
+
+      const assignedIds =
+        merged.courts.flatMap(
+          (court) => [
+            ...court.teamA,
+            ...court.teamB,
+          ].map(
+            (player) => player.id
+          )
+        );
+
+      assert.equal(
+        merged.courts.filter(
+          (court) =>
+            court.status ===
+            "PLAYING"
+        ).length,
+        4
+      );
+      assert.equal(
+        assignedIds.length,
+        16
+      );
+      assert.equal(
+        new Set(assignedIds).size,
+        16
+      );
+      assert.equal(
+        merged.womenDoublesPriority,
+        true
+      );
+    }
+  );
+
+  run(
+    "수동 대진은 대기자 4명을 지정한 팀 구성으로 경기 시작",
+    () => {
+      resetStore(12, 2);
+      const assigned =
+        useMatchStore
+          .getState()
+          .assignManualMatch(
+            1,
+            [
+              "player-01",
+              "player-02",
+            ],
+            [
+              "player-03",
+              "player-04",
+            ]
+          );
+      const next =
+        useMatchStore.getState();
+
+      assert.equal(
+        assigned,
+        true
+      );
+      assert.deepEqual(
+        next.courts[0].teamA.map(
+          (player) => player.id
+        ),
+        [
+          "player-01",
+          "player-02",
+        ]
+      );
+      assert.deepEqual(
+        next.courts[0].teamB.map(
+          (player) => player.id
+        ),
+        [
+          "player-03",
+          "player-04",
+        ]
+      );
+      assert.equal(
+        next.players.filter(
+          (player) =>
+            player.status ===
+            "PLAYING"
+        ).length,
+        4
+      );
+    }
+  );
+
+  run(
+    "수동 대진에서 같은 선수를 두 자리에 중복 선택하면 거부",
+    () => {
+      resetStore(12, 2);
+      const assigned =
+        useMatchStore
+          .getState()
+          .assignManualMatch(
+            1,
+            [
+              "player-01",
+              "player-01",
+            ],
+            [
+              "player-03",
+              "player-04",
+            ]
+          );
+
+      assert.equal(
+        assigned,
+        false
+      );
+      assert.equal(
+        useMatchStore.getState()
+          .courts[0].status,
+        "EMPTY"
+      );
+    }
+  );
+
+  run(
+    "경기 중 코트 안 선수 두 명을 교환하면 팀 구성만 변경",
+    () => {
+      resetStore(12, 2);
+      const state =
+        useMatchStore.getState();
+      state.assignManualMatch(
+        1,
+        [
+          "player-01",
+          "player-02",
+        ],
+        [
+          "player-03",
+          "player-04",
+        ]
+      );
+      const swapped =
+        useMatchStore
+          .getState()
+          .swapCourtPlayers(
+            1,
+            "player-02",
+            "player-03"
+          );
+      const next =
+        useMatchStore.getState();
+
+      assert.equal(
+        swapped,
+        true
+      );
+      assert.deepEqual(
+        next.courts[0].teamA.map(
+          (player) => player.id
+        ),
+        [
+          "player-01",
+          "player-03",
+        ]
+      );
+      assert.deepEqual(
+        next.courts[0].teamB.map(
+          (player) => player.id
+        ),
+        [
+          "player-02",
+          "player-04",
+        ]
+      );
+      assert.equal(
+        next.players.filter(
+          (player) =>
+            player.status ===
+            "PLAYING"
+        ).length,
+        4
+      );
+    }
+  );
+
+  run(
+    "두 운영자가 같은 선수를 서로 다른 코트에 동시에 수동 배정해도 한 코트만 유지",
+    () => {
+      resetStore(12, 2);
+      const base =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const startedAt =
+        new Date(
+          "2026-06-22T11:00:00.000Z"
+        );
+      const makeAssignment = (
+        courtId,
+        ids,
+        offsetMs
+      ) => ({
+        ...base,
+        players:
+          base.players.map(
+            (player) =>
+              ids.includes(
+                player.id
+              )
+                ? {
+                    ...player,
+                    status:
+                      "PLAYING",
+                    playingStartedAt:
+                      new Date(
+                        startedAt.getTime() +
+                          offsetMs
+                      ),
+                    waitingStartedAt:
+                      undefined,
+                  }
+                : player
+          ),
+        courts:
+          base.courts.map(
+            (court) =>
+              court.id === courtId
+                ? {
+                    ...court,
+                    status:
+                      "PLAYING",
+                    teamA: [
+                      base.players.find(
+                        (player) =>
+                          player.id ===
+                          ids[0]
+                      ),
+                      base.players.find(
+                        (player) =>
+                          player.id ===
+                          ids[1]
+                      ),
+                    ],
+                    teamB: [
+                      base.players.find(
+                        (player) =>
+                          player.id ===
+                          ids[2]
+                      ),
+                      base.players.find(
+                        (player) =>
+                          player.id ===
+                          ids[3]
+                      ),
+                    ],
+                    startedAt:
+                      new Date(
+                        startedAt.getTime() +
+                          offsetMs
+                      ),
+                  }
+                : court
+          ),
+      });
+      const adminA =
+        makeAssignment(
+          1,
+          [
+            "player-01",
+            "player-02",
+            "player-03",
+            "player-04",
+          ],
+          0
+        );
+      const adminB =
+        makeAssignment(
+          2,
+          [
+            "player-01",
+            "player-05",
+            "player-06",
+            "player-07",
+          ],
+          50
+        );
+      let merged =
+        mergeLiveStateSnapshot(
+          base,
+          adminA,
+          "ADMIN",
+          "admin-a",
+          createLiveStatePatch(
+            base,
+            adminA
+          )
+        );
+      merged =
+        mergeLiveStateSnapshot(
+          merged,
+          adminB,
+          "MASTER",
+          "master",
+          createLiveStatePatch(
+            base,
+            adminB
+          )
+        );
+      const playingCourts =
+        merged.courts.filter(
+          (court) =>
+            court.status ===
+            "PLAYING"
+        );
+      const playingIds =
+        playingCourts.flatMap(
+          (court) => [
+            ...court.teamA,
+            ...court.teamB,
+          ].map(
+            (player) => player.id
+          )
+        );
+
+      assert.equal(
+        playingCourts.length,
+        1
+      );
+      assert.equal(
+        playingCourts[0].id,
+        1
+      );
+      assert.equal(
+        playingIds.length,
+        new Set(playingIds).size
+      );
+    }
+  );
+
+  run(
     "30명으로 3개 코트 대진 생성 시 선수 중복 배정 없음",
     () => {
       resetStore();

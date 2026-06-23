@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 
 import {
+  createLiveStatePatch,
+  createLiveStateSnapshot,
   mergeLiveStateSnapshot,
   type LiveStateSnapshot,
 } from "../src/services/liveStateSync.ts";
@@ -102,28 +104,6 @@ function snapshot(
           ),
       },
     ],
-    recommendations: [
-      {
-        id: "recommendation-1",
-        courtId: 2,
-        teamA: [p1, p3],
-        teamB: [p2, p4],
-        score: {
-          total: 90,
-          balance: 90,
-          diversity: 90,
-          partnerPenalty: 0,
-          opponentPenalty: 0,
-          genderBonus: 0,
-          fixedPartnerBonus: 0,
-        },
-        createdAt:
-          new Date(
-            "2026-06-22T10:25:00Z"
-          ),
-      },
-    ],
-    selectedRecommendation: null,
     womenDoublesPriority: true,
     excludedMatchPairs: [
       [p1.id, p4.id],
@@ -141,7 +121,6 @@ const stalePlayerSnapshot =
     courts: [],
     fixedPartnerRequests: [],
     matchHistory: [],
-    recommendations: [],
     womenDoublesPriority: false,
     excludedMatchPairs: [],
   });
@@ -157,11 +136,6 @@ assert.deepEqual(
   playerJoinResult.courts,
   live.courts,
   "새 플레이어가 진행 중 코트를 지우면 안 됩니다."
-);
-assert.deepEqual(
-  playerJoinResult.recommendations,
-  live.recommendations,
-  "새 플레이어가 추천 팝업을 지우면 안 됩니다."
 );
 assert.deepEqual(
   playerJoinResult.fixedPartnerRequests,
@@ -296,16 +270,12 @@ assert.deepEqual(
   "새 고정 파트너 신청은 기존 신청을 보존하면서 추가되어야 합니다."
 );
 
-const selected =
-  live.recommendations[0];
 const managerSnapshot =
   snapshot({
     players: [
       ...live.players,
       player("new-admin"),
     ],
-    selectedRecommendation:
-      selected,
   });
 
 for (const role of [
@@ -314,9 +284,7 @@ for (const role of [
 ] as const) {
   const result =
     mergeLiveStateSnapshot(
-      snapshot({
-        recommendations: [],
-      }),
+      snapshot(),
       managerSnapshot,
       role
     );
@@ -324,9 +292,41 @@ for (const role of [
   assert.deepEqual(
     result,
     managerSnapshot,
-    `${role}의 권한 있는 전체 상태와 추천 팝업은 동일하게 동기화되어야 합니다.`
+    `${role}의 권한 있는 공유 상태는 동일하게 동기화되어야 합니다.`
   );
 }
+
+const localUiState = {
+  ...live,
+  recommendations: [],
+  selectedRecommendation: null,
+};
+const localUiChangedState = {
+  ...localUiState,
+  recommendations: [
+    {
+      id: "local-only",
+    },
+  ],
+  selectedRecommendation: {
+    id: "local-only",
+  },
+};
+const localUiPatch =
+  createLiveStatePatch(
+    createLiveStateSnapshot(
+      localUiState as never
+    ),
+    createLiveStateSnapshot(
+      localUiChangedState as never
+    )
+  );
+
+assert.deepEqual(
+  localUiPatch.changedKeys,
+  [],
+  "추천 모달 상태는 다른 기기로 방송되면 안 됩니다."
+);
 
 console.log(
   "live-state regression scenarios: PASS (9)"

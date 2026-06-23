@@ -627,12 +627,20 @@ function App() {
               state
             );
 
-          publishStateSnapshot(
+          const patch =
             createLiveStatePatch(
               previousSnapshot,
               nextSnapshot
-            )
-          );
+            );
+
+          if (
+            patch.changedKeys.length >
+            0
+          ) {
+            publishStateSnapshot(
+              patch
+            );
+          }
         }
       );
 

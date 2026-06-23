@@ -151,6 +151,24 @@ export interface MatchStore {
     incomingPlayerId: string
   ) => void;
 
+  assignManualMatch: (
+    courtId: number,
+    teamAPlayerIds: [
+      string,
+      string,
+    ],
+    teamBPlayerIds: [
+      string,
+      string,
+    ]
+  ) => boolean;
+
+  swapCourtPlayers: (
+    courtId: number,
+    firstPlayerId: string,
+    secondPlayerId: string
+  ) => boolean;
+
   selectRecommendation: (
     recommendationId: string
   ) => void;
@@ -1203,6 +1221,69 @@ export const useMatchStore =
               (player) =>
                 player.id
             );
+          const targetCourt =
+            courts.find(
+              (court) =>
+                court.id ===
+                selectedRecommendation.courtId
+            );
+          const currentSelectedPlayers =
+            selectedIds.map(
+              (playerId) =>
+                players.find(
+                  (player) =>
+                    player.id ===
+                      playerId &&
+                    player.status ===
+                      "WAITING" &&
+                    player.isPresent
+                )
+            );
+
+          if (
+            !targetCourt ||
+            targetCourt.status !==
+              "EMPTY" ||
+            currentSelectedPlayers.some(
+              (player) => !player
+            )
+          ) {
+            set({
+              recommendations: [],
+              selectedRecommendation:
+                null,
+            });
+            window.alert(
+              "대진을 검토하는 동안 선수 또는 코트 상태가 변경되었습니다. 다시 생성해주세요."
+            );
+            return;
+          }
+
+          const startedAt =
+            new Date();
+          const currentPlayerById =
+            new Map(
+              currentSelectedPlayers.map(
+                (player) => [
+                  player!.id,
+                  player!,
+                ]
+              )
+            );
+          const teamA =
+            selectedRecommendation.teamA.map(
+              (player) =>
+                currentPlayerById.get(
+                  player.id
+                )!
+            ) as [Player, Player];
+          const teamB =
+            selectedRecommendation.teamB.map(
+              (player) =>
+                currentPlayerById.get(
+                  player.id
+                )!
+            ) as [Player, Player];
 
           const updatedPlayers =
             players.map(
@@ -1226,11 +1307,11 @@ export const useMatchStore =
                     player.consecutiveMatches +
                     1,
                   playingStartedAt:
-                    new Date(),
+                    startedAt,
                   waitingStartedAt:
                     undefined,
                   lastMatchAt:
-                    new Date(),
+                    startedAt,
                 };
               }
             );
@@ -1242,15 +1323,15 @@ export const useMatchStore =
               status:
                 "PLAYING",
               teamA:
-                selectedRecommendation.teamA,
+                teamA,
               teamB:
-                selectedRecommendation.teamB,
+                teamB,
               startedAt:
-                new Date(),
+                startedAt,
             };
 
           const teamAText =
-            selectedRecommendation.teamA
+            teamA
               .map(
                 (player) =>
                   player.name
@@ -1258,7 +1339,7 @@ export const useMatchStore =
               .join(" + ");
 
           const teamBText =
-            selectedRecommendation.teamB
+            teamB
               .map(
                 (player) =>
                   player.name
@@ -1269,9 +1350,9 @@ export const useMatchStore =
             `Court ${selectedRecommendation.courtId}에 배정되었습니다. ${teamAText} vs ${teamBText}`;
 
           const assignedNotifications =
-            selectedRecommendation.teamA
+            teamA
               .concat(
-                selectedRecommendation.teamB
+                teamB
               )
               .flatMap((player) => [
                 {
@@ -1284,13 +1365,13 @@ export const useMatchStore =
                   message:
                     assignmentMessage,
                   createdAt:
-                    new Date().toISOString(),
+                    startedAt.toISOString(),
                 },
               ]);
 
-          set({
-            players:
-              updatedPlayers,
+        set({
+          players:
+            updatedPlayers,
             courts:
               courts.map(
                 (court) =>
@@ -1312,17 +1393,278 @@ export const useMatchStore =
                 message:
                   assignmentMessage,
                 createdAt:
-                  new Date().toISOString(),
+                  startedAt.toISOString(),
               },
               ...assignedNotifications,
-            ],
-          });
-        },
+          ],
+        });
+      },
+
+      assignManualMatch: (
+        courtId,
+        teamAPlayerIds,
+        teamBPlayerIds
+      ) => {
+        const {
+          courts,
+          players,
+        } = get();
+        const selectedIds = [
+          ...teamAPlayerIds,
+          ...teamBPlayerIds,
+        ];
+
+        if (
+          new Set(selectedIds)
+            .size !== 4
+        ) {
+          return false;
+        }
+
+        const court =
+          courts.find(
+            (item) =>
+              item.id === courtId
+          );
+        const selectedPlayers =
+          selectedIds.map(
+            (playerId) =>
+              players.find(
+                (player) =>
+                  player.id ===
+                  playerId &&
+                  player.status ===
+                    "WAITING" &&
+                  player.isPresent
+              )
+          );
+
+        if (
+          !court ||
+          court.status !== "EMPTY" ||
+          selectedPlayers.some(
+            (player) => !player
+          )
+        ) {
+          return false;
+        }
+
+        const playerById =
+          new Map(
+            selectedPlayers.map(
+              (player) => [
+                player!.id,
+                player!,
+              ]
+            )
+          );
+        const teamA = [
+          playerById.get(
+            teamAPlayerIds[0]
+          )!,
+          playerById.get(
+            teamAPlayerIds[1]
+          )!,
+        ] as [Player, Player];
+        const teamB = [
+          playerById.get(
+            teamBPlayerIds[0]
+          )!,
+          playerById.get(
+            teamBPlayerIds[1]
+          )!,
+        ] as [Player, Player];
+        const startedAt =
+          new Date();
+        const assignmentMessage =
+          `Court ${courtId}에 수동 배정되었습니다. ${teamA
+            .map((player) => player.name)
+            .join(" + ")} vs ${teamB
+            .map((player) => player.name)
+            .join(" + ")}`;
+
+        set({
+          players:
+            players.map(
+              (player) =>
+                selectedIds.includes(
+                  player.id
+                )
+                  ? {
+                      ...player,
+                      status:
+                        "PLAYING" as const,
+                      matchCount:
+                        player.matchCount +
+                        1,
+                      consecutiveMatches:
+                        player.consecutiveMatches +
+                        1,
+                      playingStartedAt:
+                        startedAt,
+                      waitingStartedAt:
+                        undefined,
+                      lastMatchAt:
+                        startedAt,
+                    }
+                  : player
+            ),
+          courts:
+            courts.map(
+              (item) =>
+                item.id === courtId
+                  ? {
+                      ...item,
+                      status:
+                        "PLAYING" as const,
+                      teamA,
+                      teamB,
+                      startedAt,
+                    }
+                  : item
+            ),
+          notifications: [
+            ...get().notifications,
+            {
+              id:
+                crypto.randomUUID(),
+              audience:
+                "ADMIN" as const,
+              message:
+                assignmentMessage,
+              createdAt:
+                startedAt.toISOString(),
+            },
+            ...selectedPlayers.map(
+              (player) => ({
+                id:
+                  crypto.randomUUID(),
+                audience:
+                  "PLAYER" as const,
+                recipientId:
+                  player!.id,
+                message:
+                  assignmentMessage,
+                createdAt:
+                  startedAt.toISOString(),
+              })
+            ),
+          ],
+        });
+
+        return true;
+      },
+
+      swapCourtPlayers: (
+        courtId,
+        firstPlayerId,
+        secondPlayerId
+      ) => {
+        if (
+          !firstPlayerId ||
+          !secondPlayerId ||
+          firstPlayerId ===
+            secondPlayerId
+        ) {
+          return false;
+        }
+
+        const {
+          courts,
+        } = get();
+        const court =
+          courts.find(
+            (item) =>
+              item.id === courtId
+          );
+
+        if (
+          !court?.teamA ||
+          !court.teamB
+        ) {
+          return false;
+        }
+
+        const assigned = [
+          ...court.teamA,
+          ...court.teamB,
+        ];
+
+        if (
+          !assigned.some(
+            (player) =>
+              player.id ===
+              firstPlayerId
+          ) ||
+          !assigned.some(
+            (player) =>
+              player.id ===
+              secondPlayerId
+          )
+        ) {
+          return false;
+        }
+
+        const swapPlayer = (
+          player: Player
+        ) =>
+          player.id ===
+          firstPlayerId
+            ? assigned.find(
+                (item) =>
+                  item.id ===
+                  secondPlayerId
+              )!
+            : player.id ===
+                secondPlayerId
+              ? assigned.find(
+                  (item) =>
+                    item.id ===
+                    firstPlayerId
+                )!
+              : player;
+
+        set({
+          courts:
+            courts.map(
+              (item) =>
+                item.id === courtId &&
+                item.teamA &&
+                item.teamB
+                  ? {
+                      ...item,
+                      teamA:
+                        item.teamA.map(
+                          swapPlayer
+                        ) as [
+                          Player,
+                          Player,
+                        ],
+                      teamB:
+                        item.teamB.map(
+                          swapPlayer
+                        ) as [
+                          Player,
+                          Player,
+                        ],
+                    }
+                  : item
+            ),
+        });
+
+        return true;
+      },
       }),
       {
         name:
           "step-up-match-storage",
-        version: 5,
+        version: 6,
+        partialize: (state) => ({
+          ...state,
+          recommendations: [],
+          selectedRecommendation:
+            null,
+        }),
         migrate: (
           persistedState,
           version
@@ -1352,6 +1694,15 @@ export const useMatchStore =
               excludedMatchPairs:
                 state.excludedMatchPairs ??
                 [],
+            };
+          }
+
+          if (version < 6) {
+            return {
+              ...state,
+              recommendations: [],
+              selectedRecommendation:
+                null,
             };
           }
 

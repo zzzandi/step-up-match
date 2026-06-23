@@ -10,8 +10,6 @@ export type LiveStateSnapshot = Pick<
   | "fixedPartnerRequests"
   | "notifications"
   | "matchHistory"
-  | "recommendations"
-  | "selectedRecommendation"
   | "womenDoublesPriority"
   | "excludedMatchPairs"
 >;
@@ -86,10 +84,6 @@ export function createLiveStateSnapshot(
       state.notifications,
     matchHistory:
       state.matchHistory,
-    recommendations:
-      state.recommendations,
-    selectedRecommendation:
-      state.selectedRecommendation,
     womenDoublesPriority:
       state.womenDoublesPriority,
     excludedMatchPairs:
@@ -104,8 +98,6 @@ const liveStateKeys: LiveStateKey[] =
     "fixedPartnerRequests",
     "notifications",
     "matchHistory",
-    "recommendations",
-    "selectedRecommendation",
     "womenDoublesPriority",
     "excludedMatchPairs",
   ];
@@ -417,9 +409,88 @@ function dedupeMatchHistory(
 function reconcilePlayingPlayers(
   snapshot: LiveStateSnapshot
 ) {
+  const claimedPlayerIds =
+    new Set<string>();
+  const acceptedCourtIds =
+    new Set<number>();
+
+  snapshot.courts
+    .filter(
+      (court) =>
+        court.status ===
+          "PLAYING" &&
+        court.teamA &&
+        court.teamB
+    )
+    .slice()
+    .sort((a, b) => {
+      const startedDifference =
+        new Date(
+          a.startedAt ?? 0
+        ).getTime() -
+        new Date(
+          b.startedAt ?? 0
+        ).getTime();
+
+      return (
+        startedDifference ||
+        a.id - b.id
+      );
+    })
+    .forEach((court) => {
+      const playerIds = [
+        ...(court.teamA ?? []),
+        ...(court.teamB ?? []),
+      ].map(
+        (player) => player.id
+      );
+      const validAssignment =
+        playerIds.length === 4 &&
+        new Set(playerIds).size ===
+          4 &&
+        playerIds.every(
+          (playerId) =>
+            !claimedPlayerIds.has(
+              playerId
+            )
+        );
+
+      if (!validAssignment) {
+        return;
+      }
+
+      acceptedCourtIds.add(
+        court.id
+      );
+      playerIds.forEach(
+        (playerId) =>
+          claimedPlayerIds.add(
+            playerId
+          )
+      );
+    });
+
+  const courts =
+    snapshot.courts.map(
+      (court) =>
+        court.status ===
+          "PLAYING" &&
+        !acceptedCourtIds.has(
+          court.id
+        )
+          ? {
+              ...court,
+              status:
+                "EMPTY" as const,
+              teamA: null,
+              teamB: null,
+              startedAt: null,
+            }
+          : court
+    );
   const playingIds =
     new Set(
-      snapshot.courts.flatMap(
+      courts.flatMap(
         (court) =>
           court.status ===
             "PLAYING"
@@ -438,6 +509,7 @@ function reconcilePlayingPlayers(
 
   return {
     ...snapshot,
+    courts,
     players:
       snapshot.players.map(
         (player) => {
@@ -578,24 +650,6 @@ export function mergeLiveStateSnapshot(
               ?.matchHistory
           )
         );
-    }
-
-    if (
-      changed.has(
-        "recommendations"
-      )
-    ) {
-      next.recommendations =
-        incoming.recommendations;
-    }
-
-    if (
-      changed.has(
-        "selectedRecommendation"
-      )
-    ) {
-      next.selectedRecommendation =
-        incoming.selectedRecommendation;
     }
 
     if (
