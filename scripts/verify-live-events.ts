@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import {
+  SNAPSHOT_REQUEST_RETRY_DELAYS,
   shouldApplyStateSnapshot,
   shouldClearSessionForForceLogout,
 } from "../src/services/liveEventGuards.ts";
@@ -132,6 +133,14 @@ assert.equal(
   "전체 종료 로그아웃 신호는 모든 사용자에게 적용되어야 합니다."
 );
 
+assert.equal(
+  SNAPSHOT_REQUEST_RETRY_DELAYS.some(
+    (delay) => delay > 2200
+  ),
+  true,
+  "모든 운영진과 Master가 동시에 새로고침해도 권한 준비 이후 상태 요청을 다시 시도해야 합니다."
+);
+
 console.log(
-  "live-event routing scenarios: PASS (6)"
+  "live-event routing scenarios: PASS (7)"
 );

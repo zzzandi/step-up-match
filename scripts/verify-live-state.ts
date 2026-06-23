@@ -426,6 +426,80 @@ assert.equal(
   "지연된 전체 응답이 이미 종료된 경기를 다시 진행 중으로 되살리면 안 됩니다."
 );
 
+const preOpenParticipants =
+  Array.from(
+    { length: 9 },
+    (_, index) =>
+      player(
+        `preopen-${index + 1}`
+      )
+  );
+const openedWorkoutSnapshot =
+  snapshot({
+    players: preOpenParticipants,
+    courts: [
+      {
+        id: 1,
+        status: "EMPTY",
+        teamA: null,
+        teamB: null,
+        startedAt: null,
+      },
+      {
+        id: 2,
+        status: "EMPTY",
+        teamA: null,
+        teamB: null,
+        startedAt: null,
+      },
+      {
+        id: 3,
+        status: "EMPTY",
+        teamA: null,
+        teamB: null,
+        startedAt: null,
+      },
+    ],
+  });
+
+for (
+  let clientIndex = 0;
+  clientIndex < 9;
+  clientIndex += 1
+) {
+  const refreshedClient =
+    mergeLiveStateSnapshot(
+      snapshot({
+        players: [],
+        courts: [],
+        fixedPartnerRequests:
+          [],
+        fixedPartnerAssignments:
+          [],
+        fixedPartnerRequestResolutions:
+          [],
+        notifications: [],
+        matchHistory: [],
+        womenDoublesPriority:
+          false,
+        excludedMatchPairs: [],
+      }),
+      openedWorkoutSnapshot,
+      "MASTER"
+    );
+
+  assert.equal(
+    refreshedClient.players.length,
+    9,
+    `${clientIndex + 1}번째 새로고침 기기에서 9명의 참가자가 복구되어야 합니다.`
+  );
+  assert.equal(
+    refreshedClient.courts.length,
+    3,
+    `${clientIndex + 1}번째 새로고침 기기에서 코트 정보가 복구되어야 합니다.`
+  );
+}
+
 const localUiState = {
   ...live,
   recommendations: [],
@@ -459,5 +533,5 @@ assert.deepEqual(
 );
 
 console.log(
-  "live-state regression scenarios: PASS (16)"
+  "live-state regression scenarios: PASS (34)"
 );

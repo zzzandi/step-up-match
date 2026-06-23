@@ -2,6 +2,9 @@ import type {
   LiveSessionEvent,
 } from "@/services/liveSessionService";
 
+export const SNAPSHOT_REQUEST_RETRY_DELAYS =
+  [500, 1200, 3000, 6000] as const;
+
 type StateSnapshotEvent = Extract<
   LiveSessionEvent,
   { type: "STATE_SNAPSHOT" }

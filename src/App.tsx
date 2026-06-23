@@ -30,6 +30,7 @@ import {
   subscribeLiveSessionEvents,
 } from "@/services/liveSessionService";
 import {
+  SNAPSHOT_REQUEST_RETRY_DELAYS,
   shouldApplyStateSnapshot,
   shouldClearSessionForForceLogout,
 } from "@/services/liveEventGuards";
@@ -419,25 +420,25 @@ function App() {
     const authorityTimer =
       window.setTimeout(() => {
         authorityReady = true;
+        if (
+          !getTestModeState()
+            .active
+        ) {
+          requestSnapshot();
+        }
       }, 2200);
-    const snapshotRetryTimers = [
-      window.setTimeout(() => {
-        if (
-          !getTestModeState()
-            .active
-        ) {
-          requestSnapshot();
-        }
-      }, 500),
-      window.setTimeout(() => {
-        if (
-          !getTestModeState()
-            .active
-        ) {
-          requestSnapshot();
-        }
-      }, 1200),
-    ];
+    const snapshotRetryTimers =
+      SNAPSHOT_REQUEST_RETRY_DELAYS.map(
+        (delay) =>
+          window.setTimeout(() => {
+            if (
+              !getTestModeState()
+                .active
+            ) {
+              requestSnapshot();
+            }
+          }, delay)
+      );
 
     const unsubscribeLive =
       subscribeLiveSessionEvents(

@@ -268,9 +268,6 @@ console.log(
           setWorkoutOpen(open);
           if (!open) {
             setAttendanceList([]);
-            useMatchStore
-              .getState()
-              .endTodaySession();
           }
         }
       } catch (error) {
