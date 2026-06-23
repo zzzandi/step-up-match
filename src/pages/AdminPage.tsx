@@ -1190,6 +1190,17 @@ console.log(
 
       try {
         if (!testMode.active) {
+          await Promise.all(
+            fixedPartnerAssignments.map(
+              (assignment) =>
+                clearFixedPartner({
+                  playerAId:
+                    assignment.playerAId,
+                  playerBId:
+                    assignment.playerBId,
+                })
+            )
+          );
           await resetTodayWorkoutDataInDatabase(
             getKstDateKey()
           );

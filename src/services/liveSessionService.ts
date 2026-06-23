@@ -83,6 +83,50 @@ let channel:
       typeof supabase.channel
     >
   | null = null;
+let channelSubscribed = false;
+let channelSubscribeStarted = false;
+let pendingRemoteEvents: LiveSessionEvent[] =
+  [];
+
+function sendRemoteEvent(
+  event: LiveSessionEvent
+) {
+  const currentChannel =
+    ensureChannel();
+
+  if (
+    !currentChannel ||
+    !channelSubscribed
+  ) {
+    pendingRemoteEvents.push(event);
+    return;
+  }
+
+  void currentChannel.send({
+    type: "broadcast",
+    event: EVENT_NAME,
+    payload: event,
+  });
+}
+
+function flushPendingRemoteEvents() {
+  const currentChannel =
+    ensureChannel();
+
+  if (
+    !currentChannel ||
+    !channelSubscribed ||
+    pendingRemoteEvents.length === 0
+  ) {
+    return;
+  }
+
+  const events =
+    pendingRemoteEvents.slice();
+  pendingRemoteEvents = [];
+
+  events.forEach(sendRemoteEvent);
+}
 
 function ensureChannel() {
   if (
@@ -100,6 +144,28 @@ function ensureChannel() {
   return channel;
 }
 
+function ensureSubscribed() {
+  const currentChannel =
+    ensureChannel();
+
+  if (
+    !currentChannel ||
+    channelSubscribeStarted
+  ) {
+    return;
+  }
+
+  channelSubscribeStarted = true;
+  currentChannel.subscribe((status) => {
+    channelSubscribed =
+      status === "SUBSCRIBED";
+
+    if (channelSubscribed) {
+      flushPendingRemoteEvents();
+    }
+  });
+}
+
 export function publishLiveSessionEvent(
   event: LiveSessionEvent
 ) {
@@ -112,18 +178,8 @@ export function publishLiveSessionEvent(
     )
   );
 
-  const currentChannel =
-    ensureChannel();
-
-  if (!currentChannel) {
-    return;
-  }
-
-  void currentChannel.send({
-    type: "broadcast",
-    event: EVENT_NAME,
-    payload: event,
-  });
+  ensureSubscribed();
+  sendRemoteEvent(event);
 }
 
 export function subscribeLiveSessionEvents(
@@ -158,7 +214,7 @@ export function subscribeLiveSessionEvents(
       );
     }
   );
-  currentChannel?.subscribe();
+  ensureSubscribed();
 
   return () => {
     window.removeEventListener(
@@ -171,6 +227,9 @@ export function subscribeLiveSessionEvents(
         currentChannel
       );
       channel = null;
+      channelSubscribed = false;
+      channelSubscribeStarted = false;
+      pendingRemoteEvents = [];
     }
   };
 }

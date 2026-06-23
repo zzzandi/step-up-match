@@ -391,6 +391,70 @@ assert.deepEqual(
   "상태가 없는 신규 기기는 현재 참가자를 복구해야 합니다."
 );
 
+for (const role of [
+  "ADMIN",
+  "MASTER",
+] as const) {
+  const recoveredWithDefaultCourts =
+    mergeLiveStateSnapshot(
+      snapshot({
+        players: live.players.map(
+          (item) => ({
+            ...item,
+            status:
+              item.status ===
+              "PLAYING"
+                ? "WAITING"
+                : item.status,
+            playingStartedAt:
+              undefined,
+          })
+        ),
+        courts: [
+          {
+            id: 1,
+            status: "EMPTY",
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          },
+          {
+            id: 2,
+            status: "EMPTY",
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          },
+          {
+            id: 3,
+            status: "EMPTY",
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          },
+        ],
+        fixedPartnerRequests: [],
+        fixedPartnerAssignments: [],
+        fixedPartnerRequestResolutions:
+          [],
+        notifications: [],
+        matchHistory:
+          live.matchHistory,
+        womenDoublesPriority: false,
+        excludedMatchPairs: [],
+      }),
+      live,
+      role
+    );
+
+  assert.equal(
+    recoveredWithDefaultCourts.courts[0]
+      .status,
+    "PLAYING",
+    `${role}가 보낸 스냅샷은 기본 빈 코트만 가진 복귀 기기에 경기 중 대진을 복구해야 합니다.`
+  );
+}
+
 const finishedCourtState =
   snapshot({
     courts: [
@@ -411,6 +475,23 @@ const finishedCourtState =
           undefined,
       })
     ),
+    matchHistory: [
+      ...live.matchHistory,
+      {
+        id: "finished-live-match",
+        courtId: 1,
+        teamA: [p1.id, p2.id],
+        teamB: [p3.id, p4.id],
+        startedAt:
+          new Date(
+            "2026-06-22T10:20:00Z"
+          ),
+        endedAt:
+          new Date(
+            "2026-06-22T10:40:00Z"
+          ),
+      },
+    ],
   });
 const stalePlayingResult =
   mergeLiveStateSnapshot(

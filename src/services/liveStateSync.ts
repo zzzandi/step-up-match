@@ -327,6 +327,133 @@ function mergeById<T extends { id: string }>(
   );
 }
 
+function hasActiveCourtAssignment(
+  court: LiveStateSnapshot["courts"][number]
+) {
+  return (
+    court.status === "PLAYING" &&
+    Boolean(court.teamA?.length) &&
+    Boolean(court.teamB?.length)
+  );
+}
+
+function hasFinishedMatchForCourt(
+  histories: LiveStateSnapshot["matchHistory"],
+  court: LiveStateSnapshot["courts"][number]
+) {
+  if (
+    !court.teamA ||
+    !court.teamB
+  ) {
+    return false;
+  }
+
+  const teamAIds = court.teamA
+    .map((player) => player.id)
+    .sort()
+    .join(",");
+  const teamBIds = court.teamB
+    .map((player) => player.id)
+    .sort()
+    .join(",");
+  const startedAt =
+    new Date(
+      court.startedAt ?? 0
+    ).getTime();
+
+  return histories.some((history) => {
+    const historyTeamA =
+      [...history.teamA]
+        .sort()
+        .join(",");
+    const historyTeamB =
+      [...history.teamB]
+        .sort()
+        .join(",");
+    const sameTeams =
+      (historyTeamA === teamAIds &&
+        historyTeamB === teamBIds) ||
+      (historyTeamA === teamBIds &&
+        historyTeamB === teamAIds);
+
+    return (
+      history.courtId === court.id &&
+      sameTeams &&
+      new Date(
+        history.startedAt
+      ).getTime() === startedAt
+    );
+  });
+}
+
+function mergeBootstrapCourt(
+  current:
+    | LiveStateSnapshot["courts"][number]
+    | undefined,
+  incoming:
+    | LiveStateSnapshot["courts"][number]
+    | undefined,
+  currentHistory:
+    LiveStateSnapshot["matchHistory"]
+) {
+  if (!current) {
+    return incoming;
+  }
+
+  if (!incoming) {
+    return current;
+  }
+
+  const currentActive =
+    hasActiveCourtAssignment(current);
+  const incomingActive =
+    hasActiveCourtAssignment(incoming);
+
+  if (
+    incomingActive &&
+    !currentActive
+  ) {
+    if (
+      hasFinishedMatchForCourt(
+        currentHistory,
+        incoming
+      )
+    ) {
+      return current;
+    }
+
+    return incoming;
+  }
+
+  if (
+    currentActive &&
+    !incomingActive
+  ) {
+    return current;
+  }
+
+  if (
+    incomingActive &&
+    currentActive
+  ) {
+    const currentStartedAt =
+      new Date(
+        current.startedAt ?? 0
+      ).getTime();
+    const incomingStartedAt =
+      new Date(
+        incoming.startedAt ?? 0
+      ).getTime();
+
+    return incomingStartedAt >=
+      currentStartedAt
+      ? incoming
+      : current;
+  }
+
+  return incoming;
+}
+
 function mergeChangedEntities<
   T extends {
     id: string | number;
@@ -576,7 +703,7 @@ function mergeBootstrapSnapshots(
     return incoming;
   }
 
-  const currentCourtById =
+  const courtById =
     new Map(
       current.courts.map(
         (court) => [
@@ -585,21 +712,24 @@ function mergeBootstrapSnapshots(
         ]
       )
     );
-  const courts =
-    current.courts.slice();
 
   incoming.courts.forEach(
     (incomingCourt) => {
-      const currentCourt =
-        currentCourtById.get(
-          incomingCourt.id
-        );
-
-      if (!currentCourt) {
-        courts.push(incomingCourt);
-      }
+      courtById.set(
+        incomingCourt.id,
+        mergeBootstrapCourt(
+          courtById.get(
+            incomingCourt.id
+          ),
+          incomingCourt,
+          current.matchHistory
+        )!
+      );
     }
   );
+  const courts = Array.from(
+    courtById.values()
+  ).sort((a, b) => a.id - b.id);
 
   const excludedPairs =
     new Map(

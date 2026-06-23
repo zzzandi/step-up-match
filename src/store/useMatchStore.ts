@@ -744,6 +744,11 @@ export const useMatchStore =
           courts: [],
           fixedPartnerRequests:
             [],
+          fixedPartnerAssignments:
+            [],
+          fixedPartnerRequestResolutions:
+            [],
+          excludedMatchPairs: [],
           notifications: [],
           recommendations: [],
           selectedRecommendation:
@@ -827,6 +832,10 @@ export const useMatchStore =
           players: [],
           courts: [],
           fixedPartnerRequests: [],
+          fixedPartnerAssignments: [],
+          fixedPartnerRequestResolutions:
+            [],
+          excludedMatchPairs: [],
           notifications: [],
           matchHistory:
             get().matchHistory.filter(

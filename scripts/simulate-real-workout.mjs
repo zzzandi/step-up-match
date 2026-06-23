@@ -2010,7 +2010,7 @@ try {
   );
 
   run(
-    "운동 종료 후 다시 로그인해도 고정 파트너와 만나지 않기 설정 유지",
+    "운동 종료 후 다시 로그인하면 고정 파트너와 만나지 않기 설정 초기화",
     () => {
       resetStore(8, 1);
       const state =
@@ -2046,16 +2046,11 @@ try {
             player.id ===
             "player-01"
         ).fixedPartner,
-        "player-02"
+        undefined
       );
       assert.deepEqual(
         next.excludedMatchPairs,
-        [
-          [
-            "player-03",
-            "player-04",
-          ],
-        ]
+        []
       );
     }
   );
@@ -3381,6 +3376,16 @@ try {
       );
       assert.equal(
         next.recommendations
+          .length,
+        0
+      );
+      assert.equal(
+        next.fixedPartnerAssignments
+          .length,
+        0
+      );
+      assert.equal(
+        next.excludedMatchPairs
           .length,
         0
       );

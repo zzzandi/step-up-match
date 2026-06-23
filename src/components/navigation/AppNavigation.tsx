@@ -36,6 +36,9 @@ import {
   takeTestSnapshot,
   useTestMode,
 } from "@/services/testModeService";
+import {
+  clearFixedPartner,
+} from "@/services/supabaseUserService";
 
 const roleLabels = {
   ADMIN: "Admin",
@@ -81,6 +84,11 @@ export default function AppNavigation() {
     useMatchStore(
       (state) =>
         state.addNotification
+    );
+  const fixedPartnerAssignments =
+    useMatchStore(
+      (state) =>
+        state.fixedPartnerAssignments
     );
 
   useEffect(() => {
@@ -389,6 +397,17 @@ export default function AppNavigation() {
         return;
       }
 
+      await Promise.all(
+        fixedPartnerAssignments.map(
+          (assignment) =>
+            clearFixedPartner({
+              playerAId:
+                assignment.playerAId,
+              playerBId:
+                assignment.playerBId,
+            })
+        )
+      );
       await closeWorkout();
       endTodaySession();
       publishLiveSessionEvent({

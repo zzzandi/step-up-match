@@ -92,6 +92,8 @@ const ParticipantsPage =
 
 const DASHBOARD_DATE_KEY =
   "step-up-match-dashboard-date";
+const LIVE_SNAPSHOT_REQUEST_EVENT =
+  "step-up-match-request-live-snapshot";
 
 function ProtectedRoute({
   role,
@@ -361,6 +363,12 @@ async function activatePendingParticipant() {
       new Date().toISOString(),
   });
 
+  window.dispatchEvent(
+    new Event(
+      LIVE_SNAPSHOT_REQUEST_EVENT
+    )
+  );
+
   return true;
 
   /*
@@ -494,6 +502,26 @@ function App() {
         requestId,
       });
     };
+    const refreshLiveSnapshot = () => {
+      if (
+        getTestModeState().active
+      ) {
+        return;
+      }
+
+      void recoverDashboardLocally()
+        .catch(console.error);
+      requestSnapshot();
+    };
+    const handleVisibilityRefresh =
+      () => {
+        if (
+          document.visibilityState ===
+          "visible"
+        ) {
+          refreshLiveSnapshot();
+        }
+      };
     const authorityTimer =
       window.setTimeout(() => {
         authorityReady = true;
@@ -812,6 +840,23 @@ function App() {
       requestSnapshot();
     }
 
+    window.addEventListener(
+      "focus",
+      refreshLiveSnapshot
+    );
+    window.addEventListener(
+      "pageshow",
+      refreshLiveSnapshot
+    );
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibilityRefresh
+    );
+    window.addEventListener(
+      LIVE_SNAPSHOT_REQUEST_EVENT,
+      refreshLiveSnapshot
+    );
+
     return () => {
       window.clearTimeout(
         authorityTimer
@@ -829,6 +874,22 @@ function App() {
           )
       );
       clearPendingSnapshotRequests();
+      window.removeEventListener(
+        "focus",
+        refreshLiveSnapshot
+      );
+      window.removeEventListener(
+        "pageshow",
+        refreshLiveSnapshot
+      );
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityRefresh
+      );
+      window.removeEventListener(
+        LIVE_SNAPSHOT_REQUEST_EVENT,
+        refreshLiveSnapshot
+      );
       unsubscribeLive();
       unsubscribeStore();
     };
