@@ -2,7 +2,9 @@ import {
   lazy,
   Suspense,
   type ReactElement,
+  useCallback,
   useEffect,
+  useRef,
 } from "react";
 import {
   Navigate,
@@ -305,6 +307,20 @@ function App() {
     useNavigate();
   const accessSession =
     useAccessSession();
+  const suppressLiveSnapshotRef =
+    useRef(false);
+
+  const recoverDashboardLocally =
+    useCallback(async () => {
+      suppressLiveSnapshotRef.current =
+        true;
+      try {
+        return await recoverOpenWorkoutDashboard();
+      } finally {
+        suppressLiveSnapshotRef.current =
+          false;
+      }
+    }, []);
 
   useEffect(() => {
     const todayKey =
@@ -329,10 +345,13 @@ function App() {
       getAccessSession() &&
       !getTestModeState().active
     ) {
-      void recoverOpenWorkoutDashboard()
+      void recoverDashboardLocally()
         .catch(console.error);
     }
-  }, [navigate]);
+  }, [
+    navigate,
+    recoverDashboardLocally,
+  ]);
 
   useEffect(() => {
     let applyingRemoteSnapshot =
@@ -429,7 +448,7 @@ function App() {
               void activatePendingParticipant()
                 .then(
                   async (activated) => {
-                    await recoverOpenWorkoutDashboard();
+                    await recoverDashboardLocally();
 
                     if (activated) {
                       const activeRole =
@@ -619,6 +638,8 @@ function App() {
           if (
             applyingRemoteSnapshot
             ||
+            suppressLiveSnapshotRef.current
+            ||
             (
               session &&
               canManage(
@@ -685,7 +706,10 @@ function App() {
       unsubscribeLive();
       unsubscribeStore();
     };
-  }, [navigate]);
+  }, [
+    navigate,
+    recoverDashboardLocally,
+  ]);
 
   useEffect(() => {
     if (
@@ -710,7 +734,7 @@ function App() {
         ) {
           const activated =
             await activatePendingParticipant();
-          await recoverOpenWorkoutDashboard();
+          await recoverDashboardLocally();
 
           if (activated) {
             const activeRole =
@@ -747,6 +771,7 @@ function App() {
   }, [
     accessSession?.participationMode,
     navigate,
+    recoverDashboardLocally,
   ]);
 
   useEffect(() => {
@@ -762,7 +787,7 @@ function App() {
     async function recoverDashboard() {
       try {
         if (!cancelled) {
-          await recoverOpenWorkoutDashboard();
+          await recoverDashboardLocally();
         }
       } catch (error) {
         console.error(error);
@@ -785,6 +810,7 @@ function App() {
     accessSession?.role,
     accessSession?.userId,
     accessSession?.participationMode,
+    recoverDashboardLocally,
   ]);
 
   return (
