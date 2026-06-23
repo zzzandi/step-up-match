@@ -18,6 +18,9 @@ import {
 import {
   uniquePlayers,
 } from "@/utils/participants";
+import {
+  normalizePersistedMatchState,
+} from "@/store/persistedState";
 
 export interface FixedPartnerRequest {
   id: string;
@@ -1910,7 +1913,7 @@ export const useMatchStore =
       {
         name:
           "step-up-match-storage",
-        version: 8,
+        version: 9,
         partialize: (state) => ({
           ...state,
           recommendations: [],
@@ -1922,7 +1925,9 @@ export const useMatchStore =
           version
         ) => {
           const state =
-            persistedState as MatchStore;
+            normalizePersistedMatchState(
+              persistedState
+            ) as unknown as MatchStore;
 
           if (version < 5) {
             window.sessionStorage.removeItem(
@@ -1994,8 +1999,19 @@ export const useMatchStore =
             };
           }
 
-          return state;
+          return normalizePersistedMatchState(
+            state
+          );
         },
+        merge: (
+          persistedState,
+          currentState
+        ) => ({
+          ...currentState,
+          ...normalizePersistedMatchState(
+            persistedState
+          ),
+        }),
       }
     )
   );
