@@ -1322,7 +1322,7 @@ export const useMatchStore =
       {
         name:
           "step-up-match-storage",
-        version: 4,
+        version: 5,
         migrate: (
           persistedState,
           version
@@ -1330,13 +1330,15 @@ export const useMatchStore =
           const state =
             persistedState as MatchStore;
 
-          if (version < 4) {
+          if (version < 5) {
+            window.sessionStorage.removeItem(
+              "step-up-match-test-snapshot"
+            );
+
             return {
               ...state,
               players: [],
               courts: [],
-              fixedPartnerRequests:
-                [],
               notifications: [],
               matchHistory: [],
               recommendations: [],
@@ -1344,6 +1346,9 @@ export const useMatchStore =
                 null,
               womenDoublesPriority:
                 false,
+              fixedPartnerRequests:
+                state.fixedPartnerRequests ??
+                [],
               excludedMatchPairs:
                 state.excludedMatchPairs ??
                 [],
