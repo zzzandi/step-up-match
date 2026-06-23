@@ -9,6 +9,9 @@ import type {
   LiveStatePatch,
   LiveStateSnapshot,
 } from "@/services/liveStateSync";
+import type {
+  Player,
+} from "@/types/player";
 
 const CLIENT_ID =
   crypto.randomUUID();
@@ -38,6 +41,13 @@ export type LiveSessionEvent =
       reason:
         | "LEFT"
         | "END_TODAY";
+    }
+  | {
+      type: "PARTICIPANT_ACTIVATED";
+      player: Player;
+      sourceUserId: string;
+      sourceClientId: string;
+      sentAt: string;
     }
   | {
       type: "STATE_SNAPSHOT";

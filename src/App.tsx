@@ -67,6 +67,7 @@ import {
 } from "@/services/dashboardDateRollover";
 import {
   isLocalOnlyMutationActive,
+  runLocalOnlyMutation,
   runLocalOnlyMutationAsync,
 } from "@/services/localStateMutationGuard";
 
@@ -177,6 +178,85 @@ function publishStateSnapshot(
   });
 }
 
+function normalizeLivePlayer(
+  player: Player
+): Player {
+  return {
+    ...player,
+    arrivalTime:
+      new Date(player.arrivalTime),
+    waitingStartedAt:
+      player.waitingStartedAt
+        ? new Date(
+            player.waitingStartedAt
+          )
+        : undefined,
+    playingStartedAt:
+      player.playingStartedAt
+        ? new Date(
+            player.playingStartedAt
+          )
+        : undefined,
+    lastMatchAt:
+      player.lastMatchAt
+        ? new Date(
+            player.lastMatchAt
+          )
+        : undefined,
+  };
+}
+
+function applyActivatedParticipant(
+  player: Player
+) {
+  const activatedPlayer =
+    normalizeLivePlayer(player);
+
+  runLocalOnlyMutation(() => {
+    const state =
+      useMatchStore.getState();
+
+    state.setPlayers([
+      ...state.players.filter(
+        (item) =>
+          item.id !==
+          activatedPlayer.id
+      ),
+      activatedPlayer,
+    ]);
+
+    state.addNotification({
+      audience: "ADMIN",
+      message: `${activatedPlayer.name}?섏씠 ?ㅻ뒛 ?대룞??李멸??덉뒿?덈떎.`,
+    });
+
+    useMatchStore
+      .getState()
+      .players.filter(
+        (item) =>
+          item.id !==
+            activatedPlayer.id &&
+          item.status !== "LEFT" &&
+          !adminNames.includes(
+            item.name
+          ) &&
+          !masterNames.includes(
+            item.name
+          )
+      )
+      .forEach((item) => {
+        useMatchStore
+          .getState()
+          .addNotification({
+            audience: "PLAYER",
+            recipientId:
+              item.id,
+            message: `${activatedPlayer.name}?섏씠 ?ㅻ뒛 ?대룞??李멸??덉뒿?덈떎.`,
+          });
+      });
+  });
+}
+
 async function activatePendingParticipant() {
   const session =
     getAccessSession();
@@ -255,14 +335,39 @@ async function activatePendingParticipant() {
       existing?.fixedPartner,
   };
 
-  state.setPlayers([
-    ...state.players.filter(
-      (player) =>
-        player.id !==
-        nextPlayer.id
-    ),
-    nextPlayer,
-  ]);
+  applyActivatedParticipant(
+    nextPlayer
+  );
+
+  setAccessSession({
+    ...session,
+    participationMode:
+      "PARTICIPANT",
+  });
+
+  window.localStorage.setItem(
+    DASHBOARD_DATE_KEY,
+    today
+  );
+
+  publishLiveSessionEvent({
+    type: "PARTICIPANT_ACTIVATED",
+    player: nextPlayer,
+    sourceUserId:
+      nextPlayer.id,
+    sourceClientId:
+      getLiveSessionClientId(),
+    sentAt:
+      new Date().toISOString(),
+  });
+
+  return true;
+
+  /*
+   * Legacy stale-snapshot activation path intentionally disabled.
+   * Pending browsers can resume with old dashboard state, so the
+   * participant activation above must be sent only through the
+   * PARTICIPANT_ACTIVATED single-player event.
 
   state.addNotification({
     audience: "ADMIN",
@@ -291,18 +396,7 @@ async function activatePendingParticipant() {
       });
     });
 
-  setAccessSession({
-    ...session,
-    participationMode:
-      "PARTICIPANT",
-  });
-
-  window.localStorage.setItem(
-    DASHBOARD_DATE_KEY,
-    today
-  );
-
-  return true;
+*/
 }
 
 function App() {
@@ -462,6 +556,23 @@ function App() {
                   }
                 );
             }
+            return;
+          }
+
+          if (
+            event.type ===
+            "PARTICIPANT_ACTIVATED"
+          ) {
+            if (
+              event.sourceClientId ===
+              getLiveSessionClientId()
+            ) {
+              return;
+            }
+
+            applyActivatedParticipant(
+              event.player
+            );
             return;
           }
 
