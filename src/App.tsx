@@ -30,6 +30,10 @@ import {
   subscribeLiveSessionEvents,
 } from "@/services/liveSessionService";
 import {
+  shouldApplyStateSnapshot,
+  shouldClearSessionForForceLogout,
+} from "@/services/liveEventGuards";
+import {
   createLiveStatePatch,
   createLiveStateSnapshot,
   getSnapshotResponseDelay,
@@ -376,11 +380,40 @@ function App() {
         string,
         number
       >();
+    const pendingSnapshotRequestIds =
+      new Set<string>();
+    const snapshotRequestExpiryTimers =
+      new Map<string, number>();
+    const clearPendingSnapshotRequests =
+      () => {
+        pendingSnapshotRequestIds.clear();
+        snapshotRequestExpiryTimers.forEach(
+          (timer) =>
+            window.clearTimeout(timer)
+        );
+        snapshotRequestExpiryTimers.clear();
+      };
     const requestSnapshot = () => {
+      const requestId =
+        crypto.randomUUID();
+
+      pendingSnapshotRequestIds.add(
+        requestId
+      );
+      snapshotRequestExpiryTimers.set(
+        requestId,
+        window.setTimeout(() => {
+          pendingSnapshotRequestIds.delete(
+            requestId
+          );
+          snapshotRequestExpiryTimers.delete(
+            requestId
+          );
+        }, 10000)
+      );
       publishLiveSessionEvent({
         type: "REQUEST_SNAPSHOT",
-        requestId:
-          crypto.randomUUID(),
+        requestId,
       });
     };
     const authorityTimer =
@@ -472,10 +505,19 @@ function App() {
             }
 
             if (
-              event.sourceClientId ===
-              getLiveSessionClientId()
+              !shouldApplyStateSnapshot(
+                event,
+                getLiveSessionClientId(),
+                pendingSnapshotRequestIds
+              )
             ) {
               return;
+            }
+
+            if (
+              event.responseToRequestId
+            ) {
+              clearPendingSnapshotRequests();
             }
 
             const currentState =
@@ -585,9 +627,10 @@ function App() {
               getAccessSession();
 
             if (
-              !event.userId ||
-              event.userId ===
+              shouldClearSessionForForceLogout(
+                event.userId,
                 session?.userId
+              )
             ) {
               clearAccessSession();
               navigate("/");
@@ -667,6 +710,7 @@ function App() {
             timer
           )
       );
+      clearPendingSnapshotRequests();
       unsubscribeLive();
       unsubscribeStore();
     };
