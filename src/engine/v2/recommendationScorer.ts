@@ -9,6 +9,8 @@ import {
   isCompatibleGenderMatch,
 } from "./genderRules";
 
+const FIXED_PARTNER_TEAM_BONUS = 12;
+
 export interface RecommendationScore {
   total: number;
   balance: number;
@@ -132,7 +134,8 @@ export function scoreMatch(
     partnerDiversity +
     opponentDiversity +
     genderBonus +
-    fixedPartnerBonus * 100;
+    fixedPartnerBonus *
+      FIXED_PARTNER_TEAM_BONUS;
 
   return {
     total,

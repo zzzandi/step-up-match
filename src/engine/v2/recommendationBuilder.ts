@@ -105,11 +105,12 @@ export function buildMatches(
 
   const dedupedMatches =
     Array.from(
-      new Map(
-        [
-          ...fixedPartnerMatches,
-          ...matches,
-        ].map((match) => {
+      [
+        ...fixedPartnerMatches,
+        ...matches,
+      ]
+        .reduce(
+          (deduped, match) => {
           const key = [
             match.teamA
               .map(
@@ -129,9 +130,21 @@ export function buildMatches(
             .sort()
             .join("|");
 
-          return [key, match];
-        })
-      ).values()
+            if (!deduped.has(key)) {
+              deduped.set(
+                key,
+                match
+              );
+            }
+
+            return deduped;
+          },
+          new Map<
+            string,
+            TeamMatch
+          >()
+        )
+        .values()
     );
 
   return dedupedMatches.sort(

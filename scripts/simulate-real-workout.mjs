@@ -1859,9 +1859,9 @@ try {
   );
 
   run(
-    "고정 파트너 두 명이 모두 로그인하면 자동 대진에서 같은 팀 우선",
+    "선발된 고정 파트너 두 명은 자동 대진에서 같은 팀 우선",
     () => {
-      resetStore(8, 1);
+      resetStore(4, 1);
       const state =
         useMatchStore.getState();
       state.setPlayers(
@@ -1918,6 +1918,69 @@ try {
       assert.equal(
         sameTeam,
         true
+      );
+    }
+  );
+
+  run(
+    "고정 파트너가 있어도 휴식시간이 긴 인원을 우선 선발",
+    () => {
+      resetStore(6, 1);
+      const now = Date.now();
+      const state =
+        useMatchStore.getState();
+
+      state.setPlayers(
+        state.players.map(
+          (player, index) => ({
+            ...player,
+            gender: "M",
+            hiddenSkill: 50,
+            waitingStartedAt:
+              new Date(
+                now -
+                  (index < 2
+                    ? 1 * 60 * 1000
+                    : 60 * 60 * 1000)
+              ),
+            arrivalTime:
+              new Date(
+                now -
+                  (index < 2
+                    ? 1 * 60 * 1000
+                    : 60 * 60 * 1000)
+              ),
+          })
+        )
+      );
+      useMatchStore
+        .getState()
+        .setFixedPartner(
+          "player-01",
+          "player-02"
+        );
+      useMatchStore
+        .getState()
+        .rerollRecommendations(1);
+
+      const recommendation =
+        useMatchStore.getState()
+          .selectedRecommendation;
+      assert.ok(recommendation);
+      const selectedIds = [
+        ...recommendation.teamA,
+        ...recommendation.teamB,
+      ].map((player) => player.id);
+
+      assert.deepEqual(
+        selectedIds.sort(),
+        [
+          "player-03",
+          "player-04",
+          "player-05",
+          "player-06",
+        ],
+        "고정 파트너 보너스가 휴식시간 우선순위를 앞지르면 안 됩니다."
       );
     }
   );
