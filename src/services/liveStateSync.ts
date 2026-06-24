@@ -394,6 +394,8 @@ function mergeBootstrapCourt(
     | LiveStateSnapshot["courts"][number]
     | undefined,
   currentHistory:
+    LiveStateSnapshot["matchHistory"],
+  incomingHistory:
     LiveStateSnapshot["matchHistory"]
 ) {
   if (!current) {
@@ -429,6 +431,15 @@ function mergeBootstrapCourt(
     currentActive &&
     !incomingActive
   ) {
+    if (
+      hasFinishedMatchForCourt(
+        incomingHistory,
+        current
+      )
+    ) {
+      return incoming;
+    }
+
     return current;
   }
 
@@ -722,7 +733,8 @@ function mergeBootstrapSnapshots(
             incomingCourt.id
           ),
           incomingCourt,
-          current.matchHistory
+          current.matchHistory,
+          incoming.matchHistory
         )!
       );
     }

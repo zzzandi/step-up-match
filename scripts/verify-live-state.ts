@@ -507,6 +507,20 @@ assert.equal(
   "지연된 전체 응답이 이미 종료된 경기를 다시 진행 중으로 되살리면 안 됩니다."
 );
 
+const backgroundClientFinishedResult =
+  mergeLiveStateSnapshot(
+    live,
+    finishedCourtState,
+    "ADMIN"
+  );
+
+assert.equal(
+  backgroundClientFinishedResult.courts[0]
+    .status,
+  "EMPTY",
+  "백그라운드 복귀 기기가 최신 스냅샷의 종료 이력을 받으면 경기중 화면을 끝내야 합니다."
+);
+
 const preOpenParticipants =
   Array.from(
     { length: 9 },
