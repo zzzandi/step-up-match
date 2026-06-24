@@ -521,6 +521,66 @@ assert.equal(
   "백그라운드 복귀 기기가 최신 스냅샷의 종료 이력을 받으면 경기중 화면을 끝내야 합니다."
 );
 
+const staleMatchStartedPatch =
+  createLiveStatePatch(
+    snapshot({
+      players: live.players.map(
+        (item) => ({
+          ...item,
+          status: "WAITING" as const,
+          playingStartedAt:
+            undefined,
+        })
+      ),
+      courts: [
+        {
+          id: 1,
+          status: "EMPTY",
+          teamA: null,
+          teamB: null,
+          startedAt: null,
+        },
+      ],
+    }),
+    live
+  );
+const stalePatchAfterFinishResult =
+  mergeLiveStateSnapshot(
+    finishedCourtState,
+    live,
+    "ADMIN",
+    undefined,
+    staleMatchStartedPatch
+  );
+
+assert.equal(
+  stalePatchAfterFinishResult.courts[0]
+    .status,
+  "EMPTY",
+  "경기 종료 후 늦게 도착한 경기중 패치가 종료된 경기를 되살리면 안 됩니다."
+);
+
+const finishPatch =
+  createLiveStatePatch(
+    live,
+    finishedCourtState
+  );
+const backgroundClientFinishPatchResult =
+  mergeLiveStateSnapshot(
+    live,
+    finishedCourtState,
+    "MASTER",
+    undefined,
+    finishPatch
+  );
+
+assert.equal(
+  backgroundClientFinishPatchResult.courts[0]
+    .status,
+  "EMPTY",
+  "백그라운드 복귀 기기가 경기 종료 패치를 받으면 경기중 화면을 끝내야 합니다."
+);
+
 const preOpenParticipants =
   Array.from(
     { length: 9 },

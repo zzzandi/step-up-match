@@ -506,6 +506,94 @@ function mergeChangedEntities<
   );
 }
 
+function mergeChangedCourts(
+  current: LiveStateSnapshot["courts"],
+  incoming: LiveStateSnapshot["courts"],
+  changedIds:
+    | Array<string | number>
+    | undefined,
+  removedIds:
+    | Array<string | number>
+    | undefined,
+  currentHistory:
+    LiveStateSnapshot["matchHistory"],
+  incomingHistory:
+    LiveStateSnapshot["matchHistory"]
+) {
+  const changed =
+    new Set(
+      (changedIds ?? []).map(String)
+    );
+  const removed =
+    new Set(
+      (removedIds ?? []).map(String)
+    );
+  const incomingById = new Map(
+    incoming.map((court) => [
+      String(court.id),
+      court,
+    ])
+  );
+  const merged = new Map(
+    current
+      .filter(
+        (court) =>
+          !removed.has(
+            String(court.id)
+          )
+      )
+      .map((court) => [
+        String(court.id),
+        court,
+      ])
+  );
+
+  incoming.forEach((court) => {
+    if (
+      !changed.has(String(court.id))
+    ) {
+      return;
+    }
+
+    const nextCourt =
+      mergeBootstrapCourt(
+        merged.get(
+          String(court.id)
+        ),
+        court,
+        currentHistory,
+        incomingHistory
+      );
+
+    if (nextCourt) {
+      merged.set(
+        String(court.id),
+        nextCourt
+      );
+    }
+  });
+
+  changed.forEach((courtId) => {
+    if (merged.has(courtId)) {
+      return;
+    }
+
+    const incomingCourt =
+      incomingById.get(courtId);
+
+    if (incomingCourt) {
+      merged.set(
+        String(incomingCourt.id),
+        incomingCourt
+      );
+    }
+  });
+
+  return Array.from(
+    merged.values()
+  ).sort((a, b) => a.id - b.id);
+}
+
 function dedupeNotifications(
   notifications:
     LiveStateSnapshot["notifications"]
@@ -1061,13 +1149,15 @@ export function mergeLiveStateSnapshot(
 
     if (changed.has("courts")) {
       next.courts =
-        mergeChangedEntities(
+        mergeChangedCourts(
           current.courts,
           incoming.courts,
           patch.changedEntityIds
             ?.courts,
           patch.removedEntityIds
-            ?.courts
+            ?.courts,
+          current.matchHistory,
+          incoming.matchHistory
         );
     }
 
