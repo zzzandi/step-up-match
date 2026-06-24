@@ -3355,6 +3355,63 @@ try {
   );
 
   run(
+    "마스터가 경기 종료하면 운영진과 플레이어 화면에도 코트 종료와 기록이 반영",
+    () => {
+      resetStore(12, 1);
+      const masterStore =
+        useMatchStore.getState();
+      masterStore.rerollRecommendations(
+        1
+      );
+      masterStore.approveRecommendation();
+      const before =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+
+      useMatchStore
+        .getState()
+        .finishCourtMatch(1);
+      const after =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const patch =
+        createLiveStatePatch(
+          before,
+          after
+        );
+      const adminView =
+        mergeLiveStateSnapshot(
+          before,
+          after,
+          "MASTER",
+          "master-player-id",
+          patch
+        );
+
+      assert.equal(
+        adminView.courts.find(
+          (court) => court.id === 1
+        )?.status,
+        "EMPTY"
+      );
+      assert.equal(
+        adminView.players.filter(
+          (player) =>
+            player.status ===
+            "PLAYING"
+        ).length,
+        0
+      );
+      assert.equal(
+        adminView.matchHistory.length,
+        1
+      );
+    }
+  );
+
+  run(
     "운동 전체 종료 시 오늘 상태는 초기화되고 경기 기록은 유지",
     () => {
       const historyCount =

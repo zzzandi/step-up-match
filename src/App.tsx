@@ -786,21 +786,10 @@ function App() {
     const unsubscribeStore =
       useMatchStore.subscribe(
         (state, previousState) => {
-          const session =
-            getAccessSession();
-
           if (
             applyingRemoteSnapshot
             ||
             isLocalOnlyMutationActive()
-            ||
-            (
-              session &&
-              canManage(
-                session.role
-              ) &&
-              !authorityReady
-            )
             ||
             getTestModeState()
               .active
