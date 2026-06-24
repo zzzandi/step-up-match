@@ -169,6 +169,8 @@ try {
       fixedPartnerAssignments: [],
       fixedPartnerRequestResolutions:
         [],
+      queuedCourts: [],
+      dismissedNotificationIds: [],
       notifications: [],
       matchHistory: [],
       recommendations: [],
@@ -1117,6 +1119,92 @@ try {
         ).length,
         4
       );
+    }
+  );
+
+  run(
+    "queued court manual match keeps players waiting until promoted",
+    () => {
+      resetStore(12, 1);
+      const state =
+        useMatchStore.getState();
+      state.addQueuedCourt();
+      const assigned =
+        useMatchStore
+          .getState()
+          .assignManualMatch(
+            1,
+            [
+              "player-05",
+              "player-06",
+            ],
+            [
+              "player-07",
+              "player-08",
+            ],
+            "QUEUE"
+          );
+      const next =
+        useMatchStore.getState();
+
+      assert.equal(assigned, true);
+      assert.equal(next.queuedCourts[0].status, "QUEUED");
+      assert.deepEqual(
+        next.queuedCourts[0].teamA.map((player) => player.id),
+        ["player-05", "player-06"]
+      );
+      assert.equal(
+        next.players.filter((player) => player.status === "PLAYING").length,
+        0
+      );
+    }
+  );
+
+  run(
+    "queued court auto match is promoted when a game court finishes",
+    () => {
+      resetStore(16, 1);
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-02"],
+          ["player-03", "player-04"]
+        );
+      useMatchStore.getState().addQueuedCourt();
+      useMatchStore
+        .getState()
+        .rerollRecommendations(1, "QUEUE");
+      useMatchStore
+        .getState()
+        .approveRecommendation("QUEUE");
+      const queuedBefore =
+        useMatchStore.getState().queuedCourts[0];
+      const queuedIds = [
+        ...queuedBefore.teamA,
+        ...queuedBefore.teamB,
+      ].map((player) => player.id);
+
+      useMatchStore.getState().finishCourtMatch(1);
+      const next = useMatchStore.getState();
+
+      assert.equal(next.queuedCourts.length, 0);
+      assert.equal(next.courts[0].status, "PLAYING");
+      assert.deepEqual(
+        [
+          ...next.courts[0].teamA,
+          ...next.courts[0].teamB,
+        ].map((player) => player.id),
+        queuedIds
+      );
+      assert.ok(
+        queuedIds.every((id) =>
+          next.players.some(
+            (player) => player.id === id && player.status === "PLAYING"
+          )
+        )
+      );
+      assert.equal(next.matchHistory.length, 1);
     }
   );
 

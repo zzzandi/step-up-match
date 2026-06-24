@@ -10,10 +10,12 @@ export type LiveStateSnapshot = Pick<
   MatchStore,
   | "players"
   | "courts"
+  | "queuedCourts"
   | "fixedPartnerRequests"
   | "fixedPartnerAssignments"
   | "fixedPartnerRequestResolutions"
   | "notifications"
+  | "dismissedNotificationIds"
   | "matchHistory"
   | "womenDoublesPriority"
   | "excludedMatchPairs"
@@ -25,6 +27,7 @@ export type LiveStateKey =
 export type LiveStateEntityKey =
   | "players"
   | "courts"
+  | "queuedCourts"
   | "fixedPartnerRequests"
   | "fixedPartnerAssignments"
   | "fixedPartnerRequestResolutions"
@@ -85,6 +88,8 @@ export function createLiveStateSnapshot(
   return {
     players: state.players,
     courts: state.courts,
+    queuedCourts:
+      state.queuedCourts,
     fixedPartnerRequests:
       state.fixedPartnerRequests,
     fixedPartnerAssignments:
@@ -93,6 +98,8 @@ export function createLiveStateSnapshot(
       state.fixedPartnerRequestResolutions,
     notifications:
       state.notifications,
+    dismissedNotificationIds:
+      state.dismissedNotificationIds,
     matchHistory:
       state.matchHistory,
     womenDoublesPriority:
@@ -166,6 +173,25 @@ function normalizeLiveStateSnapshot(
           ) as typeof court.teamB,
       })
     );
+  normalizedSnapshot.queuedCourts =
+    normalizedSnapshot.queuedCourts.map(
+      (court) => ({
+        ...court,
+        teamA:
+          normalizeCourtPlayers(
+            court.teamA
+          ) as typeof court.teamA,
+        teamB:
+          normalizeCourtPlayers(
+            court.teamB
+          ) as typeof court.teamB,
+      })
+    );
+  normalizedSnapshot.notifications =
+    filterDismissedNotifications(
+      normalizedSnapshot.notifications,
+      normalizedSnapshot.dismissedNotificationIds
+    );
 
   return normalizedSnapshot;
 }
@@ -174,10 +200,12 @@ const liveStateKeys: LiveStateKey[] =
   [
     "players",
     "courts",
+    "queuedCourts",
     "fixedPartnerRequests",
     "fixedPartnerAssignments",
     "fixedPartnerRequestResolutions",
     "notifications",
+    "dismissedNotificationIds",
     "matchHistory",
     "womenDoublesPriority",
     "excludedMatchPairs",
@@ -187,6 +215,7 @@ const entityKeys:
   LiveStateEntityKey[] = [
     "players",
     "courts",
+    "queuedCourts",
     "fixedPartnerRequests",
     "fixedPartnerAssignments",
     "fixedPartnerRequestResolutions",
@@ -295,7 +324,11 @@ export function createLiveStatePatch(
   };
 }
 
-function mergeById<T extends { id: string }>(
+function mergeById<
+  T extends {
+    id: string | number;
+  },
+>(
   current: T[],
   incoming: T[],
   mergeExisting = false
@@ -324,6 +357,22 @@ function mergeById<T extends { id: string }>(
 
   return Array.from(
     merged.values()
+  );
+}
+
+function filterDismissedNotifications(
+  notifications:
+    LiveStateSnapshot["notifications"],
+  dismissedNotificationIds:
+    LiveStateSnapshot["dismissedNotificationIds"]
+) {
+  const dismissed = new Set(
+    dismissedNotificationIds
+  );
+
+  return notifications.filter(
+    (notification) =>
+      !dismissed.has(notification.id)
   );
 }
 
@@ -790,6 +839,7 @@ function mergeBootstrapSnapshots(
   const currentHasLiveState =
     current.players.length > 0 ||
     current.courts.length > 0 ||
+    current.queuedCourts.length > 0 ||
     current.fixedPartnerRequests
       .length > 0 ||
     current.fixedPartnerAssignments
@@ -831,6 +881,12 @@ function mergeBootstrapSnapshots(
     courtById.values()
   ).sort((a, b) => a.id - b.id);
 
+  const queuedCourts =
+    mergeById(
+      incoming.queuedCourts,
+      current.queuedCourts
+    ).sort((a, b) => a.id - b.id);
+
   const excludedPairs =
     new Map(
       current.excludedMatchPairs.map(
@@ -856,6 +912,7 @@ function mergeBootstrapSnapshots(
       current.players
     ),
     courts,
+    queuedCourts,
     fixedPartnerRequests:
       dedupeFixedPartnerRequests(
         mergeById(
@@ -875,12 +932,25 @@ function mergeBootstrapSnapshots(
         incoming.fixedPartnerRequestResolutions,
         current.fixedPartnerRequestResolutions
       ),
+    dismissedNotificationIds:
+      Array.from(
+        new Set([
+          ...incoming.dismissedNotificationIds,
+          ...current.dismissedNotificationIds,
+        ])
+      ),
     notifications:
-      dedupeNotifications(
-        mergeById(
-          incoming.notifications,
-          current.notifications
-        )
+      filterDismissedNotifications(
+        dedupeNotifications(
+          mergeById(
+            incoming.notifications,
+            current.notifications
+          )
+        ),
+        [
+          ...incoming.dismissedNotificationIds,
+          ...current.dismissedNotificationIds,
+        ]
       ),
     matchHistory:
       dedupeMatchHistory(
@@ -1161,6 +1231,18 @@ export function mergeLiveStateSnapshot(
         );
     }
 
+    if (changed.has("queuedCourts")) {
+      next.queuedCourts =
+        mergeChangedEntities(
+          current.queuedCourts,
+          incoming.queuedCourts,
+          patch.changedEntityIds
+            ?.queuedCourts,
+          patch.removedEntityIds
+            ?.queuedCourts
+        );
+    }
+
     if (
       changed.has(
         "fixedPartnerRequests"
@@ -1214,18 +1296,42 @@ export function mergeLiveStateSnapshot(
     }
 
     if (
-      changed.has("notifications")
+      changed.has(
+        "dismissedNotificationIds"
+      )
+    ) {
+      next.dismissedNotificationIds =
+        Array.from(
+          new Set([
+            ...current.dismissedNotificationIds,
+            ...incoming.dismissedNotificationIds,
+          ])
+        );
+    }
+
+    if (
+      changed.has("notifications") ||
+      changed.has(
+        "dismissedNotificationIds"
+      )
     ) {
       next.notifications =
-        dedupeNotifications(
-          mergeChangedEntities(
-            current.notifications,
-            incoming.notifications,
-            patch.changedEntityIds
-              ?.notifications,
-            patch.removedEntityIds
-              ?.notifications
-          )
+        filterDismissedNotifications(
+          dedupeNotifications(
+            changed.has(
+              "notifications"
+            )
+              ? mergeChangedEntities(
+                  current.notifications,
+                  incoming.notifications,
+                  patch.changedEntityIds
+                    ?.notifications,
+                  patch.removedEntityIds
+                    ?.notifications
+                )
+              : current.notifications
+          ),
+          next.dismissedNotificationIds
         );
     }
 
@@ -1482,6 +1588,11 @@ export function mergeLiveStateSnapshot(
     players:
       normalizedPlayers,
     courts,
+    queuedCourts:
+      mergeById(
+        current.queuedCourts,
+        incoming.queuedCourts
+      ),
     fixedPartnerRequests:
       dedupeFixedPartnerRequests(
         mergeById(
@@ -1496,12 +1607,25 @@ export function mergeLiveStateSnapshot(
         current.fixedPartnerRequestResolutions,
         incoming.fixedPartnerRequestResolutions
       ),
+    dismissedNotificationIds:
+      Array.from(
+        new Set([
+          ...current.dismissedNotificationIds,
+          ...incoming.dismissedNotificationIds,
+        ])
+      ),
     notifications:
-      dedupeNotifications(
-        mergeById(
-          current.notifications,
-          incoming.notifications
-        )
+      filterDismissedNotifications(
+        dedupeNotifications(
+          mergeById(
+            current.notifications,
+            incoming.notifications
+          )
+        ),
+        [
+          ...current.dismissedNotificationIds,
+          ...incoming.dismissedNotificationIds,
+        ]
       ),
     matchHistory:
       dedupeMatchHistory(

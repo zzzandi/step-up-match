@@ -1,9 +1,9 @@
 export const ENGINE_CONFIG = {
   playerSelection: {
-    rest: 40,
-    diversity: 30,
+    rest: 30,
+    diversity: 45,
     matchCount: 20,
-    consecutive: 10,
+    consecutive: 5,
   },
   teamCreation: {
     balance: 40,

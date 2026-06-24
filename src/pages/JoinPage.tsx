@@ -37,12 +37,52 @@ import {
 import {
   shouldActivateAttendance,
 } from "@/utils/attendanceState";
+import type {
+  Gender,
+  Grade,
+  Player,
+} from "@/types/player";
 
 interface User {
   id: string;
   name: string;
   gender?: string;
   grade?: string;
+}
+
+const defaultHiddenSkillByGrade: Record<
+  Grade,
+  number
+> = {
+  A: 95,
+  B: 80,
+  C: 65,
+  D: 50,
+  E: 35,
+  F: 20,
+};
+
+function toGender(
+  value: string | undefined
+): Gender {
+  return value === "F"
+    ? "F"
+    : "M";
+}
+
+function toGrade(
+  value: string | undefined
+): Grade {
+  return [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+  ].includes(value ?? "")
+    ? (value as Grade)
+    : "F";
 }
 
 const roleConfig: Record<
@@ -430,25 +470,69 @@ export default function JoinPage() {
 
       if (
         resolvedMode ===
-          "PARTICIPANT" &&
-        existingPlayer?.status ===
-          "LEFT"
+        "PARTICIPANT"
       ) {
-        setPlayers(
-          players.map((player) =>
-            player.id ===
-            selectedUser.id
-              ? {
-                  ...player,
-                  isPresent: true,
-                  status:
-                    "WAITING",
-                  waitingStartedAt:
-                    new Date(),
-                }
-              : player
-          )
-        );
+        const joinedAt =
+          new Date();
+        const grade =
+          toGrade(
+            selectedUser.grade
+          );
+        const restoredPlayer: Player =
+          {
+            id: selectedUser.id,
+            name: selectedUser.name,
+            gender:
+              toGender(
+                selectedUser.gender
+              ),
+            grade,
+            hiddenSkill:
+              existingPlayer?.hiddenSkill ??
+              defaultHiddenSkillByGrade[
+                grade
+              ],
+            isPresent: true,
+            arrivalTime:
+              existingPlayer?.arrivalTime ??
+              joinedAt,
+            matchCount:
+              existingPlayer?.matchCount ??
+              0,
+            consecutiveMatches:
+              existingPlayer?.consecutiveMatches ??
+              0,
+            status: "WAITING",
+            waitingStartedAt:
+              joinedAt,
+            lastPartners:
+              existingPlayer?.lastPartners ??
+              [],
+            lastOpponents:
+              existingPlayer?.lastOpponents ??
+              [],
+            fixedPartner:
+              existingPlayer?.fixedPartner,
+          };
+
+        if (!existingPlayer) {
+          setPlayers([
+            ...players,
+            restoredPlayer,
+          ]);
+        } else if (
+          existingPlayer.status ===
+          "LEFT"
+        ) {
+          setPlayers(
+            players.map((player) =>
+              player.id ===
+              selectedUser.id
+                ? restoredPlayer
+                : player
+            )
+          );
+        }
       }
 
       if (

@@ -302,7 +302,8 @@ import {
           <div className="flex gap-3 mt-8">
             <button
               onClick={
-                approveRecommendation
+                () =>
+                  approveRecommendation()
               }
               disabled={
                 !selectedRecommendation

@@ -1,10 +1,12 @@
 const ARRAY_FIELDS = [
   "players",
   "courts",
+  "queuedCourts",
   "fixedPartnerRequests",
   "fixedPartnerAssignments",
   "fixedPartnerRequestResolutions",
   "notifications",
+  "dismissedNotificationIds",
   "matchHistory",
   "excludedMatchPairs",
 ] as const;
@@ -107,9 +109,7 @@ export function normalizePersistedMatchState(
   )
     .map(revivePlayer)
     .filter(Boolean);
-  normalized.courts = (
-    normalized.courts as unknown[]
-  ).map((value) => {
+  const reviveCourt = (value: unknown) => {
     if (
       !value ||
       typeof value !== "object" ||
@@ -142,7 +142,14 @@ export function normalizePersistedMatchState(
         : null;
 
     return court;
-  });
+  };
+
+  normalized.courts = (
+    normalized.courts as unknown[]
+  ).map(reviveCourt);
+  normalized.queuedCourts = (
+    normalized.queuedCourts as unknown[]
+  ).map(reviveCourt);
   normalized.matchHistory = (
     normalized.matchHistory as unknown[]
   ).map((value) => {

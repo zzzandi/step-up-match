@@ -154,6 +154,12 @@ console.log(
       (state) => state.courts
     );
 
+  const queuedCourts =
+    useMatchStore(
+      (state) =>
+        state.queuedCourts
+    );
+
   const setPlayers =
     useMatchStore(
       (state) => state.setPlayers
@@ -239,6 +245,12 @@ console.log(
     useMatchStore(
       (state) =>
         state.addCourt
+    );
+
+  const addQueuedCourt =
+    useMatchStore(
+      (state) =>
+        state.addQueuedCourt
     );
 
   const removeCourt =
@@ -1643,6 +1655,28 @@ console.log(
             </button>
 
             <button
+              onClick={() => {
+                if (isReadOnly) {
+                  window.alert(
+                    "조회 전용 로그인에서는 대기 코트를 추가할 수 없습니다."
+                  );
+                  return;
+                }
+
+                addQueuedCourt();
+              }}
+              className="
+                rounded-2xl
+                bg-indigo-500
+                px-6
+                py-3
+                font-bold
+              "
+            >
+              + 대기 코트 추가
+            </button>
+
+            <button
               onClick={
                 handleRemoveCourt
               }
@@ -1923,6 +1957,34 @@ console.log(
             )
           )}
         </div>
+
+        {queuedCourts.length > 0 && (
+          <div className="mt-8">
+            <div className="mb-4 rounded-2xl border border-indigo-400/30 bg-indigo-400/10 p-4">
+              <p className="text-sm font-bold text-indigo-200">
+                대기 코트
+              </p>
+              <p className="mt-1 text-sm text-slate-300">
+                여기서 만든 대진은 실제 경기중으로 처리되지 않고, 게임 코트 경기 종료 시 자동으로 들어갑니다.
+              </p>
+            </div>
+
+            <div className="grid lg:grid-cols-2 gap-6">
+              {queuedCourts.map(
+                (court) => (
+                  <CourtCard
+                    key={`queue-${court.id}`}
+                    court={court}
+                    readOnly={
+                      isReadOnly
+                    }
+                    matchTarget="QUEUE"
+                  />
+                )
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="mt-8 grid lg:grid-cols-2 gap-6">
           <WaitingList

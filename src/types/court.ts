@@ -3,7 +3,7 @@ import type { Player } from "./player";
 export interface Court {
   id: number;
 
-  status: "PLAYING" | "EMPTY";
+  status: "PLAYING" | "EMPTY" | "QUEUED";
 
   teamA: [Player, Player] | null;
 

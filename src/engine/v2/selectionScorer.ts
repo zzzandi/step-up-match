@@ -16,7 +16,26 @@ export interface SelectionScore {
   consecutive: number;
 }
 
-function hasPlayedTogether(
+function hasRecentHardRepeat(
+  playerA: Player,
+  playerB: Player
+) {
+  const recentCount =
+    [
+      ...playerA.lastPartners,
+      ...playerB.lastPartners,
+      ...playerA.lastOpponents,
+      ...playerB.lastOpponents,
+    ].filter(
+      (playerId) =>
+        playerId === playerA.id ||
+        playerId === playerB.id
+    ).length;
+
+  return recentCount >= 2;
+}
+
+function hasAnyPlayedTogether(
   playerA: Player,
   playerB: Player
 ) {
@@ -58,6 +77,7 @@ export function scorePlayerSelection(
     weights.rest;
 
   let repeatedPairs = 0;
+  let hardRepeatedPairs = 0;
 
   for (
     let i = 0;
@@ -70,19 +90,32 @@ export function scorePlayerSelection(
       j++
     ) {
       if (
-        hasPlayedTogether(
+        hasAnyPlayedTogether(
           players[i],
           players[j]
         )
       ) {
         repeatedPairs += 1;
       }
+
+      if (
+        hasRecentHardRepeat(
+          players[i],
+          players[j]
+        )
+      ) {
+        hardRepeatedPairs += 1;
+      }
     }
   }
 
   const diversity =
-    (1 - repeatedPairs / 6) *
-    weights.diversity;
+    Math.max(
+      0,
+      1 -
+        repeatedPairs / 6 -
+        hardRepeatedPairs / 3
+    ) * weights.diversity;
   const matchCount =
     players.reduce(
       (sum, player) =>

@@ -144,10 +144,32 @@ export default function FixedPartnerPage() {
           currentUserId
     );
   const candidates =
-    members.filter(
-      (member) =>
-        member.id !==
-          currentUserId
+    Array.from(
+      new Map(
+        [
+          ...members,
+          ...players
+            .filter(
+              (player) =>
+                player.isPresent &&
+                player.status !==
+                  "LEFT"
+            )
+            .map((player) => ({
+              id: player.id,
+              name: player.name,
+            })),
+        ]
+          .filter(
+            (member) =>
+              member.id !==
+              currentUserId
+          )
+          .map((member) => [
+            member.id,
+            member,
+          ])
+      ).values()
     );
 
   function submitRequest() {

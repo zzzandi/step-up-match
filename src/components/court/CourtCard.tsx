@@ -37,11 +37,13 @@ function formatDuration(
 interface CourtCardProps {
   court: Court;
   readOnly?: boolean;
+  matchTarget?: "GAME" | "QUEUE";
 }
 
 export default function CourtCard({
   court,
   readOnly = false,
+  matchTarget = "GAME",
 }: CourtCardProps) {
   const finishCourtMatch =
     useMatchStore(
@@ -157,7 +159,7 @@ export default function CourtCard({
         </div>
 
         <div className="mt-6 text-slate-500">
-          비어있음
+          鍮꾩뼱?덉쓬
         </div>
 
         {!readOnly && (
@@ -167,13 +169,13 @@ export default function CourtCard({
                 type="button"
                 onClick={() =>
                   rerollRecommendations(
-                    court.id
+                    court.id,
+                    matchTarget
                   )
                 }
                 className="rounded-xl bg-blue-500 py-3 font-bold text-white"
               >
-                자동 대진
-              </button>
+                ?먮룞 ?吏?              </button>
               <button
                 type="button"
                 onClick={() =>
@@ -183,26 +185,24 @@ export default function CourtCard({
                 }
                 className="rounded-xl bg-cyan-400 py-3 font-bold text-slate-950"
               >
-                수동 대진
-              </button>
+                ?섎룞 ?吏?              </button>
             </div>
 
             {isManualMatchOpen && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
                 <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-cyan-500/30 bg-slate-900 p-6">
                   <div className="mb-2 text-xl font-bold">
-                    Court {court.id} 수동 대진
-                  </div>
+                    Court {court.id} ?섎룞 ?吏?                  </div>
                   <p className="mb-5 text-sm text-slate-400">
-                    대기자 중 4명을 직접 선택해 팀을 구성하세요.
+                    ?湲곗옄 以?4紐낆쓣 吏곸젒 ?좏깮?????援ъ꽦?섏꽭??
                   </p>
 
                   <div className="grid gap-5 md:grid-cols-2">
                     {[
-                      "A팀 선수 1",
-                      "A팀 선수 2",
-                      "B팀 선수 1",
-                      "B팀 선수 2",
+                      "A? ?좎닔 1",
+                      "A? ?좎닔 2",
+                      "B? ?좎닔 1",
+                      "B? ?좎닔 2",
                     ].map(
                       (label, index) => (
                         <label
@@ -242,8 +242,7 @@ export default function CourtCard({
                             className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-white"
                           >
                             <option value="">
-                              선수를 선택하세요
-                            </option>
+                              ?좎닔瑜??좏깮?섏꽭??                            </option>
                             {waitingPlayers.map(
                               (player) => (
                                 <option
@@ -279,7 +278,7 @@ export default function CourtCard({
                   {waitingPlayers.length <
                     4 && (
                     <div className="mt-4 text-sm text-amber-300">
-                      수동 대진에는 대기자 4명이 필요합니다.
+                      ?섎룞 ?吏꾩뿉???湲곗옄 4紐낆씠 ?꾩슂?⑸땲??
                     </div>
                   )}
 
@@ -306,12 +305,13 @@ export default function CourtCard({
                             [
                               manualPlayerIds[2],
                               manualPlayerIds[3],
-                            ]
+                            ],
+                            matchTarget
                           );
 
                         if (!assigned) {
                           window.alert(
-                            "선수 상태가 변경되었거나 코트가 이미 사용 중입니다. 현재 대기열을 확인해주세요."
+                            "?좎닔 ?곹깭媛 蹂寃쎈릺?덇굅??肄뷀듃媛 ?대? ?ъ슜 以묒엯?덈떎. ?꾩옱 ?湲곗뿴???뺤씤?댁＜?몄슂."
                           );
                           return;
                         }
@@ -330,7 +330,7 @@ export default function CourtCard({
                       }}
                       className="flex-1 rounded-xl bg-cyan-400 py-3 font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      경기 시작
+                      寃쎄린 ?쒖옉
                     </button>
                     <button
                       type="button"
@@ -349,7 +349,7 @@ export default function CourtCard({
                       }}
                       className="rounded-xl bg-slate-700 px-5 py-3 font-bold"
                     >
-                      취소
+                      痍⑥냼
                     </button>
                   </div>
                 </div>
@@ -389,7 +389,7 @@ export default function CourtCard({
 
     const confirmed =
       window.confirm(
-        `${outgoing?.name ?? "선택한 선수"}님을 ${incoming?.name ?? "선택한 대기자"}님으로 교체하시겠습니까?`
+        `${outgoing?.name ?? "?좏깮???좎닔"}?섏쓣 ${incoming?.name ?? "?좏깮???湲곗옄"}?섏쑝濡?援먯껜?섏떆寃좎뒿?덇퉴?`
       );
 
     if (!confirmed) {
@@ -421,7 +421,7 @@ export default function CourtCard({
 
       <div className="mb-4 text-center">
         <div className="text-slate-400 text-sm">
-          경기 시간
+          寃쎄린 ?쒓컙
         </div>
 
         <div className="text-xl font-bold text-lime-400">
@@ -475,6 +475,7 @@ export default function CourtCard({
 
       {!readOnly && (
         <div className="mt-6 space-y-3">
+          {matchTarget === "GAME" && (
           <button
             type="button"
             onClick={() =>
@@ -492,19 +493,20 @@ export default function CourtCard({
               hover:bg-slate-700
             "
           >
-            선수 교체
+            ?좎닔 援먯껜
           </button>
+          )}
 
-          {isReplacementOpen && (
+          {matchTarget === "GAME" && isReplacementOpen && (
             <div className="rounded-2xl border border-cyan-500/30 bg-slate-950 p-4">
               <div className="mb-4 text-sm text-slate-400">
-                교체할 선수와 들어올 대기자를 선택하세요.
+                援먯껜???좎닔? ?ㅼ뼱???湲곗옄瑜??좏깮?섏꽭??
               </div>
 
               <div className="grid gap-3 md:grid-cols-2">
                 <label className="block">
                   <span className="mb-2 block text-sm text-slate-400">
-                    나갈 선수
+                    ?섍컝 ?좎닔
                   </span>
                   <select
                     value={outgoingPlayerId}
@@ -525,7 +527,7 @@ export default function CourtCard({
                     "
                   >
                     <option value="">
-                      선수를 선택하세요
+                      ?좎닔瑜??좏깮?섏꽭??
                     </option>
                     {assignedPlayers.map(
                       (player) => (
@@ -542,7 +544,7 @@ export default function CourtCard({
 
                 <label className="block">
                   <span className="mb-2 block text-sm text-slate-400">
-                    들어올 대기자
+                    ?ㅼ뼱???湲곗옄
                   </span>
                   <select
                     value={incomingPlayerId}
@@ -563,7 +565,7 @@ export default function CourtCard({
                     "
                   >
                     <option value="">
-                      대기자를 선택하세요
+                      ?湲곗옄瑜??좏깮?섏꽭??
                     </option>
                     {waitingPlayers.map(
                       (player) => (
@@ -581,7 +583,7 @@ export default function CourtCard({
 
               {waitingPlayers.length === 0 && (
                 <div className="mt-3 text-sm text-amber-300">
-                  교체 가능한 대기자가 없습니다.
+                  援먯껜 媛?ν븳 ?湲곗옄媛 ?놁뒿?덈떎.
                 </div>
               )}
 
@@ -604,7 +606,7 @@ export default function CourtCard({
                     disabled:opacity-40
                   "
                 >
-                  교체 적용
+                  援먯껜 ?곸슜
                 </button>
 
                 <button
@@ -624,12 +626,13 @@ export default function CourtCard({
                     hover:bg-slate-700
                   "
                 >
-                  취소
+                  痍⑥냼
                 </button>
               </div>
             </div>
           )}
 
+          {matchTarget === "GAME" && (
           <button
             type="button"
             onClick={() =>
@@ -639,13 +642,14 @@ export default function CourtCard({
             }
             className="w-full rounded-xl bg-indigo-500 py-3 font-bold text-white hover:bg-indigo-400"
           >
-            코트 안 선수 자리 교환
+            肄뷀듃 ???좎닔 ?먮━ 援먰솚
           </button>
+          )}
 
-          {isCourtSwapOpen && (
+          {matchTarget === "GAME" && isCourtSwapOpen && (
             <div className="rounded-2xl border border-indigo-500/30 bg-slate-950 p-4">
               <div className="mb-4 text-sm text-slate-400">
-                두 선수를 선택하면 같은 팀의 자리 또는 A팀·B팀 구성을 서로 바꿀 수 있습니다.
+                ???좎닔瑜??좏깮?섎㈃ 媛숈? ????먮━ ?먮뒗 A?쨌B? 援ъ꽦???쒕줈 諛붽? ???덉뒿?덈떎.
               </div>
 
               <div className="grid gap-3 md:grid-cols-2">
@@ -653,7 +657,7 @@ export default function CourtCard({
                   {
                     id: "first",
                     label:
-                      "첫 번째 선수",
+                      "泥?踰덉㎏ ?좎닔",
                     value:
                       firstSwapPlayerId,
                     setValue:
@@ -662,7 +666,7 @@ export default function CourtCard({
                   {
                     id: "second",
                     label:
-                      "두 번째 선수",
+                      "??踰덉㎏ ?좎닔",
                     value:
                       secondSwapPlayerId,
                     setValue:
@@ -691,8 +695,7 @@ export default function CourtCard({
                       className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-3 text-white"
                     >
                       <option value="">
-                        선수를 선택하세요
-                      </option>
+                        ?좎닔瑜??좏깮?섏꽭??                      </option>
                       {assignedPlayers.map(
                         (player) => (
                           <option
@@ -739,7 +742,7 @@ export default function CourtCard({
                       )
                     ) {
                       window.alert(
-                        "선수 구성이 변경되어 교환하지 못했습니다."
+                        "?좎닔 援ъ꽦??蹂寃쎈릺??援먰솚?섏? 紐삵뻽?듬땲??"
                       );
                       return;
                     }
@@ -756,7 +759,7 @@ export default function CourtCard({
                   }}
                   className="flex-1 rounded-xl bg-indigo-500 py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  자리 교환 적용
+                  ?먮━ 援먰솚 ?곸슜
                 </button>
                 <button
                   type="button"
@@ -773,7 +776,7 @@ export default function CourtCard({
                   }}
                   className="rounded-xl bg-slate-800 px-4 py-3 font-bold"
                 >
-                  취소
+                  痍⑥냼
                 </button>
               </div>
             </div>
@@ -784,7 +787,7 @@ export default function CourtCard({
             onClick={() => {
               const confirmed =
                 window.confirm(
-                  "정말 경기를 종료하시겠습니까?"
+                  "?뺣쭚 寃쎄린瑜?醫낅즺?섏떆寃좎뒿?덇퉴?"
                 );
 
               if (!confirmed) {
@@ -804,7 +807,7 @@ export default function CourtCard({
               font-bold
             "
           >
-            경기 종료
+            寃쎄린 醫낅즺
           </button>
         </div>
       )}
