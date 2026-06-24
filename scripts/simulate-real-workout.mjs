@@ -1923,6 +1923,136 @@ try {
   );
 
   run(
+    "게스트 고정 파트너 승인 후에도 자동 대진 생성 가능",
+    () => {
+      resetStore(8, 1);
+      const state =
+        useMatchStore.getState();
+      const guest = {
+        ...state.players[7],
+        id: "guest-01",
+        name: "게스트01",
+        gender: "M",
+        grade: "E",
+        hiddenSkill: 45,
+        status: "WAITING",
+        isPresent: true,
+        fixedPartner: undefined,
+      };
+
+      state.setPlayers([
+        ...state.players
+          .slice(0, 7)
+          .map((player) => ({
+            ...player,
+            gender: "M",
+            hiddenSkill: 50,
+          })),
+        guest,
+      ]);
+      useMatchStore
+        .getState()
+        .requestFixedPartner(
+          guest.id,
+          "player-01",
+          guest.name,
+          "player-01"
+        );
+      const request =
+        useMatchStore.getState()
+          .fixedPartnerRequests[0];
+
+      assert.ok(request);
+      useMatchStore
+        .getState()
+        .approveFixedPartnerRequest(
+          request.id
+        );
+      useMatchStore
+        .getState()
+        .rerollRecommendations(1);
+
+      const recommendation =
+        useMatchStore.getState()
+          .selectedRecommendation;
+
+      assert.ok(
+        recommendation,
+        "게스트 고정 파트너 승인 후에도 자동 추천이 생성되어야 합니다."
+      );
+    }
+  );
+
+  run(
+    "게스트 고정 파트너 조합이 성별 규칙에 맞지 않아도 자동 대진 대안 생성",
+    () => {
+      resetStore(8, 1);
+      const state =
+        useMatchStore.getState();
+      const guest = {
+        ...state.players[7],
+        id: "guest-mixed-01",
+        name: "혼복게스트",
+        gender: "F",
+        grade: "E",
+        hiddenSkill: 45,
+        status: "WAITING",
+        isPresent: true,
+        fixedPartner: undefined,
+      };
+
+      state.setPlayers([
+        {
+          ...state.players[0],
+          gender: "M",
+          hiddenSkill: 50,
+        },
+        {
+          ...state.players[1],
+          gender: "M",
+          hiddenSkill: 50,
+        },
+        {
+          ...state.players[2],
+          gender: "M",
+          hiddenSkill: 50,
+        },
+        {
+          ...state.players[3],
+          gender: "F",
+          hiddenSkill: 50,
+        },
+        ...state.players
+          .slice(4, 7)
+          .map((player) => ({
+            ...player,
+            gender: "M",
+            hiddenSkill: 50,
+          })),
+        guest,
+      ]);
+      useMatchStore
+        .getState()
+        .setFixedPartner(
+          guest.id,
+          "player-01"
+        );
+      useMatchStore
+        .getState()
+        .rerollRecommendations(1);
+
+      const recommendation =
+        useMatchStore.getState()
+          .selectedRecommendation;
+
+      assert.ok(
+        recommendation,
+        "고정 파트너 우선 조합이 성별 규칙에서 탈락해도 일반 조합 추천이 생성되어야 합니다."
+      );
+    }
+  );
+
+  run(
     "고정 파트너 해제 후 재로그인해도 관계가 다시 생기지 않음",
     () => {
       resetStore(8, 1);

@@ -59,6 +59,9 @@ export function buildMatches(
         player.fixedPartner
     );
 
+  const fixedPartnerMatches: TeamMatch[] =
+    [];
+
   if (fixedPair) {
     const partner =
       players.find(
@@ -80,19 +83,17 @@ export function buildMatches(
       if (
         remaining.length === 2
       ) {
-        return [
-          {
-            teamA: [
-              fixedPair,
-              partner,
-            ],
+        fixedPartnerMatches.push({
+          teamA: [
+            fixedPair,
+            partner,
+          ],
 
-            teamB: [
-              remaining[0],
-              remaining[1],
-            ],
-          },
-        ];
+          teamB: [
+            remaining[0],
+            remaining[1],
+          ],
+        });
       }
     }
   }
@@ -102,7 +103,38 @@ export function buildMatches(
       players
     );
 
-  return matches.sort(
+  const dedupedMatches =
+    Array.from(
+      new Map(
+        [
+          ...fixedPartnerMatches,
+          ...matches,
+        ].map((match) => {
+          const key = [
+            match.teamA
+              .map(
+                (player) =>
+                  player.id
+              )
+              .sort()
+              .join("-"),
+            match.teamB
+              .map(
+                (player) =>
+                  player.id
+              )
+              .sort()
+              .join("-"),
+          ]
+            .sort()
+            .join("|");
+
+          return [key, match];
+        })
+      ).values()
+    );
+
+  return dedupedMatches.sort(
     (a, b) =>
       calculateGenderPriority(
         b
