@@ -17,6 +17,8 @@ import {
 
 const FIXED_PARTNER_TEAM_BONUS = 8;
 const MIN_FIXED_PARTNER_REST_MINUTES = 8;
+const MAX_FIXED_PARTNER_BALANCE_GAP = 10;
+const FIXED_PARTNER_IMBALANCE_PENALTY_PER_POINT = 2;
 
 function isFixedPartnerPair(
   playerA: TeamMatch["teamA"][number],
@@ -38,6 +40,7 @@ export interface RecommendationScore {
   opponentPenalty: number;
   genderBonus: number;
   fixedPartnerBonus: number;
+  fixedPartnerBalancePenalty: number;
 }
 
 export function scoreMatch(
@@ -140,6 +143,7 @@ export function scoreMatch(
       ? weights.genderBalance
       : 0;
   let fixedPartnerBonus = 0;
+  let fixedPartnerBalancePenalty = 0;
 
   const teamAFixedPartnerReady =
     getRestMinutes(
@@ -160,24 +164,45 @@ export function scoreMatch(
     ) >=
       MIN_FIXED_PARTNER_REST_MINUTES;
 
-  if (
-    teamAFixedPartnerReady &&
+  const hasTeamAFixedPartner =
     isFixedPartnerPair(
       teamA[0],
       teamA[1]
-    )
+    );
+  const hasTeamBFixedPartner =
+    isFixedPartnerPair(
+      teamB[0],
+      teamB[1]
+    );
+  const hasFixedPartnerTeam =
+    hasTeamAFixedPartner ||
+    hasTeamBFixedPartner;
+  const isFixedPartnerMatchBalanced =
+    gap <= MAX_FIXED_PARTNER_BALANCE_GAP;
+
+  if (
+    teamAFixedPartnerReady &&
+    hasTeamAFixedPartner &&
+    isFixedPartnerMatchBalanced
   ) {
     fixedPartnerBonus += 1;
   }
 
   if (
     teamBFixedPartnerReady &&
-    isFixedPartnerPair(
-      teamB[0],
-      teamB[1]
-    )
+    hasTeamBFixedPartner &&
+    isFixedPartnerMatchBalanced
   ) {
     fixedPartnerBonus += 1;
+  }
+
+  if (
+    hasFixedPartnerTeam &&
+    !isFixedPartnerMatchBalanced
+  ) {
+    fixedPartnerBalancePenalty =
+      (gap - MAX_FIXED_PARTNER_BALANCE_GAP) *
+      FIXED_PARTNER_IMBALANCE_PENALTY_PER_POINT;
   }
 
   const diversity =
@@ -189,7 +214,8 @@ export function scoreMatch(
     opponentDiversity +
     genderBonus +
     fixedPartnerBonus *
-      FIXED_PARTNER_TEAM_BONUS;
+      FIXED_PARTNER_TEAM_BONUS -
+    fixedPartnerBalancePenalty;
 
   return {
     total,
@@ -201,5 +227,6 @@ export function scoreMatch(
     opponentPenalty,
     genderBonus,
     fixedPartnerBonus,
+    fixedPartnerBalancePenalty,
   };
 }

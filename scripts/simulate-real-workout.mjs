@@ -82,6 +82,11 @@ try {
   } = await server.ssrLoadModule(
     "/src/utils/time.ts"
   );
+  const {
+    scoreMatch,
+  } = await server.ssrLoadModule(
+    "/src/engine/v2/recommendationScorer.ts"
+  );
 
   const results = [];
   const run = (
@@ -3246,6 +3251,72 @@ try {
             player.gender === "F"
         ).length,
         4
+      );
+    }
+  );
+
+  run(
+    "fixed partner team cannot override opponent team balance",
+    () => {
+      const now = Date.now();
+      const createScoredPlayer = (
+        id,
+        hiddenSkill,
+        fixedPartner
+      ) => ({
+        ...makePlayer(Number(id.slice(-2)) - 1),
+        id,
+        gender: "M",
+        hiddenSkill,
+        fixedPartner,
+        waitingStartedAt:
+          new Date(now - 20 * 60 * 1000),
+      });
+      const fixedA =
+        createScoredPlayer(
+          "player-01",
+          90,
+          "player-02"
+        );
+      const fixedB =
+        createScoredPlayer(
+          "player-02",
+          90,
+          "player-01"
+        );
+      const weakA =
+        createScoredPlayer(
+          "player-03",
+          35,
+          undefined
+        );
+      const weakB =
+        createScoredPlayer(
+          "player-04",
+          35,
+          undefined
+        );
+      const unbalancedFixedTeam =
+        scoreMatch({
+          teamA: [fixedA, fixedB],
+          teamB: [weakA, weakB],
+        });
+      const balancedSplitTeam =
+        scoreMatch({
+          teamA: [fixedA, weakA],
+          teamB: [fixedB, weakB],
+        });
+
+      assert.equal(
+        unbalancedFixedTeam.fixedPartnerBonus,
+        0
+      );
+      assert.ok(
+        unbalancedFixedTeam.fixedPartnerBalancePenalty > 0
+      );
+      assert.ok(
+        balancedSplitTeam.total >
+          unbalancedFixedTeam.total
       );
     }
   );
