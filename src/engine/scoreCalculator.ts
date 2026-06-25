@@ -6,6 +6,11 @@ import type {
 import {
   getEffectiveHiddenSkill,
 } from "@/utils/skillOverrides";
+import {
+  getRestMinutes,
+} from "@/utils/time";
+
+const MIN_FIXED_PARTNER_REST_MINUTES = 8;
 
 function getPartnerDiversityScore(
   playerA: Player,
@@ -295,15 +300,31 @@ export function calculateMatchScore(
   let fixedPartnerBonus = 0;
 
   if (
+    getRestMinutes(
+      teamA[0].waitingStartedAt
+    ) >=
+      MIN_FIXED_PARTNER_REST_MINUTES &&
+    getRestMinutes(
+      teamA[1].waitingStartedAt
+    ) >=
+      MIN_FIXED_PARTNER_REST_MINUTES &&
     teamA[0].fixedPartner ===
-    teamA[1].id
+      teamA[1].id
   ) {
     fixedPartnerBonus += 100;
   }
 
   if (
+    getRestMinutes(
+      teamB[0].waitingStartedAt
+    ) >=
+      MIN_FIXED_PARTNER_REST_MINUTES &&
+    getRestMinutes(
+      teamB[1].waitingStartedAt
+    ) >=
+      MIN_FIXED_PARTNER_REST_MINUTES &&
     teamB[0].fixedPartner ===
-    teamB[1].id
+      teamB[1].id
   ) {
     fixedPartnerBonus += 100;
   }

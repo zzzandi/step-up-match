@@ -1325,8 +1325,6 @@ export const useMatchStore =
                     1,
                   playingStartedAt:
                     promotedAt,
-                  waitingStartedAt:
-                    undefined,
                   lastMatchAt:
                     promotedAt,
                 };
@@ -1549,7 +1547,6 @@ export const useMatchStore =
 
         const restoredWaitingAt =
           outgoingPlayer.waitingStartedAt ??
-          outgoingPlayer.arrivalTime ??
           new Date();
 
         const updatedPlayers =
@@ -1581,8 +1578,14 @@ export const useMatchStore =
                     "PLAYING" as const,
                   playingStartedAt:
                     new Date(),
-                  waitingStartedAt:
-                    undefined,
+                  matchCount:
+                    player.matchCount +
+                    1,
+                  consecutiveMatches:
+                    player.consecutiveMatches +
+                    1,
+                  lastMatchAt:
+                    new Date(),
                 };
               }
 
@@ -1898,8 +1901,6 @@ export const useMatchStore =
                     1,
                   playingStartedAt:
                     startedAt,
-                  waitingStartedAt:
-                    undefined,
                   lastMatchAt:
                     startedAt,
                 };
@@ -2169,8 +2170,6 @@ export const useMatchStore =
                             1,
                           playingStartedAt:
                             startedAt,
-                          waitingStartedAt:
-                            undefined,
                           lastMatchAt:
                             startedAt,
                         }

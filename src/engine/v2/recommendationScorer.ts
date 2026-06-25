@@ -11,8 +11,12 @@ import {
 import {
   getEffectiveHiddenSkill,
 } from "@/utils/skillOverrides";
+import {
+  getRestMinutes,
+} from "@/utils/time";
 
-const FIXED_PARTNER_TEAM_BONUS = 12;
+const FIXED_PARTNER_TEAM_BONUS = 8;
+const MIN_FIXED_PARTNER_REST_MINUTES = 8;
 
 export interface RecommendationScore {
   total: number;
@@ -119,20 +123,41 @@ export function scoreMatch(
       : 0;
   let fixedPartnerBonus = 0;
 
+  const teamAFixedPartnerReady =
+    getRestMinutes(
+      teamA[0].waitingStartedAt
+    ) >=
+      MIN_FIXED_PARTNER_REST_MINUTES &&
+    getRestMinutes(
+      teamA[1].waitingStartedAt
+    ) >=
+      MIN_FIXED_PARTNER_REST_MINUTES;
+  const teamBFixedPartnerReady =
+    getRestMinutes(
+      teamB[0].waitingStartedAt
+    ) >=
+      MIN_FIXED_PARTNER_REST_MINUTES &&
+    getRestMinutes(
+      teamB[1].waitingStartedAt
+    ) >=
+      MIN_FIXED_PARTNER_REST_MINUTES;
+
   if (
-    teamA[0].fixedPartner ===
+    teamAFixedPartnerReady &&
+    (teamA[0].fixedPartner ===
       teamA[1].id ||
-    teamA[1].fixedPartner ===
-      teamA[0].id
+      teamA[1].fixedPartner ===
+        teamA[0].id)
   ) {
     fixedPartnerBonus += 1;
   }
 
   if (
-    teamB[0].fixedPartner ===
+    teamBFixedPartnerReady &&
+    (teamB[0].fixedPartner ===
       teamB[1].id ||
-    teamB[1].fixedPartner ===
-      teamB[0].id
+      teamB[1].fixedPartner ===
+        teamB[0].id)
   ) {
     fixedPartnerBonus += 1;
   }

@@ -77,6 +77,11 @@ try {
   } = await server.ssrLoadModule(
     "/src/services/dashboardRecoveryService.ts"
   );
+  const {
+    getRestMinutes,
+  } = await server.ssrLoadModule(
+    "/src/utils/time.ts"
+  );
 
   const results = [];
   const run = (
@@ -3980,6 +3985,165 @@ try {
         createDefaultCourts()
           .length,
         3
+      );
+    }
+  );
+
+  run(
+    "rest display is clamped and never jumps above 60 minutes",
+    () => {
+      const veryOldWaitingAt =
+        new Date(Date.now() - 140 * 60 * 1000);
+
+      assert.equal(
+        getRestMinutes(veryOldWaitingAt),
+        60
+      );
+      assert.equal(
+        getRestMinutes(
+          new Date(Date.now() + 10 * 60 * 1000)
+        ),
+        0
+      );
+    }
+  );
+
+  run(
+    "replacement player increments match count exactly once",
+    () => {
+      resetStore(10, 1);
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-02"],
+          ["player-03", "player-04"]
+        );
+      const beforeReplacement =
+        useMatchStore
+          .getState()
+          .players.find((player) => player.id === "player-05");
+
+      useMatchStore
+        .getState()
+        .replaceCourtPlayer(
+          1,
+          "player-04",
+          "player-05"
+        );
+      const next = useMatchStore.getState();
+      const incoming = next.players.find(
+        (player) => player.id === "player-05"
+      );
+      const outgoing = next.players.find(
+        (player) => player.id === "player-04"
+      );
+
+      assert.equal(
+        incoming.matchCount,
+        beforeReplacement.matchCount + 1
+      );
+      assert.equal(incoming.status, "PLAYING");
+      assert.equal(outgoing.status, "WAITING");
+      assert.ok(
+        getRestMinutes(outgoing.waitingStartedAt) <= 60
+      );
+    }
+  );
+
+  run(
+    "fixed partner does not force a just-finished partner back in",
+    () => {
+      resetStore(12, 1);
+      const now = Date.now();
+      useMatchStore.setState((state) => ({
+        players: state.players.map((player, index) => {
+          if (player.id === "player-01") {
+            return {
+              ...player,
+              fixedPartner: "player-02",
+              waitingStartedAt:
+                new Date(now - 25 * 60 * 1000),
+            };
+          }
+
+          if (player.id === "player-02") {
+            return {
+              ...player,
+              fixedPartner: "player-01",
+              waitingStartedAt: new Date(now),
+            };
+          }
+
+          return {
+            ...player,
+            waitingStartedAt:
+              new Date(now - (18 - index) * 60 * 1000),
+          };
+        }),
+      }));
+
+      useMatchStore
+        .getState()
+        .rerollRecommendations(1);
+      const recommendation =
+        useMatchStore.getState().selectedRecommendation;
+      const selectedIds = new Set([
+        ...recommendation.teamA,
+        ...recommendation.teamB,
+      ].map((player) => player.id));
+
+      assert.ok(selectedIds.has("player-01"));
+      assert.equal(selectedIds.has("player-02"), false);
+    }
+  );
+
+  run(
+    "players who shared the last two games are avoided when alternatives exist",
+    () => {
+      resetStore(12, 1);
+      useMatchStore.setState((state) => ({
+        players: state.players.map((player) => {
+          if (player.id === "player-01") {
+            return {
+              ...player,
+              lastOpponents: ["player-02", "player-02"],
+              waitingStartedAt:
+                new Date(Date.now() - 20 * 60 * 1000),
+            };
+          }
+
+          if (player.id === "player-02") {
+            return {
+              ...player,
+              lastOpponents: ["player-01", "player-01"],
+              waitingStartedAt:
+                new Date(Date.now() - 19 * 60 * 1000),
+            };
+          }
+
+          return {
+            ...player,
+            waitingStartedAt:
+              new Date(Date.now() - 18 * 60 * 1000),
+          };
+        }),
+      }));
+
+      useMatchStore
+        .getState()
+        .rerollRecommendations(1);
+      const recommendation =
+        useMatchStore.getState().selectedRecommendation;
+      const selectedIds = new Set([
+        ...recommendation.teamA,
+        ...recommendation.teamB,
+      ].map((player) => player.id));
+
+      assert.equal(
+        selectedIds.has("player-01") &&
+          selectedIds.has("player-02"),
+        false
       );
     }
   );

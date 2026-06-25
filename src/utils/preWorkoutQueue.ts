@@ -16,10 +16,21 @@ export function getQueuedParticipationMode(
 function getWaitingTimestamp(
   player: Player
 ) {
-  return (
+  const timestamp = (
     player.waitingStartedAt ??
     player.arrivalTime
   ).getTime();
+
+  if (
+    Number.isNaN(timestamp)
+  ) {
+    return Date.now();
+  }
+
+  return Math.min(
+    timestamp,
+    Date.now()
+  );
 }
 
 export function sortWaitingPlayersByQueue(

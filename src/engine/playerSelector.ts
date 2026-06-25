@@ -4,6 +4,7 @@ import {
   calculatePlayerScore,
 } from "./v2/playerScore";
 import {
+  hasRecentHardRepeat,
   scorePlayerSelection,
 } from "./v2/selectionScorer";
 
@@ -29,6 +30,33 @@ function containsExcludedPair(
       playerIds.has(playerAId) &&
       playerIds.has(playerBId)
   );
+}
+
+function containsRecentHardRepeat(
+  players: Player[]
+) {
+  for (
+    let i = 0;
+    i < players.length;
+    i++
+  ) {
+    for (
+      let j = i + 1;
+      j < players.length;
+      j++
+    ) {
+      if (
+        hasRecentHardRepeat(
+          players[i],
+          players[j]
+        )
+      ) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 export function selectCandidates(
@@ -120,7 +148,17 @@ export function selectCandidates(
             Player,
           ]
         | null = null;
+      let fallbackWomenGroup:
+        | [
+            Player,
+            Player,
+            Player,
+            Player,
+          ]
+        | null = null;
       let bestWomenScore =
+        Number.NEGATIVE_INFINITY;
+      let fallbackWomenScore =
         Number.NEGATIVE_INFINITY;
 
       for (
@@ -179,6 +217,24 @@ export function selectCandidates(
 
               if (
                 score >
+                fallbackWomenScore
+              ) {
+                fallbackWomenScore =
+                  score;
+                fallbackWomenGroup =
+                  group;
+              }
+
+              if (
+                containsRecentHardRepeat(
+                  group
+                )
+              ) {
+                continue;
+              }
+
+              if (
+                score >
                 bestWomenScore
               ) {
                 bestWomenScore =
@@ -193,6 +249,10 @@ export function selectCandidates(
 
       if (bestWomenGroup) {
         return bestWomenGroup;
+      }
+
+      if (fallbackWomenGroup) {
+        return fallbackWomenGroup;
       }
     }
   }
@@ -227,7 +287,12 @@ export function selectCandidates(
   let bestGroup:
     | [Player, Player, Player, Player]
     | null = null;
+  let fallbackGroup:
+    | [Player, Player, Player, Player]
+    | null = null;
   let bestScore =
+    Number.NEGATIVE_INFINITY;
+  let fallbackScore =
     Number.NEGATIVE_INFINITY;
 
   for (
@@ -288,6 +353,21 @@ export function selectCandidates(
               group
             ).total;
 
+          if (
+            score > fallbackScore
+          ) {
+            fallbackScore = score;
+            fallbackGroup = group;
+          }
+
+          if (
+            containsRecentHardRepeat(
+              group
+            )
+          ) {
+            continue;
+          }
+
           if (score > bestScore) {
             bestScore = score;
             bestGroup = group;
@@ -299,6 +379,7 @@ export function selectCandidates(
 
   return (
     bestGroup ??
+    fallbackGroup ??
     candidatePool.slice(0, 4)
   );
 }

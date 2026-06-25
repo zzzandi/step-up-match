@@ -49,54 +49,6 @@ export function buildMatches(
     return [];
   }
 
-  /*
-   * 고정 파트너 우선
-   */
-
-  const fixedPair =
-    players.find(
-      (player) =>
-        player.fixedPartner
-    );
-
-  const fixedPartnerMatches: TeamMatch[] =
-    [];
-
-  if (fixedPair) {
-    const partner =
-      players.find(
-        (player) =>
-          player.id ===
-          fixedPair.fixedPartner
-      );
-
-    if (partner) {
-      const remaining =
-        players.filter(
-          (player) =>
-            player.id !==
-              fixedPair.id &&
-            player.id !==
-              partner.id
-        );
-
-      if (
-        remaining.length === 2
-      ) {
-        fixedPartnerMatches.push({
-          teamA: [
-            fixedPair,
-            partner,
-          ],
-
-          teamB: [
-            remaining[0],
-            remaining[1],
-          ],
-        });
-      }
-    }
-  }
 
   const matches =
     generateBasicMatches(
@@ -106,7 +58,6 @@ export function buildMatches(
   const dedupedMatches =
     Array.from(
       [
-        ...fixedPartnerMatches,
         ...matches,
       ]
         .reduce(
@@ -175,7 +126,7 @@ function calculateGenderPriority(
     ).length;
 
   /*
-   * 여복 우선
+   * ?щ났 ?곗꽑
    */
 
   const teamAFemale =
@@ -198,7 +149,7 @@ function calculateGenderPriority(
   }
 
   /*
-   * 혼복 vs 혼복
+   * ?쇰났 vs ?쇰났
    */
 
   if (
@@ -209,7 +160,7 @@ function calculateGenderPriority(
   }
 
   /*
-   * 여자 2명 존재
+   * ?ъ옄 2紐?議댁옱
    */
 
   if (
