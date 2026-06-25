@@ -981,15 +981,32 @@ function App() {
             await isWorkoutOpen();
 
           if (!open) {
+            const session =
+              getAccessSession();
+            const shouldKeepSession =
+              !session ||
+              canManage(session.role) ||
+              session.participationMode ===
+                "PREOPEN" ||
+              session.participationMode ===
+                "PENDING" ||
+              session.participationMode ===
+                "PENDING_MANAGER" ||
+              session.participationMode ===
+                "VIEWER";
+
             useMatchStore
               .getState()
               .endTodaySession();
-            clearAccessSession();
             window.localStorage.setItem(
               DASHBOARD_DATE_KEY,
               getWorkoutDateKey()
             );
-            navigate("/");
+
+            if (!shouldKeepSession) {
+              clearAccessSession();
+              navigate("/");
+            }
             return;
           }
 
