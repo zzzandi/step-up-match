@@ -82,9 +82,13 @@ function attendanceToPlayer(
       existing?.arrivalTime ??
       arrivalTime,
     matchCount:
-      existing?.matchCount ?? 0,
+      attendance.match_count ??
+      existing?.matchCount ??
+      0,
     consecutiveMatches:
-      existing?.consecutiveMatches ?? 0,
+      attendance.consecutive_matches ??
+      existing?.consecutiveMatches ??
+      0,
     status:
       existing?.status ?? "WAITING",
     waitingStartedAt:

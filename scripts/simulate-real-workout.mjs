@@ -3399,6 +3399,141 @@ try {
   );
 
   run(
+    "attendance recovery updates match count from database rows",
+    () => {
+      const currentPlayer =
+        makePlayer(0);
+      currentPlayer.matchCount = 0;
+      currentPlayer.consecutiveMatches = 0;
+      const recovered =
+        mergeAttendancePlayers(
+          [currentPlayer],
+          [
+            {
+              user_id: currentPlayer.id,
+              arrival_time:
+                currentPlayer.arrivalTime.toISOString(),
+              match_count: 3,
+              consecutive_matches: 1,
+              users: {
+                id: currentPlayer.id,
+                name: currentPlayer.name,
+                gender:
+                  currentPlayer.gender,
+                grade: currentPlayer.grade,
+                hidden_skill:
+                  currentPlayer.hiddenSkill,
+              },
+            },
+          ]
+        );
+
+      assert.equal(
+        recovered[0].matchCount,
+        3
+      );
+      assert.equal(
+        recovered[0]
+          .consecutiveMatches,
+        1
+      );
+    }
+  );
+
+  run(
+    "manager bootstrap snapshot wins over stale relogin player stats",
+    () => {
+      resetStore(8, 2);
+      const managerSnapshot =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      managerSnapshot.players =
+        managerSnapshot.players.map(
+          (player, index) =>
+            index === 0
+              ? {
+                  ...player,
+                  matchCount: 4,
+                  consecutiveMatches: 0,
+                  waitingStartedAt:
+                    new Date(
+                      "2026-06-22T12:00:00.000Z"
+                    ),
+                }
+              : player
+        );
+      managerSnapshot.courts = [
+        {
+          id: 1,
+          status: "PLAYING",
+          teamA: [
+            managerSnapshot.players[1],
+            managerSnapshot.players[2],
+          ],
+          teamB: [
+            managerSnapshot.players[3],
+            managerSnapshot.players[4],
+          ],
+          startedAt:
+            new Date(
+              "2026-06-22T12:05:00.000Z"
+            ),
+        },
+        managerSnapshot.courts[1],
+      ];
+
+      const staleCurrent = {
+        ...managerSnapshot,
+        players:
+          managerSnapshot.players.map(
+            (player, index) =>
+              index === 0
+                ? {
+                    ...player,
+                    matchCount: 0,
+                    consecutiveMatches: 0,
+                    waitingStartedAt:
+                      player.arrivalTime,
+                  }
+                : player
+          ),
+        courts: [],
+        queuedCourts: [],
+      };
+      const merged =
+        mergeLiveStateSnapshot(
+          staleCurrent,
+          managerSnapshot,
+          "MASTER"
+        );
+      const recoveredPlayer =
+        merged.players.find(
+          (player) =>
+            player.id ===
+            managerSnapshot.players[0].id
+        );
+
+      assert.equal(
+        recoveredPlayer.matchCount,
+        4
+      );
+      assert.equal(
+        new Date(
+          recoveredPlayer.waitingStartedAt
+        ).getTime(),
+        new Date(
+          "2026-06-22T12:00:00.000Z"
+        ).getTime()
+      );
+      assert.equal(
+        merged.courts[0].status,
+        "PLAYING"
+      );
+    }
+  );
+
+  run(
     "fixed partner team cannot override opponent team balance",
     () => {
       const now = Date.now();

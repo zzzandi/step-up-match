@@ -161,6 +161,24 @@ export function mergeAttendancePlayers(
         existing.isPresent &&
         existing.status ===
           nextPlayer.status &&
+        existing.matchCount ===
+          nextPlayer.matchCount &&
+        existing.consecutiveMatches ===
+          nextPlayer.consecutiveMatches &&
+        new Date(
+          existing.arrivalTime
+        ).getTime() ===
+          new Date(
+            nextPlayer.arrivalTime
+          ).getTime() &&
+        new Date(
+          existing.waitingStartedAt ??
+            0
+        ).getTime() ===
+          new Date(
+            nextPlayer.waitingStartedAt ??
+              0
+          ).getTime() &&
         existing.fixedPartner ===
           nextPlayer.fixedPartner;
 

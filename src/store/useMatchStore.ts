@@ -21,6 +21,9 @@ import {
 import {
   normalizePersistedMatchState,
 } from "@/store/persistedState";
+import {
+  syncActiveAttendanceStats,
+} from "@/services/attendanceService";
 
 export interface FixedPartnerRequest {
   id: string;
@@ -1439,6 +1442,18 @@ export const useMatchStore =
             }
           );
 
+          void syncActiveAttendanceStats(
+            updatedPlayers.filter(
+              (player) =>
+                finishedIds.includes(
+                  player.id
+                ) ||
+                promotedIds.has(
+                  player.id
+                )
+            )
+          ).catch(console.error);
+
           
 
           const promotedPlayerById =
@@ -1805,6 +1820,16 @@ export const useMatchStore =
             },
           ], dismissedNotificationIds)
         });
+
+        void syncActiveAttendanceStats(
+          updatedPlayers.filter(
+            (player) =>
+              player.id ===
+                outgoingPlayerId ||
+              player.id ===
+                incomingPlayerId
+          )
+        ).catch(console.error);
       },
 
         rerollRecommendations:
@@ -2129,6 +2154,17 @@ export const useMatchStore =
                 : []),
           ], get().dismissedNotificationIds),
         });
+
+          if (activeTarget === "GAME") {
+            void syncActiveAttendanceStats(
+              updatedPlayers.filter(
+                (player) =>
+                  selectedIds.includes(
+                    player.id
+                  )
+              )
+            ).catch(console.error);
+          }
       },
 
       assignManualMatch: (
@@ -2330,6 +2366,17 @@ export const useMatchStore =
             get().dismissedNotificationIds
           ),
         });
+
+        if (target === "GAME") {
+          void syncActiveAttendanceStats(
+            get().players.filter(
+              (player) =>
+                selectedIds.includes(
+                  player.id
+                )
+            )
+          ).catch(console.error);
+        }
 
         return true;
       },

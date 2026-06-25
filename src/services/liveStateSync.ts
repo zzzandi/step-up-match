@@ -908,8 +908,8 @@ function mergeBootstrapSnapshots(
   return {
     ...current,
     players: mergeById(
-      incoming.players,
-      current.players
+      current.players,
+      incoming.players
     ),
     courts,
     queuedCourts,

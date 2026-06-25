@@ -1,4 +1,7 @@
-import { supabase } from "@/lib/supabase";
+import {
+  isSupabaseConfigured,
+  supabase,
+} from "@/lib/supabase";
 import {
   isWorkoutOpen,
 } from "@/services/workoutSessionService";
@@ -8,6 +11,9 @@ import {
 import {
   getKstDateKey,
 } from "@/utils/kstDate";
+import type {
+  Player,
+} from "@/types/player";
 
 export async function getTodayAttendanceList() {
   const today = getKstDateKey();
@@ -156,6 +162,41 @@ export async function deleteAttendanceRecord(
   if (error) {
     throw error;
   }
+}
+
+export async function syncActiveAttendanceStats(
+  players: Pick<
+    Player,
+    | "id"
+    | "matchCount"
+    | "consecutiveMatches"
+  >[]
+) {
+  if (
+    !isSupabaseConfigured ||
+    players.length === 0
+  ) {
+    return;
+  }
+
+  const today = getKstDateKey();
+
+  await Promise.all(
+    players.map((player) =>
+      supabase
+        .from("attendances")
+        .update({
+          match_count:
+            player.matchCount,
+          consecutive_matches:
+            player.consecutiveMatches,
+        })
+        .eq("attendance_date", today)
+        .eq("user_id", player.id)
+        .neq("status", "OPEN")
+        .neq("status", "PENDING")
+    )
+  );
 }
 
 export async function getMonthlyAttendanceList(
