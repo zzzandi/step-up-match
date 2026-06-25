@@ -74,6 +74,22 @@ interface TestAttendanceRow {
     | null;
 }
 
+interface ActiveAttendanceUser {
+  id: string;
+  name: string;
+  gender?: Player["gender"] | null;
+  grade?: Player["grade"] | null;
+  hidden_skill?: number | null;
+  fixed_partner_id?: string | null;
+}
+
+interface ActiveAttendanceRow {
+  users: ActiveAttendanceUser;
+  arrival_time?: string | null;
+  match_count?: number | null;
+  consecutive_matches?: number | null;
+}
+
 export default function AdminPage() {
   const session =
     useAccessSession();
@@ -140,17 +156,12 @@ export default function AdminPage() {
   const [
     ,
     setAttendanceList,
-  ] = useState<any[]>([]);
+  ] = useState<ActiveAttendanceRow[]>([]);
 
   const players =
     useMatchStore(
       (state) => state.players
     );
-
-console.log(
-    "PLAYERS",
-    players.length
-  );
 
   const courts =
     useMatchStore(
@@ -270,12 +281,14 @@ console.log(
 
   useEffect(() => {
     if (testMode.active) {
-      setWorkoutOpen(
-        testMode.workoutOpen
-      );
-      setWorkoutStatusLoading(
-        false
-      );
+      window.queueMicrotask(() => {
+        setWorkoutOpen(
+          testMode.workoutOpen
+        );
+        setWorkoutStatusLoading(
+          false
+        );
+      });
       return;
     }
 
@@ -598,11 +611,11 @@ console.log(
       );
 
       setAttendanceList(
-        uniqueByUserId(data)
+        uniqueByUserId(data) as ActiveAttendanceRow[]
       );
 
       const uniqueAttendance =
-        uniqueByUserId(data);
+        uniqueByUserId(data) as ActiveAttendanceRow[];
       const currentPlayers =
         useMatchStore.getState()
           .players;
@@ -610,7 +623,7 @@ console.log(
         currentPlayers.slice();
 
       uniqueAttendance.forEach(
-        (attendance: any) => {
+        (attendance) => {
           const existingIndex =
             refreshedPlayers.findIndex(
               (player) =>
@@ -642,9 +655,14 @@ console.log(
                     attendance.users.gender ??
                     "M",
                   grade:
-                    attendance.users.grade,
+                    attendance.users.grade ??
+                    "F",
                   hiddenSkill:
-                    attendance.users.hidden_skill,
+                    getEffectiveHiddenSkill(
+                      attendance.users.name,
+                      attendance.users.hidden_skill ??
+                        35
+                    ),
                   isPresent: true,
                   arrivalTime:
                     new Date(
@@ -707,7 +725,7 @@ console.log(
           .then((data) => {
       
             const uniqueAttendance =
-              uniqueByUserId(data);
+              uniqueByUserId(data) as ActiveAttendanceRow[];
 
             setAttendanceList(
               uniqueAttendance
@@ -725,13 +743,13 @@ console.log(
                 const newPlayers =
                   uniqueAttendance
                     .filter(
-                      (attendance: any) =>
+                      (attendance) =>
                         !existingIds.has(
                           attendance.users.id
                         )
                     )
                     .map(
-                      (attendance: any) => ({
+                      (attendance) => ({
                         id:
                           attendance.users.id,
               
@@ -743,10 +761,15 @@ console.log(
                           "M",
               
                         grade:
-                          attendance.users.grade,
-              
+                          attendance.users.grade ??
+                          "F",
+               
                         hiddenSkill:
-                          attendance.users.hidden_skill,
+                          getEffectiveHiddenSkill(
+                            attendance.users.name,
+                            attendance.users.hidden_skill ??
+                              35
+                          ),
               
                         isPresent: true,
               
@@ -791,18 +814,20 @@ console.log(
               }
       
             const playerList: Player[] =
-  uniqueAttendance.map((attendance: any) => ({
+  uniqueAttendance.map((attendance) => ({
     id: attendance.users.id,
     name: attendance.users.name,
     gender:
       attendance.users.gender ??
       "M",
     grade:
-      attendance.users.grade,
+      attendance.users.grade ??
+      "F",
     hiddenSkill:
       getEffectiveHiddenSkill(
         attendance.users.name,
-        attendance.users.hidden_skill
+        attendance.users.hidden_skill ??
+          35
       ),
     isPresent: true,
     arrivalTime:

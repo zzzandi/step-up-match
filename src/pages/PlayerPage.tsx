@@ -46,8 +46,24 @@ const label = {
     "\uAC8C\uC784 \uCF54\uD2B8\uAC00 \uBE44\uBA74 \uB300\uAE30 \uCF54\uD2B8\uC758 \uB300\uC9C4\uC774 \uC790\uB3D9\uC73C\uB85C \uC62C\uB77C\uAC11\uB2C8\uB2E4.",
 };
 
+interface AttendanceUser {
+  id: string;
+  name: string;
+  gender?: Player["gender"] | null;
+  grade?: Player["grade"] | null;
+  hidden_skill?: number | null;
+  fixed_partner_id?: string | null;
+}
+
+interface AttendanceRow {
+  users: AttendanceUser;
+  arrival_time?: string | null;
+  match_count?: number | null;
+  consecutive_matches?: number | null;
+}
+
 function attendanceToPlayer(
-  attendance: any,
+  attendance: AttendanceRow,
   existing?: Player
 ): Player {
   const user =
@@ -114,7 +130,7 @@ export default function PlayerPage() {
   const session =
     useAccessSession();
   const [, setAttendanceList] =
-    useState<any[]>([]);
+    useState<AttendanceRow[]>([]);
   const players =
     useMatchStore(
       (state) => state.players
@@ -162,7 +178,7 @@ export default function PlayerPage() {
     getActiveWorkoutAttendanceList()
       .then((data) => {
         const uniqueAttendance =
-          uniqueByUserId(data);
+          uniqueByUserId(data) as AttendanceRow[];
         setAttendanceList(
           uniqueAttendance
         );
@@ -194,13 +210,13 @@ export default function PlayerPage() {
         const newPlayers =
           uniqueAttendance
             .filter(
-              (attendance: any) =>
+              (attendance) =>
                 !existingIds.has(
                   attendance.users.id
                 )
             )
             .map(
-              (attendance: any) =>
+              (attendance) =>
                 attendanceToPlayer(
                   attendance,
                   currentById.get(
@@ -215,7 +231,7 @@ export default function PlayerPage() {
           runLocalOnlyMutation(() => {
             setPlayers(
               uniqueAttendance.map(
-                (attendance: any) =>
+                (attendance) =>
                   attendanceToPlayer(
                     attendance
                   )
