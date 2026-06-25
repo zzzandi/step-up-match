@@ -1159,6 +1159,17 @@ try {
         ["player-05", "player-06"]
       );
       assert.equal(
+        ["player-05", "player-06", "player-07", "player-08"].every((id) =>
+          next.players.some(
+            (player) =>
+              player.id === id &&
+              player.status === "WAITING" &&
+              player.matchCount === 0
+          )
+        ),
+        true
+      );
+      assert.equal(
         next.players.filter((player) => player.status === "PLAYING").length,
         0
       );
@@ -1189,6 +1200,20 @@ try {
         ...queuedBefore.teamA,
         ...queuedBefore.teamB,
       ].map((player) => player.id);
+      const beforePromotionPlayers =
+        useMatchStore.getState().players;
+
+      assert.equal(
+        queuedIds.every((id) =>
+          beforePromotionPlayers.some(
+            (player) =>
+              player.id === id &&
+              player.status === "WAITING" &&
+              player.matchCount === 0
+          )
+        ),
+        true
+      );
 
       useMatchStore.getState().finishCourtMatch(1);
       const next = useMatchStore.getState();
@@ -1205,7 +1230,10 @@ try {
       assert.ok(
         queuedIds.every((id) =>
           next.players.some(
-            (player) => player.id === id && player.status === "PLAYING"
+            (player) =>
+              player.id === id &&
+              player.status === "PLAYING" &&
+              player.matchCount === 1
           )
         )
       );
@@ -3218,6 +3246,131 @@ try {
             player.gender === "F"
         ).length,
         4
+      );
+    }
+  );
+
+  run(
+    "women doubles priority relaxes recent-repeat hard exclusion",
+    () => {
+      resetStore(12, 1);
+      const now = Date.now();
+      useMatchStore.setState((state) => ({
+        players: state.players.map((player, index) => {
+          const idNumber = index + 1;
+          const isWoman = idNumber <= 5;
+          const repeatedHighRestWoman = idNumber === 4;
+          const lowRestWoman = idNumber === 5;
+
+          return {
+            ...player,
+            gender: isWoman ? "F" : "M",
+            waitingStartedAt: new Date(
+              now -
+                (repeatedHighRestWoman
+                  ? 25
+                  : lowRestWoman
+                    ? 1
+                    : 20 - index) *
+                  60 *
+                  1000
+            ),
+            lastOpponents:
+              idNumber === 1
+                ? ["player-04", "player-04"]
+                : idNumber === 4
+                  ? ["player-01", "player-01"]
+                  : player.lastOpponents,
+          };
+        }),
+      }));
+      useMatchStore
+        .getState()
+        .setWomenDoublesPriority(true);
+      useMatchStore
+        .getState()
+        .rerollRecommendations(1);
+
+      const recommendation =
+        useMatchStore.getState().selectedRecommendation;
+      const selectedIds = new Set(
+        [
+          ...recommendation.teamA,
+          ...recommendation.teamB,
+        ].map((player) => player.id)
+      );
+
+      assert.equal(selectedIds.has("player-04"), true);
+      assert.equal(selectedIds.has("player-05"), false);
+    }
+  );
+
+  run(
+    "fixed partners are not blocked by recent-repeat hard exclusion when rested",
+    () => {
+      resetStore(12, 1);
+      const now = Date.now();
+      useMatchStore.setState((state) => ({
+        players: state.players.map((player, index) => {
+          if (player.id === "player-01") {
+            return {
+              ...player,
+              gender: "M",
+              hiddenSkill: 50,
+              fixedPartner: "player-02",
+              waitingStartedAt:
+                new Date(now - 30 * 60 * 1000),
+              lastOpponents: ["player-02", "player-02"],
+            };
+          }
+
+          if (player.id === "player-02") {
+            return {
+              ...player,
+              gender: "M",
+              hiddenSkill: 50,
+              fixedPartner: "player-01",
+              waitingStartedAt:
+                new Date(now - 29 * 60 * 1000),
+              lastOpponents: ["player-01", "player-01"],
+            };
+          }
+
+          return {
+            ...player,
+            gender: "M",
+            hiddenSkill: 50,
+            waitingStartedAt:
+              new Date(now - Math.max(1, 20 - index) * 60 * 1000),
+          };
+        }),
+      }));
+
+      useMatchStore
+        .getState()
+        .rerollRecommendations(1);
+
+      const recommendation =
+        useMatchStore.getState().selectedRecommendation;
+      const teamAIds = recommendation.teamA.map(
+        (player) => player.id
+      );
+      const teamBIds = recommendation.teamB.map(
+        (player) => player.id
+      );
+      const selectedIds = new Set([
+        ...teamAIds,
+        ...teamBIds,
+      ]);
+
+      assert.equal(selectedIds.has("player-01"), true);
+      assert.equal(selectedIds.has("player-02"), true);
+      assert.equal(
+        (teamAIds.includes("player-01") &&
+          teamAIds.includes("player-02")) ||
+          (teamBIds.includes("player-01") &&
+            teamBIds.includes("player-02")),
+        true
       );
     }
   );

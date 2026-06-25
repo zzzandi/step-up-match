@@ -33,7 +33,10 @@ function containsExcludedPair(
 }
 
 function containsRecentHardRepeat(
-  players: Player[]
+  players: Player[],
+  {
+    ignoreFixedPartners = false,
+  } = {}
 ) {
   for (
     let i = 0;
@@ -45,6 +48,16 @@ function containsRecentHardRepeat(
       j < players.length;
       j++
     ) {
+      if (
+        ignoreFixedPartners &&
+        (players[i].fixedPartner ===
+          players[j].id ||
+          players[j].fixedPartner ===
+            players[i].id)
+      ) {
+        continue;
+      }
+
       if (
         hasRecentHardRepeat(
           players[i],
@@ -226,14 +239,6 @@ export function selectCandidates(
               }
 
               if (
-                containsRecentHardRepeat(
-                  group
-                )
-              ) {
-                continue;
-              }
-
-              if (
                 score >
                 bestWomenScore
               ) {
@@ -362,7 +367,11 @@ export function selectCandidates(
 
           if (
             containsRecentHardRepeat(
-              group
+              group,
+              {
+                ignoreFixedPartners:
+                  true,
+              }
             )
           ) {
             continue;

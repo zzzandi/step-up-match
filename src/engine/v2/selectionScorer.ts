@@ -49,6 +49,16 @@ export function hasRecentHardRepeat(
   );
 }
 
+function isFixedPartnerPair(
+  playerA: Player,
+  playerB: Player
+) {
+  return (
+    playerA.fixedPartner === playerB.id ||
+    playerB.fixedPartner === playerA.id
+  );
+}
+
 export function scorePlayerSelection(
   players: [Player, Player, Player, Player]
 ): SelectionScore {
@@ -83,6 +93,15 @@ export function scorePlayerSelection(
       j < players.length;
       j++
     ) {
+      if (
+        isFixedPartnerPair(
+          players[i],
+          players[j]
+        )
+      ) {
+        continue;
+      }
+
       repeatedPairs +=
         countRecentSharedGames(
           players[i],

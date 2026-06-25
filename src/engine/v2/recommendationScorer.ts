@@ -18,6 +18,16 @@ import {
 const FIXED_PARTNER_TEAM_BONUS = 8;
 const MIN_FIXED_PARTNER_REST_MINUTES = 8;
 
+function isFixedPartnerPair(
+  playerA: TeamMatch["teamA"][number],
+  playerB: TeamMatch["teamA"][number]
+) {
+  return (
+    playerA.fixedPartner === playerB.id ||
+    playerB.fixedPartner === playerA.id
+  );
+}
+
 export interface RecommendationScore {
   total: number;
   balance: number;
@@ -67,23 +77,31 @@ export function scoreMatch(
   let partnerPenalty = 0;
 
   if (
-    teamA[0].lastPartners.includes(
+    !isFixedPartnerPair(
+      teamA[0],
+      teamA[1]
+    ) &&
+    (teamA[0].lastPartners.includes(
       teamA[1].id
     ) ||
-    teamA[1].lastPartners.includes(
-      teamA[0].id
-    )
+      teamA[1].lastPartners.includes(
+        teamA[0].id
+      ))
   ) {
     partnerPenalty -= 15;
   }
 
   if (
-    teamB[0].lastPartners.includes(
+    !isFixedPartnerPair(
+      teamB[0],
+      teamB[1]
+    ) &&
+    (teamB[0].lastPartners.includes(
       teamB[1].id
     ) ||
-    teamB[1].lastPartners.includes(
-      teamB[0].id
-    )
+      teamB[1].lastPartners.includes(
+        teamB[0].id
+      ))
   ) {
     partnerPenalty -= 15;
   }
@@ -144,20 +162,20 @@ export function scoreMatch(
 
   if (
     teamAFixedPartnerReady &&
-    (teamA[0].fixedPartner ===
-      teamA[1].id ||
-      teamA[1].fixedPartner ===
-        teamA[0].id)
+    isFixedPartnerPair(
+      teamA[0],
+      teamA[1]
+    )
   ) {
     fixedPartnerBonus += 1;
   }
 
   if (
     teamBFixedPartnerReady &&
-    (teamB[0].fixedPartner ===
-      teamB[1].id ||
-      teamB[1].fixedPartner ===
-        teamB[0].id)
+    isFixedPartnerPair(
+      teamB[0],
+      teamB[1]
+    )
   ) {
     fixedPartnerBonus += 1;
   }
