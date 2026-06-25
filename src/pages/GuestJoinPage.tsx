@@ -7,9 +7,7 @@ import {
 } from "react-router-dom";
 
 import {
-  adminNames,
   getRolePath,
-  masterNames,
   setAccessSession,
   useAccessSession,
 } from "@/auth/access";
@@ -27,6 +25,23 @@ import {
 import type {
   Grade,
 } from "@/types/player";
+
+const label = {
+  required:
+    "\uC774\uB984\uC744 \uC785\uB825\uD574 \uC8FC\uC138\uC694.",
+  error:
+    "\uAC8C\uC2A4\uD2B8 \uCC38\uAC00 \uCC98\uB9AC \uC911 \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4.",
+  title: "Guest \uCC38\uAC00",
+  description:
+    "\uC774\uB984, \uC131\uBCC4, \uAE09\uC218\uB97C \uC785\uB825\uD558\uBA74 \uC624\uB298 \uC6B4\uB3D9 \uB300\uAE30\uC5F4\uC5D0 \uCC38\uAC00\uD569\uB2C8\uB2E4.",
+  name: "\uC774\uB984",
+  male: "\uB0A8\uC790",
+  female: "\uC5EC\uC790",
+  processing:
+    "\uCC98\uB9AC \uC911...",
+  submit:
+    "\uAC8C\uC2A4\uD2B8\uB85C \uC624\uB298 \uC6B4\uB3D9 \uCC38\uAC00\uD558\uAE30",
+};
 
 export default function GuestJoinPage() {
   const navigate =
@@ -60,9 +75,7 @@ export default function GuestJoinPage() {
       name.trim();
 
     if (!normalizedName) {
-      setMessage(
-        "이름을 입력해주세요."
-      );
+      setMessage(label.required);
       return;
     }
 
@@ -92,60 +105,32 @@ export default function GuestJoinPage() {
 
         const state =
           useMatchStore.getState();
-        const guestPlayer = {
-          id: guest.id,
-          name: guest.name,
-          gender:
-            guest.gender ?? gender,
-          grade:
-            guest.grade ?? grade,
-          hiddenSkill:
-            guest.hidden_skill ?? 35,
-          isPresent: true,
-          arrivalTime: new Date(),
-          matchCount: 0,
-          consecutiveMatches: 0,
-          status:
-            "WAITING" as const,
-          waitingStartedAt:
-            new Date(),
-          lastPartners: [],
-          lastOpponents: [],
-        };
-
         state.setPlayers([
           ...state.players.filter(
             (player) =>
               player.id !== guest.id
           ),
-          guestPlayer,
+          {
+            id: guest.id,
+            name: guest.name,
+            gender:
+              guest.gender ?? gender,
+            grade:
+              guest.grade ?? grade,
+            hiddenSkill:
+              guest.hidden_skill ?? 35,
+            isPresent: true,
+            arrivalTime: new Date(),
+            matchCount: 0,
+            consecutiveMatches: 0,
+            status:
+              "WAITING" as const,
+            waitingStartedAt:
+              new Date(),
+            lastPartners: [],
+            lastOpponents: [],
+          },
         ]);
-
-        state.addNotification({
-          audience: "ADMIN",
-          message: `${guest.name} 게스트님이 오늘 운동에 참가했습니다.`,
-        });
-
-        state.players
-          .filter(
-            (player) =>
-              player.status !==
-                "LEFT" &&
-              player.id !== guest.id &&
-              !adminNames.includes(
-                player.name
-              ) &&
-              !masterNames.includes(
-                player.name
-              )
-          )
-          .forEach((player) => {
-            state.addNotification({
-              audience: "PLAYER",
-              recipientId: player.id,
-              message: `${guest.name} 게스트님이 오늘 운동에 참가했습니다.`,
-            });
-          });
       }
 
       setAccessSession({
@@ -160,9 +145,7 @@ export default function GuestJoinPage() {
       });
     } catch (error) {
       console.error(error);
-      setMessage(
-        "게스트 참가 처리 중 오류가 발생했습니다."
-      );
+      setMessage(label.error);
     } finally {
       setSubmitting(false);
     }
@@ -180,10 +163,10 @@ export default function GuestJoinPage() {
         </button>
 
         <h1 className="text-4xl font-bold">
-          Guest 참가
+          {label.title}
         </h1>
         <p className="mt-2 text-slate-400">
-          이름, 성별, 급수를 입력하면 오늘 운동 대기열에 참가합니다.
+          {label.description}
         </p>
 
         <div className="mt-8 space-y-4 rounded-3xl border border-slate-800 bg-slate-900 p-6">
@@ -194,7 +177,7 @@ export default function GuestJoinPage() {
                 event.target.value
               )
             }
-            placeholder="이름"
+            placeholder={label.name}
             className="w-full rounded-xl border border-slate-700 bg-slate-800 p-3"
           />
 
@@ -209,10 +192,10 @@ export default function GuestJoinPage() {
             className="w-full rounded-xl border border-slate-700 bg-slate-800 p-3"
           >
             <option value="M">
-              남자
+              {label.male}
             </option>
             <option value="F">
-              여자
+              {label.female}
             </option>
           </select>
 
@@ -238,7 +221,8 @@ export default function GuestJoinPage() {
                 key={item}
                 value={item}
               >
-                {item}급
+                {item}
+                {"\uAE09"}
               </option>
             ))}
           </select>
@@ -258,8 +242,8 @@ export default function GuestJoinPage() {
             className="w-full rounded-xl bg-orange-500 py-3 font-bold text-slate-950 disabled:opacity-50"
           >
             {submitting
-              ? "처리 중..."
-              : "게스트로 오늘 운동 참가하기"}
+              ? label.processing
+              : label.submit}
           </button>
         </div>
       </div>

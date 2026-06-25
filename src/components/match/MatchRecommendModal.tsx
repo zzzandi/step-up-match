@@ -1,342 +1,276 @@
 import {
-    useMatchStore,
-  } from "@/store/useMatchStore";
-  
-  export default function MatchRecommendModal() {
-    const recommendations =
-      useMatchStore(
-        (state) =>
-          state.recommendations
-      );
-  
-    const selectedRecommendation =
-      useMatchStore(
-        (state) =>
-          state.selectedRecommendation
-      );
-  
-    const selectRecommendation =
-      useMatchStore(
-        (state) =>
-          state.selectRecommendation
-      );
-  
-    const approveRecommendation =
-      useMatchStore(
-        (state) =>
-          state.approveRecommendation
-      );
-  
-    const clearRecommendation =
-      useMatchStore(
-        (state) =>
-          state.clearRecommendation
-      );
-  
-    const rerollRecommendations =
-      useMatchStore(
-        (state) =>
-          state.rerollRecommendations
-      );
-  
-    if (
-      recommendations.length === 0
-    ) {
-      return null;
-    }
-  
-    const courtId =
-      recommendations[0]
-        ?.courtId;
-  
-    return (
-      <div
-        className="
-          fixed
-          inset-0
-          bg-black/70
-          flex
-          items-center
-          justify-center
-          z-50
-        "
-      >
-        <div
-          className="
-            bg-slate-900
-            rounded-3xl
-            p-8
-            w-[800px]
-            max-h-[90vh]
-            overflow-y-auto
-            text-white
-          "
-        >
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold">
-              추천 대진
-            </h2>
-  
-            <button
-              onClick={() =>
-                rerollRecommendations(
-                  courtId
-                )
-              }
-              className="
-                px-4
-                py-2
-                rounded-xl
-                bg-blue-500
-                text-white
-                font-semibold
-              "
-            >
-              재추천
-            </button>
-          </div>
-  
-          <div className="space-y-4">
-            {recommendations.map(
-              (
-                recommendation
-              ) => (
-                <button
-                  key={
-                    recommendation.id
-                  }
-                  onClick={() =>
-                    selectRecommendation(
-                      recommendation.id
-                    )
-                  }
-                  className={`
-                    w-full
-                    rounded-2xl
-                    border
-                    p-5
-                    text-left
-                    transition
-  
-                    ${
-                      selectedRecommendation?.id ===
-                      recommendation.id
-                        ? "border-lime-400 bg-slate-800"
-                        : "border-slate-700"
-                    }
-                  `}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="text-xl font-bold text-lime-400">
-                      총점
-                      {" "}
-                      {
-                        recommendation
-                          .score.total
-                      }
-                    </div>
-  
-                    {selectedRecommendation?.id ===
-                      recommendation.id && (
-                      <div className="text-xs bg-lime-400 text-black px-3 py-1 rounded-full font-bold">
-                        선택됨
-                      </div>
-                    )}
-                  </div>
-  
-                  <div className="mt-4">
-                    <div className="font-semibold">
-                      {
-                        recommendation
-                          .teamA[0]
-                          .name
-                      }
-                      {" + "}
-                      {
-                        recommendation
-                          .teamA[1]
-                          .name
-                      }
-                    </div>
-  
-                    <div className="my-2 text-slate-400">
-                      VS
-                    </div>
-  
-                    <div className="font-semibold">
-                      {
-                        recommendation
-                          .teamB[0]
-                          .name
-                      }
-                      {" + "}
-                      {
-                        recommendation
-                          .teamB[1]
-                          .name
-                      }
-                    </div>
-                  </div>
-  
-                  <div className="grid grid-cols-3 gap-3 mt-5 text-sm">
-  <div>
-    실력 밸런스 : {recommendation.score.balance}/40
-  </div>
+  useMatchStore,
+} from "@/store/useMatchStore";
 
-  <div>
-    파트너 중복 방지 : {recommendation.score.partnerDiversity ?? 0}/30
-  </div>
+const text = {
+  title: "\uCD94\uCC9C \uB300\uC9C4",
+  reroll: "\uB2E4\uC2DC \uCD94\uCC9C",
+  total: "\uCD1D\uC810",
+  selected: "\uC120\uD0DD\uB428",
+  balance:
+    "\uC2E4\uB825 \uBC38\uB7F0\uC2A4",
+  partnerDiversity:
+    "\uD30C\uD2B8\uB108 \uC911\uBCF5 \uBC29\uC9C0",
+  opponentDiversity:
+    "\uC0C1\uB300 \uC911\uBCF5 \uBC29\uC9C0",
+  gender:
+    "\uC131\uBCC4 \uBC38\uB7F0\uC2A4",
+  partnerPenalty:
+    "\uD30C\uD2B8\uB108 \uAC10\uC810",
+  fixed:
+    "\uACE0\uC815 \uD30C\uD2B8\uB108",
+  goodBalance:
+    "\uC2E4\uB825 \uADE0\uD615 \uC88B\uC74C",
+  recentPartner:
+    "\uCD5C\uADFC \uD30C\uD2B8\uB108 \uC911\uBCF5",
+  recentOpponent:
+    "\uCD5C\uADFC \uC0C1\uB300 \uC911\uBCF5",
+  genderBonus:
+    "\uC131\uBCC4 \uC870\uD569 \uC810\uC218",
+  start: "\uACBD\uAE30 \uC2DC\uC791",
+  confirmQueue:
+    "\uB300\uAE30 \uB300\uC9C4 \uD655\uC815",
+  close: "\uB2EB\uAE30",
+};
 
-  <div>
-    상대 중복 방지 : {recommendation.score.opponentDiversity ?? 0}/20
-  </div>
+export default function MatchRecommendModal() {
+  const recommendations =
+    useMatchStore(
+      (state) =>
+        state.recommendations
+    );
+  const selectedRecommendation =
+    useMatchStore(
+      (state) =>
+        state.selectedRecommendation
+    );
+  const recommendationTarget =
+    useMatchStore(
+      (state) =>
+        state.recommendationTarget
+    );
+  const selectRecommendation =
+    useMatchStore(
+      (state) =>
+        state.selectRecommendation
+    );
+  const approveRecommendation =
+    useMatchStore(
+      (state) =>
+        state.approveRecommendation
+    );
+  const clearRecommendation =
+    useMatchStore(
+      (state) =>
+        state.clearRecommendation
+    );
+  const rerollRecommendations =
+    useMatchStore(
+      (state) =>
+        state.rerollRecommendations
+    );
 
-  <div>
-    성별 밸런스 : {recommendation.score.genderBonus}/10
-  </div>
+  if (
+    recommendations.length === 0
+  ) {
+    return null;
+  }
 
-  <div>
-    파트너 감점 : {recommendation.score.partnerPenalty}
-  </div>
+  const courtId =
+    recommendations[0]?.courtId;
 
-  <div>
-    고정 : {recommendation.score.fixedPartnerBonus}
-  </div>
-</div>
-  
-                  <div className="flex flex-wrap gap-2 mt-4">
-                    {recommendation
-                      .score.balance >=
-                      35 && (
-                      <span
-                        className="
-                          px-2
-                          py-1
-                          rounded-lg
-                          bg-green-500/20
-                          text-green-400
-                          text-xs
-                        "
-                      >
-                        실력 균형 우수
-                      </span>
-                    )}
-  
-                    {recommendation
-                      .score
-                      .partnerPenalty <
-                      0 && (
-                      <span
-                        className="
-                          px-2
-                          py-1
-                          rounded-lg
-                          bg-red-500/20
-                          text-red-400
-                          text-xs
-                        "
-                      >
-                        최근 파트너 중복
-                      </span>
-                    )}
-  
-                    {recommendation
-                      .score
-                      .opponentPenalty <
-                      0 && (
-                      <span
-                        className="
-                          px-2
-                          py-1
-                          rounded-lg
-                          bg-yellow-500/20
-                          text-yellow-400
-                          text-xs
-                        "
-                      >
-                        최근 상대 중복
-                      </span>
-                    )}
-  
-                    {recommendation
-                      .score
-                      .genderBonus >
-                      0 && (
-                      <span
-                        className="
-                          px-2
-                          py-1
-                          rounded-lg
-                          bg-pink-500/20
-                          text-pink-400
-                          text-xs
-                        "
-                      >
-                        성별 조합 우수
-                      </span>
-                    )}
-  
-                    {recommendation
-                      .score
-                      .fixedPartnerBonus >
-                      0 && (
-                      <span
-                        className="
-                          px-2
-                          py-1
-                          rounded-lg
-                          bg-blue-500/20
-                          text-blue-400
-                          text-xs
-                        "
-                      >
-                        고정 파트너
-                      </span>
-                    )}
-                  </div>
-                </button>
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+      <div className="max-h-[90vh] w-[800px] overflow-y-auto rounded-3xl bg-slate-900 p-8 text-white">
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="text-2xl font-bold">
+            {text.title}
+          </h2>
+          <button
+            type="button"
+            onClick={() =>
+              rerollRecommendations(
+                courtId,
+                recommendationTarget
               )
-            )}
-          </div>
-  
-          <div className="flex gap-3 mt-8">
-            <button
-              onClick={
-                () =>
-                  approveRecommendation()
-              }
-              disabled={
-                !selectedRecommendation
-              }
-              className="
-                flex-1
-                bg-lime-400
-                text-black
-                rounded-xl
-                py-3
-                font-bold
-                disabled:opacity-50
-              "
-            >
-              경기 시작
-            </button>
-  
-            <button
-              onClick={
-                clearRecommendation
-              }
-              className="
-                flex-1
-                bg-slate-700
-                rounded-xl
-                py-3
-                font-bold
-              "
-            >
-              닫기
-            </button>
-          </div>
+            }
+            className="rounded-xl bg-blue-500 px-4 py-2 font-semibold text-white"
+          >
+            {text.reroll}
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {recommendations.map(
+            (recommendation) => (
+              <button
+                key={recommendation.id}
+                type="button"
+                onClick={() =>
+                  selectRecommendation(
+                    recommendation.id
+                  )
+                }
+                className={`w-full rounded-2xl border p-5 text-left transition ${
+                  selectedRecommendation?.id ===
+                  recommendation.id
+                    ? "border-lime-400 bg-slate-800"
+                    : "border-slate-700"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="text-xl font-bold text-lime-400">
+                    {text.total}{" "}
+                    {
+                      recommendation.score
+                        .total
+                    }
+                  </div>
+                  {selectedRecommendation?.id ===
+                    recommendation.id && (
+                    <div className="rounded-full bg-lime-400 px-3 py-1 text-xs font-bold text-black">
+                      {text.selected}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-4">
+                  <div className="font-semibold">
+                    {
+                      recommendation.teamA[0]
+                        .name
+                    }{" "}
+                    +{" "}
+                    {
+                      recommendation.teamA[1]
+                        .name
+                    }
+                  </div>
+                  <div className="my-2 text-slate-400">
+                    VS
+                  </div>
+                  <div className="font-semibold">
+                    {
+                      recommendation.teamB[0]
+                        .name
+                    }{" "}
+                    +{" "}
+                    {
+                      recommendation.teamB[1]
+                        .name
+                    }
+                  </div>
+                </div>
+
+                <div className="mt-5 grid grid-cols-3 gap-3 text-sm">
+                  <div>
+                    {text.balance}:{" "}
+                    {
+                      recommendation.score
+                        .balance
+                    }
+                    /40
+                  </div>
+                  <div>
+                    {text.partnerDiversity}:{" "}
+                    {recommendation.score
+                      .partnerDiversity ??
+                      0}
+                    /30
+                  </div>
+                  <div>
+                    {text.opponentDiversity}:{" "}
+                    {recommendation.score
+                      .opponentDiversity ??
+                      0}
+                    /20
+                  </div>
+                  <div>
+                    {text.gender}:{" "}
+                    {
+                      recommendation.score
+                        .genderBonus
+                    }
+                    /10
+                  </div>
+                  <div>
+                    {text.partnerPenalty}:{" "}
+                    {
+                      recommendation.score
+                        .partnerPenalty
+                    }
+                  </div>
+                  <div>
+                    {text.fixed}:{" "}
+                    {
+                      recommendation.score
+                        .fixedPartnerBonus
+                    }
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {recommendation.score
+                    .balance >= 35 && (
+                    <span className="rounded-lg bg-green-500/20 px-2 py-1 text-xs text-green-400">
+                      {text.goodBalance}
+                    </span>
+                  )}
+                  {recommendation.score
+                    .partnerPenalty < 0 && (
+                    <span className="rounded-lg bg-red-500/20 px-2 py-1 text-xs text-red-400">
+                      {text.recentPartner}
+                    </span>
+                  )}
+                  {recommendation.score
+                    .opponentPenalty < 0 && (
+                    <span className="rounded-lg bg-yellow-500/20 px-2 py-1 text-xs text-yellow-400">
+                      {text.recentOpponent}
+                    </span>
+                  )}
+                  {recommendation.score
+                    .genderBonus > 0 && (
+                    <span className="rounded-lg bg-pink-500/20 px-2 py-1 text-xs text-pink-400">
+                      {text.genderBonus}
+                    </span>
+                  )}
+                  {recommendation.score
+                    .fixedPartnerBonus >
+                    0 && (
+                    <span className="rounded-lg bg-blue-500/20 px-2 py-1 text-xs text-blue-400">
+                      {text.fixed}
+                    </span>
+                  )}
+                </div>
+              </button>
+            )
+          )}
+        </div>
+
+        <div className="mt-8 flex gap-3">
+          <button
+            type="button"
+            onClick={() =>
+              approveRecommendation()
+            }
+            disabled={
+              !selectedRecommendation
+            }
+            className="flex-1 rounded-xl bg-lime-400 py-3 font-bold text-black disabled:opacity-50"
+          >
+            {recommendationTarget === "QUEUE"
+              ? text.confirmQueue
+              : text.start}
+          </button>
+          <button
+            type="button"
+            onClick={clearRecommendation}
+            className="flex-1 rounded-xl bg-slate-700 py-3 font-bold"
+          >
+            {text.close}
+          </button>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}

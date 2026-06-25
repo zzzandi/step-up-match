@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
@@ -8,6 +9,59 @@ import {
   useMatchStore,
 } from "@/store/useMatchStore";
 
+const text = {
+  queueCourt: "\uB300\uAE30 \uCF54\uD2B8",
+  empty: "\uBE44\uC5B4 \uC788\uC74C",
+  playing: "\uACBD\uAE30 \uC911",
+  queued: "\uB300\uAE30 \uB300\uC9C4",
+  noGame:
+    "\uD604\uC7AC \uBE44\uC5B4 \uC788\uB294 \uCF54\uD2B8\uC785\uB2C8\uB2E4.",
+  noQueue:
+    "\uC544\uC9C1 \uC900\uBE44\uB41C \uB300\uAE30 \uB300\uC9C4\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.",
+  autoMatch: "\uC790\uB3D9 \uB300\uC9C4",
+  manualMatch: "\uC218\uB3D9 \uB300\uC9C4",
+  gameTime: "\uACBD\uAE30 \uC2DC\uAC04",
+  queueHelp:
+    "\uAC8C\uC784 \uCF54\uD2B8\uAC00 \uBE44\uBA74 \uC774 \uB300\uC9C4\uC774 \uC790\uB3D9\uC73C\uB85C \uC62C\uB77C\uAC11\uB2C8\uB2E4.",
+  replacePlayer: "\uC120\uC218 \uAD50\uCCB4",
+  replaceHelp:
+    "\uAD50\uCCB4\uD560 \uACBD\uAE30 \uC911 \uC120\uC218\uC640 \uB4E4\uC5B4\uC62C \uB300\uAE30\uC790\uB97C \uC120\uD0DD\uD574 \uC8FC\uC138\uC694.",
+  outgoing: "\uB098\uAC00\uB294 \uC120\uC218",
+  incoming: "\uB4E4\uC5B4\uC62C \uB300\uAE30\uC790",
+  selectPlayer:
+    "\uC120\uC218\uB97C \uC120\uD0DD\uD574 \uC8FC\uC138\uC694",
+  selectWaiting:
+    "\uB300\uAE30\uC790\uB97C \uC120\uD0DD\uD574 \uC8FC\uC138\uC694",
+  noWaiting:
+    "\uAD50\uCCB4 \uAC00\uB2A5\uD55C \uB300\uAE30\uC790\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
+  applyReplace: "\uAD50\uCCB4 \uC801\uC6A9",
+  close: "\uB2EB\uAE30",
+  swap: "\uCF54\uD2B8 \uC548 \uC120\uC218 \uC790\uB9AC \uAD50\uD658",
+  swapHelp:
+    "\uAC19\uC740 \uCF54\uD2B8 \uC548\uC5D0\uC11C \uB450 \uC120\uC218\uB97C \uC120\uD0DD\uD558\uBA74 \uD300 \uAD6C\uC131\uC774\uB098 \uC790\uB9AC\uAC00 \uC11C\uB85C \uBC14\uB00D\uB2C8\uB2E4.",
+  firstPlayer: "\uCCAB \uBC88\uC9F8 \uC120\uC218",
+  secondPlayer: "\uB450 \uBC88\uC9F8 \uC120\uC218",
+  applySwap: "\uC790\uB9AC \uAD50\uD658 \uC801\uC6A9",
+  swapFailed:
+    "\uC120\uC218 \uAD6C\uC131\uC774 \uBCC0\uACBD\uB418\uC5B4 \uAD50\uD658\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.",
+  finishConfirm:
+    "\uC815\uB9D0 \uACBD\uAE30\uB97C \uC885\uB8CC\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?",
+  finishMatch: "\uACBD\uAE30 \uC885\uB8CC",
+  manualHelp:
+    "\uB300\uAE30\uC790 \uC911 4\uBA85\uC744 \uC9C1\uC811 \uC120\uD0DD\uD574 \uD300\uC744 \uAD6C\uC131\uD574 \uC8FC\uC138\uC694.",
+  teamA1: "A\uD300 \uC120\uC218 1",
+  teamA2: "A\uD300 \uC120\uC218 2",
+  teamB1: "B\uD300 \uC120\uC218 1",
+  teamB2: "B\uD300 \uC120\uC218 2",
+  needFour:
+    "\uC218\uB3D9 \uB300\uC9C4\uC5D0\uB294 \uB300\uAE30\uC790 4\uBA85\uC774 \uD544\uC694\uD569\uB2C8\uB2E4.",
+  confirmQueue:
+    "\uB300\uAE30 \uB300\uC9C4 \uD655\uC815",
+  startGame: "\uACBD\uAE30 \uC2DC\uC791",
+  assignFailed:
+    "\uC120\uC218 \uC0C1\uD0DC\uAC00 \uBCC0\uACBD\uB418\uC5C8\uAC70\uB098 \uAC19\uC740 \uACBD\uAE30 \uBC30\uCE58 \uC81C\uC678 \uC870\uAC74\uC5D0 \uAC78\uB824 \uB300\uC9C4\uC744 \uC0DD\uC131\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uD604\uC7AC \uB300\uAE30\uC5F4\uC744 \uB2E4\uC2DC \uD655\uC778\uD574 \uC8FC\uC138\uC694.",
+};
+
 function formatDuration(
   startedAt: Date | null
 ) {
@@ -15,13 +69,14 @@ function formatDuration(
     return "00:00";
   }
 
-  const seconds =
+  const seconds = Math.max(
+    0,
     Math.floor(
       (Date.now() -
         new Date(startedAt).getTime()) /
         1000
-    );
-
+    )
+  );
   const minutes =
     Math.floor(seconds / 60);
   const remainSeconds =
@@ -45,6 +100,12 @@ export default function CourtCard({
   readOnly = false,
   matchTarget = "GAME",
 }: CourtCardProps) {
+  const isQueueCourt =
+    matchTarget === "QUEUE";
+  const courtLabel =
+    isQueueCourt
+      ? `${text.queueCourt} ${court.id}`
+      : `Court ${court.id}`;
   const finishCourtMatch =
     useMatchStore(
       (state) =>
@@ -75,13 +136,23 @@ export default function CourtCard({
       (state) =>
         state.players
     );
-
+  const assignedPlayers =
+    useMemo(
+      () => [
+        ...(court.teamA ?? []),
+        ...(court.teamB ?? []),
+      ],
+      [court.teamA, court.teamB]
+    );
   const waitingPlayers =
     players.filter(
       (player) =>
-        player.status ===
-          "WAITING" &&
-        player.isPresent
+        player.status === "WAITING" &&
+        player.isPresent &&
+        !assignedPlayers.some(
+          (assigned) =>
+            assigned.id === player.id
+        )
     );
 
   const [
@@ -142,229 +213,46 @@ export default function CourtCard({
       clearInterval(timer);
   }, [court.startedAt]);
 
-  if (
-    !court.teamA ||
-    !court.teamB
-  ) {
-    return (
-      <div className="rounded-3xl bg-slate-900 p-6 border border-slate-800">
-        <div className="flex justify-between mb-4">
-          <h2 className="font-bold text-xl">
-            Court {court.id}
-          </h2>
-
-          <span className="text-xs px-3 py-1 rounded-full bg-slate-700 text-slate-300">
-            EMPTY
-          </span>
-        </div>
-
-        <div className="mt-6 text-slate-500">
-          鍮꾩뼱?덉쓬
-        </div>
-
-        {!readOnly && (
-          <>
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() =>
-                  rerollRecommendations(
-                    court.id,
-                    matchTarget
-                  )
-                }
-                className="rounded-xl bg-blue-500 py-3 font-bold text-white"
-              >
-                ?먮룞 ?吏?              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  setIsManualMatchOpen(
-                    true
-                  )
-                }
-                className="rounded-xl bg-cyan-400 py-3 font-bold text-slate-950"
-              >
-                ?섎룞 ?吏?              </button>
-            </div>
-
-            {isManualMatchOpen && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-                <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-cyan-500/30 bg-slate-900 p-6">
-                  <div className="mb-2 text-xl font-bold">
-                    Court {court.id} ?섎룞 ?吏?                  </div>
-                  <p className="mb-5 text-sm text-slate-400">
-                    ?湲곗옄 以?4紐낆쓣 吏곸젒 ?좏깮?????援ъ꽦?섏꽭??
-                  </p>
-
-                  <div className="grid gap-5 md:grid-cols-2">
-                    {[
-                      "A? ?좎닔 1",
-                      "A? ?좎닔 2",
-                      "B? ?좎닔 1",
-                      "B? ?좎닔 2",
-                    ].map(
-                      (label, index) => (
-                        <label
-                          key={label}
-                          className="block"
-                        >
-                          <span className="mb-2 block text-sm font-bold text-slate-300">
-                            {label}
-                          </span>
-                          <select
-                            value={
-                              manualPlayerIds[
-                                index
-                              ]
-                            }
-                            onChange={(
-                              event
-                            ) =>
-                              setManualPlayerIds(
-                                (
-                                  current
-                                ) =>
-                                  current.map(
-                                    (
-                                      value,
-                                      itemIndex
-                                    ) =>
-                                      itemIndex ===
-                                      index
-                                        ? event
-                                            .target
-                                            .value
-                                        : value
-                                  )
-                              )
-                            }
-                            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-white"
-                          >
-                            <option value="">
-                              ?좎닔瑜??좏깮?섏꽭??                            </option>
-                            {waitingPlayers.map(
-                              (player) => (
-                                <option
-                                  key={
-                                    player.id
-                                  }
-                                  value={
-                                    player.id
-                                  }
-                                  disabled={manualPlayerIds.some(
-                                    (
-                                      selectedId,
-                                      selectedIndex
-                                    ) =>
-                                      selectedIndex !==
-                                        index &&
-                                      selectedId ===
-                                        player.id
-                                  )}
-                                >
-                                  {
-                                    player.name
-                                  }
-                                </option>
-                              )
-                            )}
-                          </select>
-                        </label>
-                      )
-                    )}
-                  </div>
-
-                  {waitingPlayers.length <
-                    4 && (
-                    <div className="mt-4 text-sm text-amber-300">
-                      ?섎룞 ?吏꾩뿉???湲곗옄 4紐낆씠 ?꾩슂?⑸땲??
-                    </div>
-                  )}
-
-                  <div className="mt-6 flex gap-3">
-                    <button
-                      type="button"
-                      disabled={
-                        manualPlayerIds.some(
-                          (playerId) =>
-                            !playerId
-                        ) ||
-                        new Set(
-                          manualPlayerIds
-                        ).size !== 4
-                      }
-                      onClick={() => {
-                        const assigned =
-                          assignManualMatch(
-                            court.id,
-                            [
-                              manualPlayerIds[0],
-                              manualPlayerIds[1],
-                            ],
-                            [
-                              manualPlayerIds[2],
-                              manualPlayerIds[3],
-                            ],
-                            matchTarget
-                          );
-
-                        if (!assigned) {
-                          window.alert(
-                            "?좎닔 ?곹깭媛 蹂寃쎈릺?덇굅??肄뷀듃媛 ?대? ?ъ슜 以묒엯?덈떎. ?꾩옱 ?湲곗뿴???뺤씤?댁＜?몄슂."
-                          );
-                          return;
-                        }
-
-                        setManualPlayerIds(
-                          [
-                            "",
-                            "",
-                            "",
-                            "",
-                          ]
-                        );
-                        setIsManualMatchOpen(
-                          false
-                        );
-                      }}
-                      className="flex-1 rounded-xl bg-cyan-400 py-3 font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      寃쎄린 ?쒖옉
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setManualPlayerIds(
-                          [
-                            "",
-                            "",
-                            "",
-                            "",
-                          ]
-                        );
-                        setIsManualMatchOpen(
-                          false
-                        );
-                      }}
-                      className="rounded-xl bg-slate-700 px-5 py-3 font-bold"
-                    >
-                      痍⑥냼
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+  const isAssigned =
+    Boolean(
+      court.teamA &&
+        court.teamB
     );
+
+  function resetManualMatchForm() {
+    setManualPlayerIds([
+      "",
+      "",
+      "",
+      "",
+    ]);
+    setIsManualMatchOpen(false);
   }
 
-  const assignedPlayers = [
-    ...court.teamA,
-    ...court.teamB,
-  ];
+  function handleManualMatch() {
+    const assigned =
+      assignManualMatch(
+        court.id,
+        [
+          manualPlayerIds[0],
+          manualPlayerIds[1],
+        ],
+        [
+          manualPlayerIds[2],
+          manualPlayerIds[3],
+        ],
+        matchTarget
+      );
+
+    if (!assigned) {
+      window.alert(
+        text.assignFailed
+      );
+      return;
+    }
+
+    resetManualMatchForm();
+  }
 
   function handleReplacePlayer() {
     if (
@@ -387,12 +275,11 @@ export default function CourtCard({
           incomingPlayerId
       );
 
-    const confirmed =
-      window.confirm(
-        `${outgoing?.name ?? "?좏깮???좎닔"}?섏쓣 ${incoming?.name ?? "?좏깮???湲곗옄"}?섏쑝濡?援먯껜?섏떆寃좎뒿?덇퉴?`
-      );
-
-    if (!confirmed) {
+    if (
+      !window.confirm(
+        `${outgoing?.name ?? text.outgoing}\uB2D8\uC744 ${incoming?.name ?? text.incoming}\uB2D8\uC73C\uB85C \uAD50\uCCB4\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?`
+      )
+    ) {
       return;
     }
 
@@ -401,81 +288,120 @@ export default function CourtCard({
       outgoingPlayerId,
       incomingPlayerId
     );
-
     setOutgoingPlayerId("");
     setIncomingPlayerId("");
     setIsReplacementOpen(false);
   }
 
   return (
-    <div className="rounded-3xl bg-slate-900 p-6 border border-slate-800">
-      <div className="flex justify-between mb-4">
-        <h2 className="font-bold text-xl">
-          Court {court.id}
+    <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
+      <div className="mb-4 flex justify-between gap-3">
+        <h2 className="text-xl font-bold">
+          {courtLabel}
         </h2>
-
-        <span className="text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400">
-          PLAYING
+        <span
+          className={`rounded-full px-3 py-1 text-xs ${
+            isAssigned
+              ? isQueueCourt
+                ? "bg-indigo-500/20 text-indigo-300"
+                : "bg-emerald-500/20 text-emerald-400"
+              : "bg-slate-700 text-slate-300"
+          }`}
+        >
+          {isAssigned
+            ? isQueueCourt
+              ? text.queued
+              : text.playing
+            : text.empty}
         </span>
       </div>
 
-      <div className="mb-4 text-center">
-        <div className="text-slate-400 text-sm">
-          寃쎄린 ?쒓컙
-        </div>
-
-        <div className="text-xl font-bold text-lime-400">
-          {duration}
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <div className="rounded-2xl bg-slate-800 p-4">
-          <div className="mb-3 text-center text-sm text-slate-400">
-            Team A
+      {!isAssigned ? (
+        <>
+          <div className="mt-6 rounded-2xl bg-slate-950 p-5 text-center text-slate-400">
+            {isQueueCourt
+              ? text.noQueue
+              : text.noGame}
           </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            {court.teamA.map(
-              (player) => (
-                <div
-                  key={player.id}
-                  className="rounded-xl bg-slate-900 px-3 py-3 text-center font-bold"
-                >
-                  {player.name}
+          {!readOnly && (
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() =>
+                  rerollRecommendations(
+                    court.id,
+                    matchTarget
+                  )
+                }
+                className="rounded-xl bg-blue-500 py-3 font-bold text-white"
+              >
+                {text.autoMatch}
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setIsManualMatchOpen(true)
+                }
+                className="rounded-xl bg-cyan-400 py-3 font-bold text-slate-950"
+              >
+                {text.manualMatch}
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          {!isQueueCourt && (
+            <div className="mb-4 text-center">
+              <div className="text-sm text-slate-400">
+                {text.gameTime}
+              </div>
+              <div className="text-xl font-bold text-lime-400">
+                {duration}
+              </div>
+            </div>
+          )}
+          {isQueueCourt && (
+            <div className="mb-4 rounded-2xl bg-indigo-500/10 p-3 text-center text-sm text-indigo-200">
+              {text.queueHelp}
+            </div>
+          )}
+          <div className="space-y-4">
+            {[
+              ["Team A", court.teamA],
+              ["Team B", court.teamB],
+            ].map(([label, team], index) => (
+              <div key={String(label)}>
+                {index === 1 && (
+                  <div className="mb-4 text-center text-slate-400">
+                    VS
+                  </div>
+                )}
+                <div className="rounded-2xl bg-slate-800 p-4">
+                  <div className="mb-3 text-center text-sm text-slate-400">
+                    {String(label)}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(team as Court["teamA"])?.map(
+                      (player) => (
+                        <div
+                          key={player.id}
+                          className="rounded-xl bg-slate-900 px-3 py-3 text-center font-bold"
+                        >
+                          {player.name}
+                        </div>
+                      )
+                    )}
+                  </div>
                 </div>
-              )
-            )}
+              </div>
+            ))}
           </div>
-        </div>
+        </>
+      )}
 
-        <div className="text-center text-slate-400">
-          VS
-        </div>
-
-        <div className="rounded-2xl bg-slate-800 p-4">
-          <div className="mb-3 text-center text-sm text-slate-400">
-            Team B
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            {court.teamB.map(
-              (player) => (
-                <div
-                  key={player.id}
-                  className="rounded-xl bg-slate-900 px-3 py-3 text-center font-bold"
-                >
-                  {player.name}
-                </div>
-              )
-            )}
-          </div>
-        </div>
-      </div>
-
-      {!readOnly && (
+      {!readOnly && isAssigned && !isQueueCourt && (
         <div className="mt-6 space-y-3">
-          {matchTarget === "GAME" && (
           <button
             type="button"
             onClick={() =>
@@ -483,110 +409,75 @@ export default function CourtCard({
                 (current) => !current
               )
             }
-            className="
-              w-full
-              rounded-xl
-              bg-slate-800
-              py-3
-              font-bold
-              text-white
-              hover:bg-slate-700
-            "
+            className="w-full rounded-xl bg-slate-800 py-3 font-bold text-white hover:bg-slate-700"
           >
-            ?좎닔 援먯껜
+            {text.replacePlayer}
           </button>
-          )}
-
-          {matchTarget === "GAME" && isReplacementOpen && (
+          {isReplacementOpen && (
             <div className="rounded-2xl border border-cyan-500/30 bg-slate-950 p-4">
               <div className="mb-4 text-sm text-slate-400">
-                援먯껜???좎닔? ?ㅼ뼱???湲곗옄瑜??좏깮?섏꽭??
+                {text.replaceHelp}
               </div>
-
               <div className="grid gap-3 md:grid-cols-2">
-                <label className="block">
-                  <span className="mb-2 block text-sm text-slate-400">
-                    ?섍컝 ?좎닔
-                  </span>
-                  <select
-                    value={outgoingPlayerId}
-                    onChange={(event) =>
-                      setOutgoingPlayerId(
-                        event.target.value
-                      )
-                    }
-                    className="
-                      w-full
-                      rounded-xl
-                      border
-                      border-slate-700
-                      bg-slate-900
-                      px-3
-                      py-3
-                      text-white
-                    "
+                {[
+                  {
+                    label: text.outgoing,
+                    value: outgoingPlayerId,
+                    setValue:
+                      setOutgoingPlayerId,
+                    options: assignedPlayers,
+                    placeholder:
+                      text.selectPlayer,
+                  },
+                  {
+                    label: text.incoming,
+                    value: incomingPlayerId,
+                    setValue:
+                      setIncomingPlayerId,
+                    options: waitingPlayers,
+                    placeholder:
+                      text.selectWaiting,
+                  },
+                ].map((field) => (
+                  <label
+                    key={field.label}
+                    className="block"
                   >
-                    <option value="">
-                      ?좎닔瑜??좏깮?섏꽭??
-                    </option>
-                    {assignedPlayers.map(
-                      (player) => (
-                        <option
-                          key={player.id}
-                          value={player.id}
-                        >
-                          {player.name}
-                        </option>
-                      )
-                    )}
-                  </select>
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm text-slate-400">
-                    ?ㅼ뼱???湲곗옄
-                  </span>
-                  <select
-                    value={incomingPlayerId}
-                    onChange={(event) =>
-                      setIncomingPlayerId(
-                        event.target.value
-                      )
-                    }
-                    className="
-                      w-full
-                      rounded-xl
-                      border
-                      border-slate-700
-                      bg-slate-900
-                      px-3
-                      py-3
-                      text-white
-                    "
-                  >
-                    <option value="">
-                      ?湲곗옄瑜??좏깮?섏꽭??
-                    </option>
-                    {waitingPlayers.map(
-                      (player) => (
-                        <option
-                          key={player.id}
-                          value={player.id}
-                        >
-                          {player.name}
-                        </option>
-                      )
-                    )}
-                  </select>
-                </label>
+                    <span className="mb-2 block text-sm text-slate-400">
+                      {field.label}
+                    </span>
+                    <select
+                      value={field.value}
+                      onChange={(event) =>
+                        field.setValue(
+                          event.target.value
+                        )
+                      }
+                      className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-3 text-white"
+                    >
+                      <option value="">
+                        {field.placeholder}
+                      </option>
+                      {field.options.map(
+                        (player) => (
+                          <option
+                            key={player.id}
+                            value={player.id}
+                          >
+                            {player.name}
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </label>
+                ))}
               </div>
-
-              {waitingPlayers.length === 0 && (
+              {waitingPlayers.length ===
+                0 && (
                 <div className="mt-3 text-sm text-amber-300">
-                  援먯껜 媛?ν븳 ?湲곗옄媛 ?놁뒿?덈떎.
+                  {text.noWaiting}
                 </div>
               )}
-
               <div className="mt-4 flex gap-2">
                 <button
                   type="button"
@@ -595,20 +486,10 @@ export default function CourtCard({
                     !outgoingPlayerId ||
                     !incomingPlayerId
                   }
-                  className="
-                    flex-1
-                    rounded-xl
-                    bg-cyan-400
-                    py-3
-                    font-bold
-                    text-slate-950
-                    disabled:cursor-not-allowed
-                    disabled:opacity-40
-                  "
+                  className="flex-1 rounded-xl bg-cyan-400 py-3 font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  援먯껜 ?곸슜
+                  {text.applyReplace}
                 </button>
-
                 <button
                   type="button"
                   onClick={() => {
@@ -616,23 +497,14 @@ export default function CourtCard({
                     setIncomingPlayerId("");
                     setIsReplacementOpen(false);
                   }}
-                  className="
-                    rounded-xl
-                    bg-slate-800
-                    px-4
-                    py-3
-                    font-bold
-                    text-slate-200
-                    hover:bg-slate-700
-                  "
+                  className="rounded-xl bg-slate-800 px-4 py-3 font-bold text-slate-200 hover:bg-slate-700"
                 >
-                  痍⑥냼
+                  {text.close}
                 </button>
               </div>
             </div>
           )}
 
-          {matchTarget === "GAME" && (
           <button
             type="button"
             onClick={() =>
@@ -642,76 +514,58 @@ export default function CourtCard({
             }
             className="w-full rounded-xl bg-indigo-500 py-3 font-bold text-white hover:bg-indigo-400"
           >
-            肄뷀듃 ???좎닔 ?먮━ 援먰솚
+            {text.swap}
           </button>
-          )}
-
-          {matchTarget === "GAME" && isCourtSwapOpen && (
+          {isCourtSwapOpen && (
             <div className="rounded-2xl border border-indigo-500/30 bg-slate-950 p-4">
               <div className="mb-4 text-sm text-slate-400">
-                ???좎닔瑜??좏깮?섎㈃ 媛숈? ????먮━ ?먮뒗 A?쨌B? 援ъ꽦???쒕줈 諛붽? ???덉뒿?덈떎.
+                {text.swapHelp}
               </div>
-
               <div className="grid gap-3 md:grid-cols-2">
                 {[
                   {
-                    id: "first",
-                    label:
-                      "泥?踰덉㎏ ?좎닔",
-                    value:
-                      firstSwapPlayerId,
+                    label: text.firstPlayer,
+                    value: firstSwapPlayerId,
                     setValue:
                       setFirstSwapPlayerId,
+                    other:
+                      secondSwapPlayerId,
                   },
                   {
-                    id: "second",
-                    label:
-                      "??踰덉㎏ ?좎닔",
-                    value:
-                      secondSwapPlayerId,
+                    label: text.secondPlayer,
+                    value: secondSwapPlayerId,
                     setValue:
                       setSecondSwapPlayerId,
+                    other:
+                      firstSwapPlayerId,
                   },
                 ].map((field) => (
                   <label
-                    key={field.id}
+                    key={field.label}
                     className="block"
                   >
                     <span className="mb-2 block text-sm text-slate-400">
                       {field.label}
                     </span>
                     <select
-                      value={
-                        field.value
-                      }
-                      onChange={(
-                        event
-                      ) =>
+                      value={field.value}
+                      onChange={(event) =>
                         field.setValue(
-                          event.target
-                            .value
+                          event.target.value
                         )
                       }
                       className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-3 text-white"
                     >
                       <option value="">
-                        ?좎닔瑜??좏깮?섏꽭??                      </option>
+                        {text.selectPlayer}
+                      </option>
                       {assignedPlayers.map(
                         (player) => (
                           <option
-                            key={
-                              player.id
-                            }
-                            value={
-                              player.id
-                            }
+                            key={player.id}
+                            value={player.id}
                             disabled={
-                              (
-                                field.id ===
-                                "first"
-                                  ? secondSwapPlayerId
-                                  : firstSwapPlayerId
-                              ) ===
+                              field.other ===
                               player.id
                             }
                           >
@@ -723,7 +577,6 @@ export default function CourtCard({
                   </label>
                 ))}
               </div>
-
               <div className="mt-4 flex gap-2">
                 <button
                   type="button"
@@ -742,41 +595,28 @@ export default function CourtCard({
                       )
                     ) {
                       window.alert(
-                        "?좎닔 援ъ꽦??蹂寃쎈릺??援먰솚?섏? 紐삵뻽?듬땲??"
+                        text.swapFailed
                       );
                       return;
                     }
-
-                    setFirstSwapPlayerId(
-                      ""
-                    );
-                    setSecondSwapPlayerId(
-                      ""
-                    );
-                    setIsCourtSwapOpen(
-                      false
-                    );
+                    setFirstSwapPlayerId("");
+                    setSecondSwapPlayerId("");
+                    setIsCourtSwapOpen(false);
                   }}
                   className="flex-1 rounded-xl bg-indigo-500 py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  ?먮━ 援먰솚 ?곸슜
+                  {text.applySwap}
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    setFirstSwapPlayerId(
-                      ""
-                    );
-                    setSecondSwapPlayerId(
-                      ""
-                    );
-                    setIsCourtSwapOpen(
-                      false
-                    );
+                    setFirstSwapPlayerId("");
+                    setSecondSwapPlayerId("");
+                    setIsCourtSwapOpen(false);
                   }}
                   className="rounded-xl bg-slate-800 px-4 py-3 font-bold"
                 >
-                  痍⑥냼
+                  {text.close}
                 </button>
               </div>
             </div>
@@ -785,32 +625,136 @@ export default function CourtCard({
           <button
             type="button"
             onClick={() => {
-              const confirmed =
+              if (
                 window.confirm(
-                  "?뺣쭚 寃쎄린瑜?醫낅즺?섏떆寃좎뒿?덇퉴?"
+                  text.finishConfirm
+                )
+              ) {
+                finishCourtMatch(
+                  court.id
                 );
-
-              if (!confirmed) {
-                return;
               }
-
-              finishCourtMatch(
-                court.id
-              );
             }}
-            className="
-              w-full
-              rounded-xl
-              bg-lime-400
-              py-3
-              text-black
-              font-bold
-            "
+            className="w-full rounded-xl bg-lime-400 py-3 font-bold text-black"
           >
-            寃쎄린 醫낅즺
+            {text.finishMatch}
           </button>
         </div>
       )}
+
+      {!readOnly &&
+        isManualMatchOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+            <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-cyan-500/30 bg-slate-900 p-6">
+              <div className="mb-2 text-xl font-bold">
+                {courtLabel} {text.manualMatch}
+              </div>
+              <p className="mb-5 text-sm text-slate-400">
+                {text.manualHelp}
+              </p>
+              <div className="grid gap-5 md:grid-cols-2">
+                {[
+                  text.teamA1,
+                  text.teamA2,
+                  text.teamB1,
+                  text.teamB2,
+                ].map(
+                  (label, index) => (
+                    <label
+                      key={label}
+                      className="block"
+                    >
+                      <span className="mb-2 block text-sm font-bold text-slate-300">
+                        {label}
+                      </span>
+                      <select
+                        value={
+                          manualPlayerIds[
+                            index
+                          ]
+                        }
+                        onChange={(event) =>
+                          setManualPlayerIds(
+                            (current) =>
+                              current.map(
+                                (
+                                  value,
+                                  itemIndex
+                                ) =>
+                                  itemIndex ===
+                                  index
+                                    ? event
+                                        .target
+                                        .value
+                                    : value
+                              )
+                          )
+                        }
+                        className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-white"
+                      >
+                        <option value="">
+                          {text.selectPlayer}
+                        </option>
+                        {waitingPlayers.map(
+                          (player) => (
+                            <option
+                              key={player.id}
+                              value={player.id}
+                              disabled={manualPlayerIds.some(
+                                (
+                                  selectedId,
+                                  selectedIndex
+                                ) =>
+                                  selectedIndex !==
+                                    index &&
+                                  selectedId ===
+                                    player.id
+                              )}
+                            >
+                              {player.name}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </label>
+                  )
+                )}
+              </div>
+              {waitingPlayers.length < 4 && (
+                <div className="mt-4 text-sm text-amber-300">
+                  {text.needFour}
+                </div>
+              )}
+              <div className="mt-6 flex gap-3">
+                <button
+                  type="button"
+                  disabled={
+                    manualPlayerIds.some(
+                      (playerId) =>
+                        !playerId
+                    ) ||
+                    new Set(
+                      manualPlayerIds
+                    ).size !== 4
+                  }
+                  onClick={handleManualMatch}
+                  className="flex-1 rounded-xl bg-cyan-400 py-3 font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {isQueueCourt
+                    ? text.confirmQueue
+                    : text.startGame}
+                </button>
+                <button
+                  type="button"
+                  onClick={resetManualMatchForm}
+                  className="rounded-xl bg-slate-700 px-5 py-3 font-bold"
+                >
+                  {text.close}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 }

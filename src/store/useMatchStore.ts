@@ -63,6 +63,10 @@ export type ExcludedMatchPair = [
 function isAllowedNotificationMessage(
   message: string
 ) {
+  if (/[\uFFFD\u4E00-\u9FFF]/.test(message)) {
+    return false;
+  }
+
   const blockedKeywords = [
     "\uad50\uccb4",
     "\ucc38\uac00",
@@ -110,6 +114,53 @@ function createNotification(
     createdAt:
       createdAt.toISOString(),
   };
+}
+
+const DEFAULT_QUEUED_COURT_COUNT = 2;
+
+function createEmptyCourt(id: number): Court {
+  return {
+    id,
+    status: "EMPTY",
+    teamA: null,
+    teamB: null,
+    startedAt: null,
+  };
+}
+
+function createDefaultQueuedCourts() {
+  return Array.from(
+    {
+      length: DEFAULT_QUEUED_COURT_COUNT,
+    },
+    (_, index) =>
+      createEmptyCourt(index + 1)
+  );
+}
+
+function ensureDefaultQueuedCourts(
+  courts: Court[]
+) {
+  const next = [...courts].sort(
+    (a, b) => a.id - b.id
+  );
+  let nextId =
+    Math.max(
+      0,
+      ...next.map((court) => court.id)
+    ) + 1;
+
+  while (
+    next.length <
+    DEFAULT_QUEUED_COURT_COUNT
+  ) {
+    next.push(
+      createEmptyCourt(nextId)
+    );
+    nextId += 1;
+  }
+
+  return next;
 }
 
 function compactNotifications(
@@ -331,7 +382,8 @@ export const useMatchStore =
 
       courts: [],
 
-      queuedCourts: [],
+      queuedCourts:
+        createDefaultQueuedCourts(),
 
       fixedPartnerRequests: [],
 
@@ -665,6 +717,15 @@ export const useMatchStore =
             },
           ],
         });
+        get().addNotification({
+          audience: "ADMIN",
+          message: `${resolvedRequesterName}\uB2D8\uC774 ${resolvedPartnerName}\uB2D8\uC744 \uACE0\uC815 \uD30C\uD2B8\uB108\uB85C \uC2E0\uCCAD\uD588\uC2B5\uB2C8\uB2E4.`,
+        });
+        get().addNotification({
+          audience: "PLAYER",
+          recipientId: partnerId,
+          message: `${resolvedRequesterName}\uB2D8\uC774 \uACE0\uC815 \uD30C\uD2B8\uB108\uB97C \uC2E0\uCCAD\uD588\uC2B5\uB2C8\uB2E4.`,
+        });
       },
 
       approveFixedPartnerRequest:
@@ -734,6 +795,18 @@ export const useMatchStore =
               },
             ],
           });
+          get().addNotification({
+            audience: "PLAYER",
+            recipientId:
+              request.requesterId,
+            message: `${request.partnerName}\uB2D8\uACFC \uACE0\uC815 \uD30C\uD2B8\uB108\uB85C \uC124\uC815\uB418\uC5C8\uC2B5\uB2C8\uB2E4.`,
+          });
+          get().addNotification({
+            audience: "PLAYER",
+            recipientId:
+              request.partnerId,
+            message: `${request.requesterName}\uB2D8\uACFC \uACE0\uC815 \uD30C\uD2B8\uB108\uB85C \uC124\uC815\uB418\uC5C8\uC2B5\uB2C8\uB2E4.`,
+          });
         },
 
       rejectFixedPartnerRequest:
@@ -797,6 +870,20 @@ export const useMatchStore =
                 ]
               : get().notifications,
           });
+          if (request) {
+            get().addNotification({
+              audience: "PLAYER",
+              recipientId:
+                request.requesterId,
+              message: `${request.partnerName}\uB2D8\uACFC\uC758 \uACE0\uC815 \uD30C\uD2B8\uB108 \uC2E0\uCCAD\uC774 \uAC70\uC808\uB418\uC5C8\uC2B5\uB2C8\uB2E4.`,
+            });
+            get().addNotification({
+              audience: "PLAYER",
+              recipientId:
+                request.partnerId,
+              message: `${request.requesterName}\uB2D8\uACFC\uC758 \uACE0\uC815 \uD30C\uD2B8\uB108 \uC2E0\uCCAD\uC774 \uAC70\uC808\uB418\uC5C8\uC2B5\uB2C8\uB2E4.`,
+            });
+          }
         },
 
       addNotification:
@@ -889,7 +976,8 @@ export const useMatchStore =
         set({
           players: [],
           courts: [],
-          queuedCourts: [],
+          queuedCourts:
+            createDefaultQueuedCourts(),
           fixedPartnerRequests:
             [],
           fixedPartnerAssignments:
@@ -905,6 +993,7 @@ export const useMatchStore =
             null,
           womenDoublesPriority:
             false,
+          matchHistory: [],
         });
       },
 
@@ -965,8 +1054,7 @@ export const useMatchStore =
       resetTodayWorkoutData: (
         workoutDate
       ) => {
-        const targetDate =
-          workoutDate ??
+        const formatter =
           new Intl.DateTimeFormat(
             "en-CA",
             {
@@ -976,12 +1064,35 @@ export const useMatchStore =
               month: "2-digit",
               day: "2-digit",
             }
-          ).format(new Date());
+          );
+        const todayDate =
+          formatter.format(
+            new Date()
+          );
+        const targetDate =
+          workoutDate ??
+          todayDate;
+
+        if (targetDate !== todayDate) {
+          set({
+            matchHistory:
+              get().matchHistory.filter(
+                (history) =>
+                  formatter.format(
+                    new Date(
+                      history.endedAt
+                    )
+                  ) !== targetDate
+              ),
+          });
+          return;
+        }
 
         set({
           players: [],
           courts: [],
-          queuedCourts: [],
+          queuedCourts:
+            createDefaultQueuedCourts(),
           fixedPartnerRequests: [],
           fixedPartnerAssignments: [],
           fixedPartnerRequestResolutions:
@@ -993,18 +1104,7 @@ export const useMatchStore =
           matchHistory:
             get().matchHistory.filter(
               (history) =>
-                new Intl.DateTimeFormat(
-                  "en-CA",
-                  {
-                    timeZone:
-                      "Asia/Seoul",
-                    year:
-                      "numeric",
-                    month:
-                      "2-digit",
-                    day: "2-digit",
-                  }
-                ).format(
+                formatter.format(
                   new Date(
                     history.endedAt
                   )
@@ -1079,25 +1179,17 @@ export const useMatchStore =
         } = get();
 
         const nextId =
-          queuedCourts.length === 0
-            ? 1
-            : Math.max(
-                ...queuedCourts.map(
-                  (court) =>
-                    court.id
-                )
-              ) + 1;
+          Math.max(
+            0,
+            ...queuedCourts.map(
+              (court) => court.id
+            )
+          ) + 1;
 
         set({
           queuedCourts: [
             ...queuedCourts,
-            {
-              id: nextId,
-              status: "EMPTY",
-              teamA: null,
-              teamB: null,
-              startedAt: null,
-            },
+            createEmptyCourt(nextId),
           ],
         });
       },
@@ -1158,9 +1250,11 @@ export const useMatchStore =
 
         set({
           queuedCourts:
-            queuedCourts.filter(
-              (court) =>
-                court.id !== courtId
+            ensureDefaultQueuedCourts(
+              queuedCourts.filter(
+                (court) =>
+                  court.id !== courtId
+              )
             ),
         });
       },
@@ -1456,10 +1550,16 @@ export const useMatchStore =
               ),
             queuedCourts:
               nextQueuedCourt
-                ? queuedCourts.filter(
+                ? ensureDefaultQueuedCourts(
+                    queuedCourts.map(
                     (court) =>
-                      court.id !==
+                      court.id ===
                       nextQueuedCourt.id
+                        ? createEmptyCourt(
+                            court.id
+                          )
+                        : court
+                    )
                   )
                 : queuedCourts,
             notifications:
@@ -1539,6 +1639,10 @@ export const useMatchStore =
         if (
           violatesExcludedPair
         ) {
+          window.alert(
+            "\uAC19\uC740 \uACBD\uAE30 \uBC30\uCE58 \uC81C\uC678\uB85C \uC124\uC815\uB41C \uC120\uC218\uB294 \uAD50\uCCB4\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4."
+          );
+          return;
           window.alert(
             "???꿔꺂??틝??轅멸눼 ????ル늉??? ??棺堉?뤃????????????썹땟戮녹?????? ??????紐껊쑋?????嚥싲갭큔????????????嶺뚮슣??쮼?????쎛 ?????????얠? ???????????????깅즽????????놁졄."
           );
@@ -1842,6 +1946,14 @@ export const useMatchStore =
               selectedRecommendation:
                 null,
             });
+            window.alert(
+              "\uC120\uC218 \uC0C1\uD0DC\uAC00 \uBCC0\uACBD\uB418\uC5C8\uAC70\uB098 \uB300\uC0C1 \uCF54\uD2B8\uAC00 \uC774\uBBF8 \uC0AC\uC6A9 \uC911\uC785\uB2C8\uB2E4. \uD604\uC7AC \uB300\uAE30\uC5F4\uACFC \uCF54\uD2B8 \uC0C1\uD0DC\uB97C \uB2E4\uC2DC \uD655\uC778\uD574 \uC8FC\uC138\uC694."
+            );
+            return;
+            window.alert(
+              "선수 상태가 변경되었거나 대상 코트가 이미 사용 중입니다. 현재 대기열과 코트 상태를 다시 확인해 주세요."
+            );
+            return;
             window.alert(
               "???饔낅떽????????棺堉?뤃??????影?력??????????낇룇 ???????????????????????됰Ŧ鍮???戮?걫癲?????쎛 ????쇰뮛????棺堉?뤃???삳ħ??????????????놁졄. ??????살퓢?????熬곣뫖利??????鰲????轅붽틓?????"
             );
@@ -2317,7 +2429,7 @@ export const useMatchStore =
       {
         name:
           "step-up-match-storage",
-        version: 9,
+        version: 10,
         partialize: (state) => ({
           ...state,
           recommendations: [],
@@ -2400,6 +2512,21 @@ export const useMatchStore =
               fixedPartnerRequestResolutions:
                 state.fixedPartnerRequestResolutions ??
                 [],
+            };
+          }
+
+          if (version < 10) {
+            return {
+              ...state,
+              queuedCourts:
+                ensureDefaultQueuedCourts(
+                  state.queuedCourts ?? []
+                ),
+              notifications:
+                compactNotifications(
+                  state.notifications ?? [],
+                  state.dismissedNotificationIds ?? []
+                ),
             };
           }
 

@@ -5,13 +5,16 @@ import {
 } from "react";
 
 import {
+  adminNames,
+  masterNames,
+} from "@/auth/access";
+import {
   getUsers,
   updateUserProfile,
 } from "@/services/supabaseUserService";
 import {
-  adminNames,
-  masterNames,
-} from "@/auth/access";
+  getKstDateKey,
+} from "@/services/workoutSessionService";
 import {
   useMatchStore,
 } from "@/store/useMatchStore";
@@ -28,6 +31,53 @@ interface Member {
   hidden_skill: number | null;
 }
 
+const text = {
+  unknown: "\uC54C \uC218 \uC5C6\uC74C",
+  selectDifferentMembers:
+    "\uC11C\uB85C \uB2E4\uB978 \uB450 \uD68C\uC6D0\uC744 \uC120\uD0DD\uD574\uC8FC\uC138\uC694.",
+  noExcludedPairs:
+    "\uC124\uC815\uB41C \uC81C\uC678 \uAD00\uACC4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
+  selectFirstMember:
+    "\uCCAB \uBC88\uC9F8 \uD68C\uC6D0",
+  selectSecondMember:
+    "\uB450 \uBC88\uC9F8 \uD68C\uC6D0",
+  addExcludedPair:
+    "\uC81C\uC678 \uAD00\uACC4 \uCD94\uAC00",
+  remove: "\uD574\uC81C",
+  memberInfoEdit:
+    "\uD68C\uC6D0 \uC815\uBCF4 \uC218\uC815",
+  memberInfoDescription:
+    "\uC77C\uBC18 \uD68C\uC6D0\uACFC \uC6B4\uC601\uC9C4\uC758 \uC131\uBCC4, \uAE09\uC218\uB97C \uBCC0\uACBD\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4. \uC131\uBCC4\uACFC \uAE09\uC218\uB294 \uC2E4\uC81C \uACBD\uAE30 \uB9E4\uCE6D \uAE30\uC900\uC5D0 \uC989\uC2DC \uBC18\uC601\uB429\uB2C8\uB2E4.",
+  selectMemberToEdit:
+    "\uC218\uC815\uD560 \uD68C\uC6D0 \uC120\uD0DD",
+  name: "\uC774\uB984",
+  male: "\uB0A8\uC790",
+  female: "\uC5EC\uC790",
+  gradeSuffix: "\uAE09",
+  saving: "\uC800\uC7A5 \uC911...",
+  saveChanges: "\uBCC0\uACBD \uC800\uC7A5",
+  operatorNameLocked:
+    "\uC6B4\uC601\uC9C4 \uB85C\uADF8\uC778 \uAD8C\uD55C\uC744 \uC720\uC9C0\uD558\uAE30 \uC704\uD574 \uC774\uB984\uC740 \uBCC0\uACBD\uD560 \uC218 \uC5C6\uC73C\uBA70, \uC131\uBCC4\uACFC \uAE09\uC218\uB294 \uC218\uC815\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.",
+  serviceDataTitle:
+    "\uC11C\uBE44\uC2A4 \uB370\uC774\uD130 \uBC0F \uD68C\uC6D0 \uAD00\uB9AC",
+  resetTitle:
+    "\uC120\uD0DD\uD55C \uB0A0\uC9DC\uC758 \uC6B4\uB3D9 \uC815\uBCF4 \uCD08\uAE30\uD654",
+  resetDescription:
+    "\uC120\uD0DD\uD55C \uB0A0\uC9DC\uC758 \uCD9C\uC11D, \uB300\uAE30\uC5F4, \uCF54\uD2B8, \uC9C4\uD589\u00B7\uC885\uB8CC \uACBD\uAE30\uC640 \uCD5C\uADFC \uACBD\uAE30 \uD45C\uC2DC\uB97C \uCD08\uAE30\uD654\uD569\uB2C8\uB2E4.",
+  resetButton:
+    "\uC120\uD0DD \uB0A0\uC9DC \uC6B4\uB3D9 \uC815\uBCF4 \uCD08\uAE30\uD654",
+  excludedTitle:
+    "\uAC19\uC740 \uACBD\uAE30 \uBC30\uCE58 \uC81C\uC678",
+  excludedDescription:
+    "\uC120\uD0DD\uD55C \uB450 \uC0AC\uB78C\uC740 \uD30C\uD2B8\uB108\uC9C0 \uC0C1\uB300\uB97C \uD3EC\uD568\uD574 \uAC19\uC740 4\uC778 \uACBD\uAE30\uC5D0 \uBC30\uCE58\uB418\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.",
+  selectMemberAndName:
+    "\uC218\uC815\uD560 \uD68C\uC6D0\uC744 \uC120\uD0DD\uD558\uACE0 \uC774\uB984\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694.",
+  memberSaved:
+    "\uD68C\uC6D0 \uC815\uBCF4\uAC00 \uC800\uC7A5\uB418\uC5C8\uACE0 \uB2E4\uC74C \uB300\uC9C4\uBD80\uD130 \uC989\uC2DC \uBC18\uC601\uB429\uB2C8\uB2E4.",
+  memberSaveFailed:
+    "\uD68C\uC6D0 \uC815\uBCF4\uB97C \uC800\uC7A5\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.",
+} as const;
+
 const skillByGrade: Record<
   Grade,
   number
@@ -43,7 +93,9 @@ const skillByGrade: Record<
 export default function MasterManagementPanel({
   onResetToday,
 }: {
-  onResetToday: () => Promise<void>;
+  onResetToday: (
+    targetDate?: string
+  ) => Promise<void>;
 }) {
   const players =
     useMatchStore(
@@ -83,8 +135,10 @@ export default function MasterManagementPanel({
     );
   const [members, setMembers] =
     useState<Member[]>([]);
-  const [selectedMemberId, setSelectedMemberId] =
-    useState("");
+  const [
+    selectedMemberId,
+    setSelectedMemberId,
+  ] = useState("");
   const [name, setName] =
     useState("");
   const [gender, setGender] =
@@ -99,6 +153,8 @@ export default function MasterManagementPanel({
     useState(false);
   const [message, setMessage] =
     useState("");
+  const [resetDate, setResetDate] =
+    useState(getKstDateKey());
 
   async function refreshMembers() {
     const data =
@@ -139,15 +195,14 @@ export default function MasterManagementPanel({
   const selectedIsOperator =
     Boolean(
       selectedMember &&
-      (
-        adminNames.includes(
+        (adminNames.includes(
           selectedMember.name
         ) ||
-        masterNames.includes(
-          selectedMember.name
-        )
-      )
+          masterNames.includes(
+            selectedMember.name
+          ))
     );
+
   function selectMember(
     memberId: string
   ) {
@@ -186,7 +241,7 @@ export default function MasterManagementPanel({
         (player) =>
           player.id === memberId
       )?.name ??
-      "알 수 없음"
+      text.unknown
     );
   }
 
@@ -196,7 +251,7 @@ export default function MasterManagementPanel({
       !name.trim()
     ) {
       setMessage(
-        "수정할 회원을 선택하고 이름을 입력해주세요."
+        text.selectMemberAndName
       );
       return;
     }
@@ -237,26 +292,26 @@ export default function MasterManagementPanel({
         courts.map((court) => ({
           ...court,
           teamA: court.teamA
-            ? court.teamA.map(
+            ? (court.teamA.map(
                 updatePlayer
-              ) as typeof court.teamA
+              ) as typeof court.teamA)
             : null,
           teamB: court.teamB
-            ? court.teamB.map(
+            ? (court.teamB.map(
                 updatePlayer
-              ) as typeof court.teamB
+              ) as typeof court.teamB)
             : null,
         }))
       );
       clearRecommendation();
       await refreshMembers();
       setMessage(
-        "회원 정보가 저장되었고 다음 대진부터 즉시 반영됩니다."
+        text.memberSaved
       );
     } catch (error) {
       console.error(error);
       setMessage(
-        "회원 정보를 저장하지 못했습니다."
+        text.memberSaveFailed
       );
     } finally {
       setSaving(false);
@@ -270,7 +325,7 @@ export default function MasterManagementPanel({
       pairA === pairB
     ) {
       setMessage(
-        "서로 다른 두 회원을 선택해주세요."
+        text.selectDifferentMembers
       );
       return;
     }
@@ -280,7 +335,7 @@ export default function MasterManagementPanel({
       pairB
     );
     setMessage(
-      `${memberName(pairA)}님과 ${memberName(pairB)}님은 같은 경기에 배치되지 않습니다.`
+      `${memberName(pairA)}\uB2D8\uACFC ${memberName(pairB)}\uB2D8\uC740 \uAC19\uC740 \uACBD\uAE30\uC5D0 \uBC30\uCE58\uB418\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.`
     );
   }
 
@@ -291,34 +346,48 @@ export default function MasterManagementPanel({
           MASTER ONLY
         </p>
         <h2 className="mt-1 text-xl font-bold">
-          서비스 데이터 및 회원 관리
+          {text.serviceDataTitle}
         </h2>
       </div>
 
       <div className="rounded-2xl border border-red-400/30 bg-red-400/5 p-4">
         <h3 className="font-bold text-red-200">
-          오늘 운동 정보 모두 초기화
+          {text.resetTitle}
         </h3>
         <p className="mt-1 text-sm leading-6 text-slate-400">
-          오늘 출석, 대기열, 코트, 진행·종료 경기와 최근 경기 표시를 모두 삭제합니다.
+          {text.resetDescription}
         </p>
-        <button
-          type="button"
-          onClick={() =>
-            void onResetToday()
-          }
-          className="mt-3 rounded-xl bg-red-500 px-4 py-2 font-bold"
-        >
-          오늘 운동 정보 초기화
-        </button>
+        <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+          <input
+            type="date"
+            value={resetDate}
+            onChange={(event) =>
+              setResetDate(
+                event.target.value
+              )
+            }
+            className="min-w-0 rounded-xl border border-red-400/30 bg-slate-950 px-3 py-2"
+          />
+          <button
+            type="button"
+            onClick={() =>
+              void onResetToday(
+                resetDate
+              )
+            }
+            className="rounded-xl bg-red-500 px-4 py-2 font-bold"
+          >
+            {text.resetButton}
+          </button>
+        </div>
       </div>
 
       <div className="rounded-2xl bg-slate-800 p-4">
         <h3 className="font-bold">
-          같은 경기 배치 제외
+          {text.excludedTitle}
         </h3>
         <p className="mt-1 text-sm text-slate-400">
-          선택한 두 사람은 파트너와 상대를 포함해 같은 4인 경기에 배치되지 않습니다.
+          {text.excludedDescription}
         </p>
         <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
           <select
@@ -331,7 +400,7 @@ export default function MasterManagementPanel({
             className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2"
           >
             <option value="">
-              첫 번째 회원
+              {text.selectFirstMember}
             </option>
             {members.map((member) => (
               <option
@@ -352,7 +421,7 @@ export default function MasterManagementPanel({
             className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2"
           >
             <option value="">
-              두 번째 회원
+              {text.selectSecondMember}
             </option>
             {members.map((member) => (
               <option
@@ -368,7 +437,7 @@ export default function MasterManagementPanel({
             onClick={addPair}
             className="rounded-xl bg-amber-400 px-4 py-2 font-bold text-slate-950"
           >
-            제외 관계 추가
+            {text.addExcludedPair}
           </button>
         </div>
 
@@ -376,7 +445,7 @@ export default function MasterManagementPanel({
           {excludedMatchPairs.length ===
           0 ? (
             <p className="text-sm text-slate-500">
-              설정된 제외 관계가 없습니다.
+              {text.noExcludedPairs}
             </p>
           ) : (
             excludedMatchPairs.map(
@@ -389,7 +458,7 @@ export default function MasterManagementPanel({
                     {memberName(
                       playerAId
                     )}{" "}
-                    ↔{" "}
+                    -{" "}
                     {memberName(
                       playerBId
                     )}
@@ -404,7 +473,7 @@ export default function MasterManagementPanel({
                     }
                     className="rounded-lg bg-slate-700 px-3 py-1 text-sm"
                   >
-                    해제
+                    {text.remove}
                   </button>
                 </div>
               )
@@ -415,10 +484,10 @@ export default function MasterManagementPanel({
 
       <div className="rounded-2xl bg-slate-800 p-4">
         <h3 className="font-bold">
-          회원 정보 수정
+          {text.memberInfoEdit}
         </h3>
         <p className="mt-1 text-sm text-slate-400">
-          일반 회원과 운영진의 이름, 성별, 급수를 변경할 수 있습니다. 성별과 급수는 저장 즉시 실제 경기 매칭 기준에 반영됩니다.
+          {text.memberInfoDescription}
         </p>
         <select
           value={selectedMemberId}
@@ -430,7 +499,7 @@ export default function MasterManagementPanel({
           className="mt-3 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2"
         >
           <option value="">
-            수정할 회원 선택
+            {text.selectMemberToEdit}
           </option>
           {members.map((member) => (
             <option
@@ -464,7 +533,7 @@ export default function MasterManagementPanel({
                 )
               }
               className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60"
-              placeholder="이름"
+              placeholder={text.name}
             />
             <select
               value={gender}
@@ -477,10 +546,10 @@ export default function MasterManagementPanel({
               className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2"
             >
               <option value="M">
-                남자
+                {text.male}
               </option>
               <option value="F">
-                여자
+                {text.female}
               </option>
             </select>
             <select
@@ -506,7 +575,8 @@ export default function MasterManagementPanel({
                     key={item}
                     value={item}
                   >
-                    {item}급
+                    {item}
+                    {text.gradeSuffix}
                   </option>
                 )
               )}
@@ -520,12 +590,12 @@ export default function MasterManagementPanel({
               className="rounded-xl bg-purple-500 px-4 py-2 font-bold disabled:opacity-50"
             >
               {saving
-                ? "저장 중..."
-                : "변경 저장"}
+                ? text.saving
+                : text.saveChanges}
             </button>
             {selectedIsOperator && (
               <p className="text-xs text-amber-300 sm:col-span-4">
-                운영진 로그인 권한을 유지하기 위해 이름은 변경할 수 없으며, 성별과 급수는 수정할 수 있습니다.
+                {text.operatorNameLocked}
               </p>
             )}
           </div>

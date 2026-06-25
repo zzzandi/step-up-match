@@ -1223,7 +1223,8 @@ try {
       useMatchStore.getState().finishCourtMatch(1);
       const next = useMatchStore.getState();
 
-      assert.equal(next.queuedCourts.length, 0);
+      assert.equal(next.queuedCourts.length, 2);
+      assert.equal(next.queuedCourts[0].status, "EMPTY");
       assert.equal(next.courts[0].status, "PLAYING");
       assert.deepEqual(
         [
@@ -3958,7 +3959,7 @@ try {
       );
       assert.equal(
         next.matchHistory.length,
-        historyCount
+        0
       );
     }
   );

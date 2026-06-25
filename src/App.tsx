@@ -751,10 +751,12 @@ function App() {
               useMatchStore
                 .getState()
                 .endTodaySession();
+              clearAccessSession();
               window.localStorage.setItem(
                 DASHBOARD_DATE_KEY,
                 getWorkoutDateKey()
               );
+              navigate("/");
             }
             return;
           }
@@ -975,6 +977,22 @@ function App() {
     async function recoverDashboard() {
       try {
         if (!cancelled) {
+          const open =
+            await isWorkoutOpen();
+
+          if (!open) {
+            useMatchStore
+              .getState()
+              .endTodaySession();
+            clearAccessSession();
+            window.localStorage.setItem(
+              DASHBOARD_DATE_KEY,
+              getWorkoutDateKey()
+            );
+            navigate("/");
+            return;
+          }
+
           await recoverDashboardLocally();
         }
       } catch (error) {

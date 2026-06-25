@@ -1197,15 +1197,33 @@ console.log(
     };
 
   const handleResetTodayWorkout =
-    async () => {
+    async (
+      targetDate?: string
+    ) => {
       if (!isMaster) {
         return;
       }
 
+      const resetDate =
+        targetDate ||
+        (
+          testMode.active
+            ? workoutDate
+            : getKstDateKey()
+        );
+      const todayDate =
+        getKstDateKey();
+      const resetsCurrentWorkout =
+        resetDate === todayDate ||
+        resetDate === workoutDate;
       const confirmed =
         window.confirm(
+          `${resetDate} \uC6B4\uB3D9 \uC815\uBCF4\uB97C \uCD08\uAE30\uD654\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C? \uC120\uD0DD\uD55C \uB0A0\uC9DC\uC758 \uCD9C\uC11D, \uB300\uAE30\uC5F4, \uCF54\uD2B8, \uACBD\uAE30 \uAE30\uB85D\uC774 \uC0AD\uC81C\uB429\uB2C8\uB2E4.`
+        ); /*
           "오늘 출석, 대기열, 코트와 모든 경기 기록을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
         );
+
+        */
 
       if (!confirmed) {
         return;
@@ -1225,26 +1243,26 @@ console.log(
             )
           );
           await resetTodayWorkoutDataInDatabase(
-            getKstDateKey()
+            resetDate
           );
         }
 
         resetTodayWorkoutData(
-          testMode.active
-            ? workoutDate
-            : getKstDateKey()
+          resetDate
         );
-        setWorkoutOpen(false);
-        if (testMode.active) {
-          setTestWorkoutOpen(
-            false
-          );
-        } else {
-          publishLiveSessionEvent({
-            type: "WORKOUT_CLOSED",
-            workoutDate:
-              getKstDateKey(),
-          });
+        if (resetsCurrentWorkout) {
+          setWorkoutOpen(false);
+          if (testMode.active) {
+            setTestWorkoutOpen(
+              false
+            );
+          } else {
+            publishLiveSessionEvent({
+              type: "WORKOUT_CLOSED",
+              workoutDate:
+                todayDate,
+            });
+          }
         }
         window.alert(
           "오늘 운동 정보가 모두 초기화되었습니다."

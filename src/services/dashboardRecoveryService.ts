@@ -8,6 +8,9 @@ import {
   useMatchStore,
 } from "@/store/useMatchStore";
 import type {
+  Court,
+} from "@/types/court";
+import type {
   Player,
 } from "@/types/player";
 import {
@@ -115,12 +118,12 @@ export function mergeAttendancePlayers(
           existing?.arrivalTime ??
           arrivalTime,
         matchCount:
-          existing?.matchCount ??
           row.match_count ??
+          existing?.matchCount ??
           0,
         consecutiveMatches:
-          existing?.consecutiveMatches ??
           row.consecutive_matches ??
+          existing?.consecutiveMatches ??
           0,
         status:
           existing?.status ===
@@ -190,6 +193,21 @@ export function createDefaultCourts() {
   );
 }
 
+function createDefaultQueuedCourts(): Court[] {
+  return Array.from(
+    {
+      length: 2,
+    },
+    (_, index) => ({
+      id: index + 1,
+      status: "EMPTY" as const,
+      teamA: null,
+      teamB: null,
+      startedAt: null,
+    })
+  );
+}
+
 export async function recoverOpenWorkoutDashboard() {
   const open =
     await isWorkoutOpen();
@@ -224,10 +242,13 @@ export async function recoverOpenWorkoutDashboard() {
     );
   const needsDefaultCourts =
     state.courts.length === 0;
+  const needsDefaultQueuedCourts =
+    state.queuedCourts.length < 2;
 
   if (
     playersChanged ||
-    needsDefaultCourts
+    needsDefaultCourts ||
+    needsDefaultQueuedCourts
   ) {
     useMatchStore.setState({
       players,
@@ -235,6 +256,10 @@ export async function recoverOpenWorkoutDashboard() {
         needsDefaultCourts
           ? createDefaultCourts()
           : state.courts,
+      queuedCourts:
+        needsDefaultQueuedCourts
+          ? createDefaultQueuedCourts()
+          : state.queuedCourts,
     });
   }
 

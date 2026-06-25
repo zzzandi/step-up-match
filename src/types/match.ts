@@ -18,6 +18,8 @@ export interface MatchScoreDetail {
   genderBonus: number;
 
   fixedPartnerBonus: number;
+
+  fixedPartnerBalancePenalty?: number;
 }
 
 export interface MatchRecommendation {

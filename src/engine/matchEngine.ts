@@ -133,6 +133,16 @@ export function generateRecommendations(
                 return;
               }
 
+              const score =
+                scoreMatch(match);
+
+              if (
+                (score.fixedPartnerBalancePenalty ?? 0) >
+                0
+              ) {
+                return;
+              }
+
               allRecommendations.push(
                 {
                   id:
@@ -147,7 +157,7 @@ export function generateRecommendations(
                     match.teamB,
 
                   score:
-                    scoreMatch(match),
+                    score,
 
                   createdAt:
                     new Date(),

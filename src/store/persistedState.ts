@@ -80,6 +80,31 @@ function revivePlayer(value: unknown) {
   return player;
 }
 
+function isReadableNotification(
+  value: unknown
+) {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value)
+  ) {
+    return false;
+  }
+
+  const message = (
+    value as {
+      message?: unknown;
+    }
+  ).message;
+
+  return (
+    typeof message === "string" &&
+    !/[\uFFFD\u4E00-\u9FFF]/.test(
+      message
+    )
+  );
+}
+
 export function normalizePersistedMatchState(
   persistedState: unknown
 ) {
@@ -150,6 +175,9 @@ export function normalizePersistedMatchState(
   normalized.queuedCourts = (
     normalized.queuedCourts as unknown[]
   ).map(reviveCourt);
+  normalized.notifications = (
+    normalized.notifications as unknown[]
+  ).filter(isReadableNotification);
   normalized.matchHistory = (
     normalized.matchHistory as unknown[]
   ).map((value) => {
