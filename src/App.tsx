@@ -1056,6 +1056,7 @@ function App() {
     accessSession?.role,
     accessSession?.userId,
     accessSession?.participationMode,
+    navigate,
     recoverDashboardLocally,
   ]);
 

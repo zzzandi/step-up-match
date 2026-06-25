@@ -1,4 +1,8 @@
-import { useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 
 import {
   getAttendanceListByDate,
@@ -88,6 +92,67 @@ interface ActiveAttendanceRow {
   arrival_time?: string | null;
   match_count?: number | null;
   consecutive_matches?: number | null;
+}
+
+function attendanceToPlayer(
+  attendance: ActiveAttendanceRow,
+  existing?: Player
+): Player {
+  const arrivalTime =
+    new Date(
+      attendance.arrival_time ??
+        existing?.arrivalTime ??
+        Date.now()
+    );
+
+  return {
+    id: attendance.users.id,
+    name: attendance.users.name,
+    gender:
+      attendance.users.gender ??
+      existing?.gender ??
+      "M",
+    grade:
+      attendance.users.grade ??
+      existing?.grade ??
+      "F",
+    hiddenSkill:
+      getEffectiveHiddenSkill(
+        attendance.users.name,
+        attendance.users.hidden_skill ??
+          existing?.hiddenSkill ??
+          35
+      ),
+    isPresent: true,
+    arrivalTime:
+      existing?.arrivalTime ??
+      arrivalTime,
+    matchCount:
+      attendance.match_count ??
+      existing?.matchCount ??
+      0,
+    consecutiveMatches:
+      attendance.consecutive_matches ??
+      existing?.consecutiveMatches ??
+      0,
+    status:
+      existing?.status ??
+      "WAITING",
+    waitingStartedAt:
+      existing?.waitingStartedAt ??
+      arrivalTime,
+    playingStartedAt:
+      existing?.playingStartedAt,
+    lastMatchAt:
+      existing?.lastMatchAt,
+    lastPartners:
+      existing?.lastPartners ?? [],
+    lastOpponents:
+      existing?.lastOpponents ?? [],
+    fixedPartner:
+      attendance.users.fixed_partner_id ??
+      existing?.fixedPartner,
+  };
 }
 
 export default function AdminPage() {
@@ -596,7 +661,7 @@ export default function AdminPage() {
   }
 
   const refreshAttendance =
-  async () => {
+  useCallback(async () => {
     if (testMode.active) {
       return;
     }
@@ -639,56 +704,16 @@ export default function AdminPage() {
 
             refreshedPlayers[
               existingIndex
-            ] = {
-              ...existing,
-              isPresent: true,
-              status:
-                existing.status,
-            };
+            ] = attendanceToPlayer(
+              attendance,
+              existing
+            );
           } else {
-            refreshedPlayers.push({
-                  id:
-                    attendance.users.id,
-                  name:
-                    attendance.users.name,
-                  gender:
-                    attendance.users.gender ??
-                    "M",
-                  grade:
-                    attendance.users.grade ??
-                    "F",
-                  hiddenSkill:
-                    getEffectiveHiddenSkill(
-                      attendance.users.name,
-                      attendance.users.hidden_skill ??
-                        35
-                    ),
-                  isPresent: true,
-                  arrivalTime:
-                    new Date(
-                      attendance.arrival_time ??
-                        Date.now()
-                    ),
-                  matchCount:
-                    attendance.match_count ??
-                    0,
-                  consecutiveMatches:
-                    attendance.consecutive_matches ??
-                    0,
-                  status:
-                    "WAITING" as const,
-                  waitingStartedAt:
-                    new Date(
-                      attendance.arrival_time ??
-                        Date.now()
-                    ),
-                  lastPartners: [],
-                  lastOpponents: [],
-                  fixedPartner:
-                    attendance.users
-                      .fixed_partner_id ??
-                    undefined,
-                });
+            refreshedPlayers.push(
+              attendanceToPlayer(
+                attendance
+              )
+            );
           }
         }
       );
@@ -699,7 +724,10 @@ export default function AdminPage() {
     } catch (error) {
       console.error(error);
     }
-  };
+  }, [
+    setPlayers,
+    testMode.active,
+  ]);
 
   useEffect(() => {
     if (!workoutOpen) {
@@ -718,7 +746,10 @@ export default function AdminPage() {
       window.clearInterval(
         timer
       );
-  }, [workoutOpen]);
+  }, [
+    refreshAttendance,
+    workoutOpen,
+  ]);
 
     useEffect(() => {
         getActiveWorkoutAttendanceList()
@@ -731,15 +762,28 @@ export default function AdminPage() {
               uniqueAttendance
             );
       
-            if (players.length > 0) {
+            const currentPlayers =
+              useMatchStore.getState()
+                .players;
+
+            if (currentPlayers.length > 0) {
 
                 const existingIds =
                   new Set(
-                    players.map(
+                    currentPlayers.map(
                       (player) => player.id
                     )
                   );
-              
+                const currentById =
+                  new Map(
+                    currentPlayers.map(
+                      (player) => [
+                        player.id,
+                        player,
+                      ]
+                    )
+                  );
+               
                 const newPlayers =
                   uniqueAttendance
                     .filter(
@@ -749,62 +793,19 @@ export default function AdminPage() {
                         )
                     )
                     .map(
-                      (attendance) => ({
-                        id:
-                          attendance.users.id,
-              
-                        name:
-                          attendance.users.name,
-              
-                        gender:
-                          attendance.users.gender ??
-                          "M",
-              
-                        grade:
-                          attendance.users.grade ??
-                          "F",
-               
-                        hiddenSkill:
-                          getEffectiveHiddenSkill(
-                            attendance.users.name,
-                            attendance.users.hidden_skill ??
-                              35
-                          ),
-              
-                        isPresent: true,
-              
-                        arrivalTime:
-                          new Date(
-                            attendance.arrival_time ??
-                              Date.now()
-                          ),
-              
-                        matchCount: 0,
-              
-                        consecutiveMatches: 0,
-              
-                        status: "WAITING" as const,
-              
-                        waitingStartedAt:
-                          new Date(
-                            attendance.arrival_time ??
-                              Date.now()
-                          ),
-              
-                        lastPartners: [],
-              
-                        lastOpponents: [],
-                        fixedPartner:
-                          attendance.users
-                            .fixed_partner_id ??
-                          undefined,
-                      })
+                      (attendance) =>
+                        attendanceToPlayer(
+                          attendance,
+                          currentById.get(
+                            attendance.users.id
+                          )
+                        )
                     );
-              
+               
                 if (newPlayers.length > 0) {
                   runLocalOnlyMutation(() => {
                     setPlayers([
-                      ...players,
+                      ...currentPlayers,
                       ...newPlayers,
                     ]);
                   });
@@ -814,49 +815,17 @@ export default function AdminPage() {
               }
       
             const playerList: Player[] =
-  uniqueAttendance.map((attendance) => ({
-    id: attendance.users.id,
-    name: attendance.users.name,
-    gender:
-      attendance.users.gender ??
-      "M",
-    grade:
-      attendance.users.grade ??
-      "F",
-    hiddenSkill:
-      getEffectiveHiddenSkill(
-        attendance.users.name,
-        attendance.users.hidden_skill ??
-          35
-      ),
-    isPresent: true,
-    arrivalTime:
-      new Date(
-        attendance.arrival_time ??
-          Date.now()
-      ),
-    matchCount: 0,
-    consecutiveMatches: 0,
-    status: "WAITING",
-    waitingStartedAt:
-      new Date(
-        attendance.arrival_time ??
-          Date.now()
-      ),
-    lastPartners: [],
-    lastOpponents: [],
-    fixedPartner:
-      attendance.users
-        .fixed_partner_id ??
-      undefined,
-  }));
+  uniqueAttendance.map((attendance) =>
+    attendanceToPlayer(attendance)
+  );
       
             runLocalOnlyMutation(() => {
               setPlayers(playerList);
             });
       
             if (
-              courts.length === 0
+              useMatchStore.getState()
+                .courts.length === 0
             ) {
               runLocalOnlyMutation(() => {
                 setCourts([
@@ -886,7 +855,10 @@ export default function AdminPage() {
             }
           })
           .catch(console.error);
-      }, []);
+      }, [
+        setCourts,
+        setPlayers,
+      ]);
 
   const waitingPlayers =
     players.filter(
