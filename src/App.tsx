@@ -4,6 +4,7 @@ import {
   type ReactElement,
   useCallback,
   useEffect,
+  useRef,
 } from "react";
 import {
   Navigate,
@@ -424,6 +425,8 @@ function App() {
     useNavigate();
   const accessSession =
     useAccessSession();
+  const suppressLocalBroadcastUntilRef =
+    useRef(0);
 
   const recoverDashboardLocally =
     useCallback(async () => {
@@ -495,6 +498,8 @@ function App() {
       const requestId =
         crypto.randomUUID();
 
+      suppressLocalBroadcastUntilRef.current =
+        Date.now() + 3000;
       pendingSnapshotRequestIds.add(
         requestId
       );
@@ -655,6 +660,8 @@ function App() {
               event.responseToRequestId
             ) {
               clearPendingSnapshotRequests();
+              suppressLocalBroadcastUntilRef.current =
+                0;
             }
 
             const currentState =
@@ -807,6 +814,22 @@ function App() {
             ||
             getTestModeState()
               .active
+          ) {
+            return;
+          }
+
+          const session =
+            getAccessSession();
+
+          if (
+            session &&
+            !canManage(session.role) &&
+            (
+              pendingSnapshotRequestIds.size >
+                0 ||
+              Date.now() <
+                suppressLocalBroadcastUntilRef.current
+            )
           ) {
             return;
           }

@@ -1589,10 +1589,7 @@ export function mergeLiveStateSnapshot(
       normalizedPlayers,
     courts,
     queuedCourts:
-      mergeById(
-        current.queuedCourts,
-        incoming.queuedCourts
-      ),
+      current.queuedCourts,
     fixedPartnerRequests:
       dedupeFixedPartnerRequests(
         mergeById(

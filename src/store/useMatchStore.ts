@@ -1852,6 +1852,14 @@ export const useMatchStore =
               womenDoublesPriority,
               excludedMatchPairs
             );
+
+          if (
+            recommendations.length === 0
+          ) {
+            window.alert(
+              "\uD604\uC7AC \uB300\uAE30\uC5F4\uC5D0\uC11C \uC0DD\uC131\uD560 \uC218 \uC788\uB294 \uB300\uC9C4\uC774 \uC5C6\uC2B5\uB2C8\uB2E4. \uC778\uC6D0, \uC131\uBCC4, \uACE0\uC815 \uD30C\uD2B8\uB108, \uBC30\uCE58 \uC81C\uC678 \uC124\uC815\uC744 \uD655\uC778\uD574 \uC8FC\uC138\uC694."
+            );
+          }
         
           set({
             recommendations,

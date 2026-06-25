@@ -3257,6 +3257,148 @@ try {
   );
 
   run(
+    "queued court 2 can generate an independent auto match",
+    () => {
+      resetStore(16, 2);
+      useMatchStore.setState({
+        queuedCourts: [
+          {
+            id: 1,
+            status: "EMPTY",
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          },
+          {
+            id: 2,
+            status: "EMPTY",
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          },
+        ],
+      });
+
+      useMatchStore
+        .getState()
+        .rerollRecommendations(1, "QUEUE");
+      assert.ok(
+        useMatchStore.getState()
+          .recommendations.length > 0
+      );
+      useMatchStore
+        .getState()
+        .approveRecommendation("QUEUE");
+
+      useMatchStore
+        .getState()
+        .rerollRecommendations(2, "QUEUE");
+      const beforeApprove =
+        useMatchStore.getState();
+
+      assert.ok(
+        beforeApprove.recommendations
+          .length > 0
+      );
+      assert.equal(
+        beforeApprove.recommendations[0]
+          .courtId,
+        2
+      );
+
+      useMatchStore
+        .getState()
+        .approveRecommendation("QUEUE");
+      const next =
+        useMatchStore.getState();
+
+      assert.equal(
+        next.queuedCourts[0].status,
+        "QUEUED"
+      );
+      assert.equal(
+        next.queuedCourts[1].status,
+        "QUEUED"
+      );
+    }
+  );
+
+  run(
+    "stale player snapshot cannot overwrite queued courts",
+    () => {
+      resetStore(16, 2);
+      useMatchStore.setState({
+        queuedCourts: [
+          {
+            id: 1,
+            status: "EMPTY",
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          },
+          {
+            id: 2,
+            status: "EMPTY",
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          },
+        ],
+      });
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-02"],
+          ["player-03", "player-04"],
+          "QUEUE"
+        );
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          2,
+          ["player-05", "player-06"],
+          ["player-07", "player-08"],
+          "QUEUE"
+        );
+
+      const current =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const stalePlayerSnapshot = {
+        ...current,
+        queuedCourts:
+          current.queuedCourts.map(
+            (court) => ({
+              ...court,
+              status: "EMPTY",
+              teamA: null,
+              teamB: null,
+              startedAt: null,
+            })
+          ),
+      };
+      const merged =
+        mergeLiveStateSnapshot(
+          current,
+          stalePlayerSnapshot,
+          "PLAYER",
+          "player-16"
+        );
+
+      assert.equal(
+        merged.queuedCourts[0].status,
+        "QUEUED"
+      );
+      assert.equal(
+        merged.queuedCourts[1].status,
+        "QUEUED"
+      );
+    }
+  );
+
+  run(
     "fixed partner team cannot override opponent team balance",
     () => {
       const now = Date.now();
