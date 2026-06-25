@@ -26,6 +26,9 @@ import {
   uniqueByUserId,
 } from "@/utils/participants";
 import {
+  getEffectiveHiddenSkill,
+} from "@/utils/skillOverrides";
+import {
   runLocalOnlyMutation,
 } from "@/services/localStateMutationGuard";
 import {
@@ -466,8 +469,10 @@ console.log(
               grade:
                 user.grade ?? "F",
               hiddenSkill:
-                user.hidden_skill ??
-                35,
+                getEffectiveHiddenSkill(
+                  user.name,
+                  user.hidden_skill ?? 35
+                ),
               isPresent: true,
               arrivalTime:
                 waitingStartedAt,
@@ -795,7 +800,10 @@ console.log(
     grade:
       attendance.users.grade,
     hiddenSkill:
-      attendance.users.hidden_skill,
+      getEffectiveHiddenSkill(
+        attendance.users.name,
+        attendance.users.hidden_skill
+      ),
     isPresent: true,
     arrivalTime:
       new Date(
@@ -1138,7 +1146,10 @@ console.log(
           grade:
             member.grade ?? "F",
           hiddenSkill:
-            member.hidden_skill ?? 35,
+            getEffectiveHiddenSkill(
+              member.name,
+              member.hidden_skill ?? 35
+            ),
           isPresent: true,
           arrivalTime:
             existingPlayer?.arrivalTime ??

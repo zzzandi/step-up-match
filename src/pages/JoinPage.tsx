@@ -42,6 +42,9 @@ import type {
   Grade,
   Player,
 } from "@/types/player";
+import {
+  getEffectiveHiddenSkill,
+} from "@/utils/skillOverrides";
 
 interface User {
   id: string;
@@ -488,10 +491,13 @@ export default function JoinPage() {
               ),
             grade,
             hiddenSkill:
-              existingPlayer?.hiddenSkill ??
-              defaultHiddenSkillByGrade[
-                grade
-              ],
+              getEffectiveHiddenSkill(
+                selectedUser.name,
+                existingPlayer?.hiddenSkill ??
+                  defaultHiddenSkillByGrade[
+                    grade
+                  ]
+              ),
             isPresent: true,
             arrivalTime:
               existingPlayer?.arrivalTime ??

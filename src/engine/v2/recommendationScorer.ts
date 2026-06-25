@@ -8,6 +8,9 @@ import {
 import {
   isCompatibleGenderMatch,
 } from "./genderRules";
+import {
+  getEffectiveHiddenSkill,
+} from "@/utils/skillOverrides";
 
 const FIXED_PARTNER_TEAM_BONUS = 12;
 
@@ -33,11 +36,19 @@ export function scoreMatch(
   const weights =
     ENGINE_CONFIG.teamCreation;
   const teamASkill =
-    teamA[0].hiddenSkill +
-    teamA[1].hiddenSkill;
+    getEffectiveHiddenSkill(
+      teamA[0]
+    ) +
+    getEffectiveHiddenSkill(
+      teamA[1]
+    );
   const teamBSkill =
-    teamB[0].hiddenSkill +
-    teamB[1].hiddenSkill;
+    getEffectiveHiddenSkill(
+      teamB[0]
+    ) +
+    getEffectiveHiddenSkill(
+      teamB[1]
+    );
   const gap =
     Math.abs(
       teamASkill -

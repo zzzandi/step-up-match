@@ -70,6 +70,9 @@ import {
   runLocalOnlyMutation,
   runLocalOnlyMutationAsync,
 } from "@/services/localStateMutationGuard";
+import {
+  getEffectiveHiddenSkill,
+} from "@/utils/skillOverrides";
 
 const AdminPage =
   lazy(() => import("@/pages/AdminPage"));
@@ -314,7 +317,10 @@ async function activatePendingParticipant() {
     grade:
       user.grade ?? "F",
     hiddenSkill:
-      user.hidden_skill ?? 35,
+      getEffectiveHiddenSkill(
+        user.name,
+        user.hidden_skill ?? 35
+      ),
     isPresent: true,
     arrivalTime: new Date(),
     matchCount:

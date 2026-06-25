@@ -27,6 +27,9 @@ import {
 import {
   runLocalOnlyMutation,
 } from "@/services/localStateMutationGuard";
+import {
+  getEffectiveHiddenSkill,
+} from "@/utils/skillOverrides";
 
 export default function PlayerPage() {
   const navigate =
@@ -132,7 +135,11 @@ export default function PlayerPage() {
                   grade:
                     attendance.users.grade,
                   hiddenSkill:
-                    attendance.users.hidden_skill,
+                    getEffectiveHiddenSkill(
+                      attendance.users.name,
+                      attendance.users
+                        .hidden_skill
+                    ),
                   isPresent: true,
                   arrivalTime:
                     new Date(
@@ -180,7 +187,11 @@ export default function PlayerPage() {
               grade:
                 attendance.users.grade,
               hiddenSkill:
-                attendance.users.hidden_skill,
+                getEffectiveHiddenSkill(
+                  attendance.users.name,
+                  attendance.users
+                    .hidden_skill
+                ),
               isPresent: true,
               arrivalTime:
                 new Date(

@@ -3,6 +3,9 @@ import type { Player } from "@/types/player";
 import type {
   MatchScoreDetail,
 } from "@/types/match";
+import {
+  getEffectiveHiddenSkill,
+} from "@/utils/skillOverrides";
 
 function getPartnerDiversityScore(
   playerA: Player,
@@ -69,12 +72,20 @@ export function calculateMatchScore(
    */
 
   const teamASkill =
-    teamA[0].hiddenSkill +
-    teamA[1].hiddenSkill;
+    getEffectiveHiddenSkill(
+      teamA[0]
+    ) +
+    getEffectiveHiddenSkill(
+      teamA[1]
+    );
 
   const teamBSkill =
-    teamB[0].hiddenSkill +
-    teamB[1].hiddenSkill;
+    getEffectiveHiddenSkill(
+      teamB[0]
+    ) +
+    getEffectiveHiddenSkill(
+      teamB[1]
+    );
 
   const gap =
     Math.abs(

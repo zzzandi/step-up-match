@@ -10,6 +10,9 @@ import {
 import type {
   Player,
 } from "@/types/player";
+import {
+  getEffectiveHiddenSkill,
+} from "@/utils/skillOverrides";
 
 interface AttendanceUser {
   id: string;
@@ -101,9 +104,12 @@ export function mergeAttendancePlayers(
           existing?.grade ??
           "F",
         hiddenSkill:
-          user.hidden_skill ??
-          existing?.hiddenSkill ??
-          35,
+          getEffectiveHiddenSkill(
+            user.name,
+            user.hidden_skill ??
+              existing?.hiddenSkill ??
+              35
+          ),
         isPresent: true,
         arrivalTime:
           existing?.arrivalTime ??
