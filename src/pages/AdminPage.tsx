@@ -866,7 +866,8 @@ console.log(
   const waitingPlayers =
     players.filter(
       (player) =>
-        player.status === "WAITING"
+        player.status === "WAITING" &&
+        player.isPresent
     );
 
   const playingPlayers =

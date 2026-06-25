@@ -883,8 +883,8 @@ function mergeBootstrapSnapshots(
 
   const queuedCourts =
     mergeById(
-      incoming.queuedCourts,
-      current.queuedCourts
+      current.queuedCourts,
+      incoming.queuedCourts
     ).sort((a, b) => a.id - b.id);
 
   const excludedPairs =

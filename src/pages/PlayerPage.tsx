@@ -244,7 +244,8 @@ export default function PlayerPage() {
     players.filter(
       (player) =>
         player.status ===
-        "WAITING"
+          "WAITING" &&
+        player.isPresent
     );
   const playingPlayers =
     players.filter(

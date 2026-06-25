@@ -3257,6 +3257,109 @@ try {
   );
 
   run(
+    "promoted queued court cannot remain duplicated after bootstrap sync",
+    () => {
+      resetStore(16, 1);
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-02"],
+          ["player-03", "player-04"]
+        );
+      useMatchStore.getState().addQueuedCourt();
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-05", "player-06"],
+          ["player-07", "player-08"],
+          "QUEUE"
+        );
+      const staleBeforePromotion =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+
+      useMatchStore
+        .getState()
+        .finishCourtMatch(1);
+      const managerAfterPromotion =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const merged =
+        mergeLiveStateSnapshot(
+          staleBeforePromotion,
+          managerAfterPromotion,
+          "MASTER"
+        );
+
+      assert.equal(
+        merged.courts[0].status,
+        "PLAYING"
+      );
+      assert.equal(
+        merged.queuedCourts[0].status,
+        "EMPTY"
+      );
+      assert.equal(
+        merged.queuedCourts[0].teamA,
+        null
+      );
+      assert.deepEqual(
+        [
+          ...merged.courts[0].teamA,
+          ...merged.courts[0].teamB,
+        ].map((player) => player.id),
+        [
+          "player-05",
+          "player-06",
+          "player-07",
+          "player-08",
+        ]
+      );
+    }
+  );
+
+  run(
+    "left players are excluded from visible waiting queue",
+    () => {
+      const players = [
+        {
+          ...makePlayer(0),
+          status: "WAITING",
+          isPresent: true,
+        },
+        {
+          ...makePlayer(1),
+          status: "WAITING",
+          isPresent: false,
+        },
+        {
+          ...makePlayer(2),
+          status: "LEFT",
+          isPresent: false,
+        },
+      ];
+      const visibleWaiting =
+        players.filter(
+          (player) =>
+            player.status ===
+              "WAITING" &&
+            player.isPresent
+        );
+
+      assert.deepEqual(
+        visibleWaiting.map(
+          (player) => player.id
+        ),
+        ["player-01"]
+      );
+    }
+  );
+
+  run(
     "queued court 2 can generate an independent auto match",
     () => {
       resetStore(16, 2);
