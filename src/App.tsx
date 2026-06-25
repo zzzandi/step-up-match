@@ -24,6 +24,7 @@ import {
   useAccessSession,
 } from "@/auth/access";
 import AppNavigation from "@/components/navigation/AppNavigation";
+import ThemeToggleButton from "@/components/theme/ThemeToggleButton";
 import RoleSelectPage from "@/pages/RoleSelectPage";
 import {
   getLiveSessionClientId,
@@ -73,6 +74,9 @@ import {
 import {
   getEffectiveHiddenSkill,
 } from "@/utils/skillOverrides";
+import {
+  useAppTheme,
+} from "@/services/themeService";
 
 const AdminPage =
   lazy(() => import("@/pages/AdminPage"));
@@ -414,6 +418,8 @@ async function activatePendingParticipant() {
 }
 
 function App() {
+  useAppTheme();
+
   const navigate =
     useNavigate();
   const accessSession =
@@ -1004,6 +1010,11 @@ function App() {
       }
     >
       <AppNavigation />
+      {!accessSession && (
+        <div className="fixed right-4 top-4 z-50">
+          <ThemeToggleButton />
+        </div>
+      )}
 
       <Routes>
         <Route

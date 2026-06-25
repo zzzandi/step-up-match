@@ -39,6 +39,7 @@ import {
 import {
   clearFixedPartner,
 } from "@/services/supabaseUserService";
+import ThemeToggleButton from "@/components/theme/ThemeToggleButton";
 
 const roleLabels = {
   ADMIN: "Admin",
@@ -464,6 +465,8 @@ export default function AppNavigation() {
             </div>
           </div>
 
+          <ThemeToggleButton className="hidden h-10 rounded-lg sm:inline-flex" />
+
           <button
             type="button"
             onClick={() =>
@@ -511,6 +514,8 @@ export default function AppNavigation() {
             </div>
 
             <nav className="space-y-2">
+              <ThemeToggleButton className="w-full justify-between bg-slate-900 px-4 py-4" />
+
               <NavLink
                 to={homePath}
                 onClick={() =>
