@@ -1248,6 +1248,184 @@ try {
   );
 
   run(
+    "2 game courts with 1 queued court promote without losing the other active court",
+    () => {
+      resetStore(20, 2);
+      const state =
+        useMatchStore.getState();
+      state.assignManualMatch(
+        1,
+        ["player-01", "player-02"],
+        ["player-03", "player-04"]
+      );
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          2,
+          ["player-05", "player-06"],
+          ["player-07", "player-08"]
+        );
+      useMatchStore.getState().addQueuedCourt();
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-09", "player-10"],
+          ["player-11", "player-12"],
+          "QUEUE"
+        );
+
+      const before =
+        useMatchStore.getState();
+      assert.equal(before.courts.length, 2);
+      assert.equal(before.queuedCourts.length, 1);
+      assert.equal(before.courts[0].status, "PLAYING");
+      assert.equal(before.courts[1].status, "PLAYING");
+      assert.equal(before.queuedCourts[0].status, "QUEUED");
+
+      useMatchStore.getState().finishCourtMatch(1);
+      const next =
+        useMatchStore.getState();
+
+      assert.equal(next.courts.length, 2);
+      assert.equal(next.courts[0].status, "PLAYING");
+      assert.equal(next.courts[1].status, "PLAYING");
+      assert.deepEqual(
+        [
+          ...next.courts[0].teamA,
+          ...next.courts[0].teamB,
+        ].map((player) => player.id),
+        [
+          "player-09",
+          "player-10",
+          "player-11",
+          "player-12",
+        ]
+      );
+      assert.deepEqual(
+        [
+          ...next.courts[1].teamA,
+          ...next.courts[1].teamB,
+        ].map((player) => player.id),
+        [
+          "player-05",
+          "player-06",
+          "player-07",
+          "player-08",
+        ]
+      );
+      assert.equal(
+        next.queuedCourts.filter(
+          (court) =>
+            court.status === "QUEUED"
+        ).length,
+        0
+      );
+      assert.equal(
+        next.players.filter(
+          (player) =>
+            player.status === "PLAYING"
+        ).length,
+        8
+      );
+    }
+  );
+
+  run(
+    "4 game courts with 1 queued court promote while preserving the other three courts",
+    () => {
+      resetStore(28, 4);
+      for (
+        let courtId = 1;
+        courtId <= 4;
+        courtId += 1
+      ) {
+        const start =
+          (courtId - 1) * 4 + 1;
+        useMatchStore
+          .getState()
+          .assignManualMatch(
+            courtId,
+            [
+              `player-${String(start).padStart(2, "0")}`,
+              `player-${String(start + 1).padStart(2, "0")}`,
+            ],
+            [
+              `player-${String(start + 2).padStart(2, "0")}`,
+              `player-${String(start + 3).padStart(2, "0")}`,
+            ]
+          );
+      }
+      useMatchStore.getState().addQueuedCourt();
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-17", "player-18"],
+          ["player-19", "player-20"],
+          "QUEUE"
+        );
+
+      const before =
+        useMatchStore.getState();
+      assert.equal(before.courts.length, 4);
+      assert.equal(before.queuedCourts.length, 1);
+
+      useMatchStore.getState().finishCourtMatch(2);
+      const next =
+        useMatchStore.getState();
+
+      assert.equal(next.courts.length, 4);
+      assert.equal(next.courts[1].status, "PLAYING");
+      assert.deepEqual(
+        [
+          ...next.courts[1].teamA,
+          ...next.courts[1].teamB,
+        ].map((player) => player.id),
+        [
+          "player-17",
+          "player-18",
+          "player-19",
+          "player-20",
+        ]
+      );
+      [
+        1,
+        3,
+        4,
+      ].forEach((courtId) => {
+        const court =
+          next.courts.find(
+            (item) =>
+              item.id === courtId
+          );
+        assert.equal(court.status, "PLAYING");
+        assert.equal(
+          [
+            ...court.teamA,
+            ...court.teamB,
+          ].length,
+          4
+        );
+      });
+      assert.equal(
+        next.queuedCourts.filter(
+          (court) =>
+            court.status === "QUEUED"
+        ).length,
+        0
+      );
+      assert.equal(
+        next.players.filter(
+          (player) =>
+            player.status === "PLAYING"
+        ).length,
+        16
+      );
+    }
+  );
+
+  run(
     "두 운영자가 같은 선수를 서로 다른 코트에 동시에 수동 배정해도 한 코트만 유지",
     () => {
       resetStore(12, 2);
