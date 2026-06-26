@@ -261,7 +261,7 @@ export async function recoverOpenWorkoutDashboard() {
   const needsDefaultCourts =
     state.courts.length === 0;
   const needsDefaultQueuedCourts =
-    state.queuedCourts.length < 2;
+    false;
 
   if (
     playersChanged ||

@@ -3501,6 +3501,180 @@ try {
   );
 
   run(
+    "stale queued court snapshot cannot restore a promoted queued match",
+    () => {
+      resetStore(16, 2);
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-02"],
+          ["player-03", "player-04"]
+        );
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          2,
+          ["player-05", "player-06"],
+          ["player-07", "player-08"]
+        );
+      useMatchStore.setState({
+        queuedCourts: [
+          {
+            id: 1,
+            status: "EMPTY",
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          },
+        ],
+      });
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-09", "player-10"],
+          ["player-11", "player-12"],
+          "QUEUE"
+        );
+
+      const staleBeforePromotion =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      useMatchStore
+        .getState()
+        .finishCourtMatch(1);
+      const currentAfterPromotion =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const merged =
+        mergeLiveStateSnapshot(
+          currentAfterPromotion,
+          staleBeforePromotion,
+          "ADMIN"
+        );
+
+      assert.deepEqual(
+        [
+          ...merged.courts[0].teamA,
+          ...merged.courts[0].teamB,
+        ].map((player) => player.id),
+        [
+          "player-09",
+          "player-10",
+          "player-11",
+          "player-12",
+        ]
+      );
+      assert.equal(
+        merged.queuedCourts.filter(
+          (court) =>
+            court.status === "QUEUED"
+        ).length,
+        0
+      );
+      assert.ok(
+        merged.queuedCourts.every(
+          (court) =>
+            court.teamA === null &&
+            court.teamB === null
+        )
+      );
+      assert.equal(
+        merged.courts[1].status,
+        "PLAYING"
+      );
+    }
+  );
+
+  run(
+    "late login after reducing 3 game courts to 2 does not restore empty court 3",
+    () => {
+      resetStore(16, 3);
+      const staleLateClient =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      useMatchStore
+        .getState()
+        .removeCourt(3);
+      const managerWithTwoCourts =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+
+      const merged =
+        mergeLiveStateSnapshot(
+          staleLateClient,
+          managerWithTwoCourts,
+          "MASTER"
+        );
+
+      assert.deepEqual(
+        merged.courts.map(
+          (court) => court.id
+        ),
+        [
+          1,
+          2,
+        ]
+      );
+    }
+  );
+
+  run(
+    "deleted queued court is not restored for a late client",
+    () => {
+      resetStore(16, 2);
+      useMatchStore.setState({
+        queuedCourts: [
+          {
+            id: 1,
+            status: "EMPTY",
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          },
+          {
+            id: 2,
+            status: "EMPTY",
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          },
+        ],
+      });
+      const staleLateClient =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      useMatchStore
+        .getState()
+        .removeQueuedCourt(2);
+      const managerAfterDelete =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+
+      const merged =
+        mergeLiveStateSnapshot(
+          staleLateClient,
+          managerAfterDelete,
+          "MASTER"
+        );
+
+      assert.deepEqual(
+        merged.queuedCourts.map(
+          (court) => court.id
+        ),
+        [1]
+      );
+    }
+  );
+
+  run(
     "left players are excluded from visible waiting queue",
     () => {
       const players = [

@@ -1253,11 +1253,9 @@ export const useMatchStore =
 
         set({
           queuedCourts:
-            ensureDefaultQueuedCourts(
-              queuedCourts.filter(
-                (court) =>
-                  court.id !== courtId
-              )
+            queuedCourts.filter(
+              (court) =>
+                court.id !== courtId
             ),
         });
       },

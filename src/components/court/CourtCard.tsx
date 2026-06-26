@@ -57,6 +57,10 @@ const text = {
     "\uC218\uB3D9 \uB300\uC9C4\uC5D0\uB294 \uB300\uAE30\uC790 4\uBA85\uC774 \uD544\uC694\uD569\uB2C8\uB2E4.",
   confirmQueue:
     "\uB300\uAE30 \uB300\uC9C4 \uD655\uC815",
+  deleteQueueCourt:
+    "\uB300\uAE30\uCF54\uD2B8 \uC0AD\uC81C",
+  deleteQueueCourtConfirm:
+    "\uC774 \uB300\uAE30\uCF54\uD2B8\uB97C \uC0AD\uC81C\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C? \uC900\uBE44\uB41C \uB300\uC9C4\uC774 \uC788\uC73C\uBA74 \uD568\uAED8 \uC0AD\uC81C\uB429\uB2C8\uB2E4.",
   startGame: "\uACBD\uAE30 \uC2DC\uC791",
   assignFailed:
     "\uC120\uC218 \uC0C1\uD0DC\uAC00 \uBCC0\uACBD\uB418\uC5C8\uAC70\uB098 \uAC19\uC740 \uACBD\uAE30 \uBC30\uCE58 \uC81C\uC678 \uC870\uAC74\uC5D0 \uAC78\uB824 \uB300\uC9C4\uC744 \uC0DD\uC131\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uD604\uC7AC \uB300\uAE30\uC5F4\uC744 \uB2E4\uC2DC \uD655\uC778\uD574 \uC8FC\uC138\uC694.",
@@ -125,6 +129,11 @@ export default function CourtCard({
     useMatchStore(
       (state) =>
         state.assignManualMatch
+    );
+  const removeQueuedCourt =
+    useMatchStore(
+      (state) =>
+        state.removeQueuedCourt
     );
   const swapCourtPlayers =
     useMatchStore(
@@ -299,21 +308,42 @@ export default function CourtCard({
         <h2 className="text-xl font-bold">
           {courtLabel}
         </h2>
-        <span
-          className={`rounded-full px-3 py-1 text-xs ${
-            isAssigned
+        <div className="flex items-center gap-2">
+          <span
+            className={`rounded-full px-3 py-1 text-xs ${
+              isAssigned
+                ? isQueueCourt
+                  ? "bg-indigo-500/20 text-indigo-300"
+                  : "bg-emerald-500/20 text-emerald-400"
+                : "bg-slate-700 text-slate-300"
+            }`}
+          >
+            {isAssigned
               ? isQueueCourt
-                ? "bg-indigo-500/20 text-indigo-300"
-                : "bg-emerald-500/20 text-emerald-400"
-              : "bg-slate-700 text-slate-300"
-          }`}
-        >
-          {isAssigned
-            ? isQueueCourt
-              ? text.queued
-              : text.playing
-            : text.empty}
-        </span>
+                ? text.queued
+                : text.playing
+              : text.empty}
+          </span>
+          {!readOnly && isQueueCourt && (
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    text.deleteQueueCourtConfirm
+                  )
+                ) {
+                  removeQueuedCourt(
+                    court.id
+                  );
+                }
+              }}
+              className="rounded-full bg-red-500/20 px-3 py-1 text-xs font-bold text-red-200 hover:bg-red-500/30"
+            >
+              {text.deleteQueueCourt}
+            </button>
+          )}
+        </div>
       </div>
 
       {!isAssigned ? (

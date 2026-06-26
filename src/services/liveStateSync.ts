@@ -386,6 +386,64 @@ function hasActiveCourtAssignment(
   );
 }
 
+function courtPlayerKey(
+  court:
+    | LiveStateSnapshot["courts"][number]
+    | undefined
+) {
+  if (
+    !court?.teamA ||
+    !court.teamB
+  ) {
+    return "";
+  }
+
+  return [
+    ...court.teamA,
+    ...court.teamB,
+  ]
+    .map((player) => player.id)
+    .sort()
+    .join("|");
+}
+
+function emptyCourtLike<
+  T extends LiveStateSnapshot["courts"][number],
+>(court: T): T {
+  return {
+    ...court,
+    status: "EMPTY",
+    teamA: null,
+    teamB: null,
+    startedAt: null,
+  } as T;
+}
+
+function reconcileQueuedCourts(
+  courts: LiveStateSnapshot["courts"],
+  queuedCourts: LiveStateSnapshot["queuedCourts"]
+) {
+  const activeCourtKeys =
+    new Set(
+      courts
+        .filter(hasActiveCourtAssignment)
+        .map(courtPlayerKey)
+        .filter(Boolean)
+    );
+
+  return queuedCourts
+    .map((court) => {
+      const queuedKey =
+        courtPlayerKey(court);
+
+      return queuedKey &&
+        activeCourtKeys.has(queuedKey)
+        ? emptyCourtLike(court)
+        : court;
+    })
+    .sort((a, b) => a.id - b.id);
+}
+
 function hasFinishedMatchForCourt(
   histories: LiveStateSnapshot["matchHistory"],
   court: LiveStateSnapshot["courts"][number]
@@ -852,9 +910,32 @@ function mergeBootstrapSnapshots(
     return incoming;
   }
 
+  const incomingCourtIds =
+    new Set(
+      incoming.courts.map(
+        (court) => court.id
+      )
+    );
+  const shouldRespectIncomingCourtRemoval =
+    incoming.courts.length > 0 &&
+    incoming.courts.length <
+      current.courts.length;
+  const baseCourts =
+    shouldRespectIncomingCourtRemoval
+      ? current.courts.filter(
+          (court) =>
+            incomingCourtIds.has(
+              court.id
+            ) ||
+            hasActiveCourtAssignment(
+              court
+            )
+        )
+      : current.courts;
+
   const courtById =
     new Map(
-      current.courts.map(
+      baseCourts.map(
         (court) => [
           court.id,
           court,
@@ -881,11 +962,30 @@ function mergeBootstrapSnapshots(
     courtById.values()
   ).sort((a, b) => a.id - b.id);
 
+  const incomingQueuedCourtIds =
+    new Set(
+      incoming.queuedCourts.map(
+        (court) => court.id
+      )
+    );
+  const baseQueuedCourts =
+    incoming.queuedCourts.length <
+    current.queuedCourts.length
+      ? current.queuedCourts.filter(
+          (court) =>
+            incomingQueuedCourtIds.has(
+              court.id
+            )
+        )
+      : current.queuedCourts;
   const queuedCourts =
-    mergeById(
-      current.queuedCourts,
-      incoming.queuedCourts
-    ).sort((a, b) => a.id - b.id);
+    reconcileQueuedCourts(
+      courts,
+      mergeById(
+        baseQueuedCourts,
+        incoming.queuedCourts
+      )
+    );
 
   const excludedPairs =
     new Map(
@@ -1233,13 +1333,16 @@ export function mergeLiveStateSnapshot(
 
     if (changed.has("queuedCourts")) {
       next.queuedCourts =
-        mergeChangedEntities(
-          current.queuedCourts,
-          incoming.queuedCourts,
-          patch.changedEntityIds
-            ?.queuedCourts,
-          patch.removedEntityIds
-            ?.queuedCourts
+        reconcileQueuedCourts(
+          next.courts,
+          mergeChangedEntities(
+            current.queuedCourts,
+            incoming.queuedCourts,
+            patch.changedEntityIds
+              ?.queuedCourts,
+            patch.removedEntityIds
+              ?.queuedCourts
+          )
         );
     }
 
@@ -1428,6 +1531,15 @@ export function mergeLiveStateSnapshot(
           )
         : reconciled;
 
+    const withReconciledQueuedCourts = {
+      ...withPartners,
+      queuedCourts:
+        reconcileQueuedCourts(
+          withPartners.courts,
+          withPartners.queuedCourts
+        ),
+    };
+
     return (
       changed.has(
         "fixedPartnerAssignments"
@@ -1437,9 +1549,9 @@ export function mergeLiveStateSnapshot(
       )
     )
       ? filterResolvedPartnerRequests(
-          withPartners
+          withReconciledQueuedCourts
         )
-      : withPartners;
+      : withReconciledQueuedCourts;
   }
 
   const players =
