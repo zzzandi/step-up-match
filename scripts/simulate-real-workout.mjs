@@ -3675,6 +3675,179 @@ try {
   );
 
   run(
+    "stale empty game court snapshot cannot restore a removed court",
+    () => {
+      resetStore(16, 3);
+      const staleThreeCourts =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      useMatchStore
+        .getState()
+        .removeCourt(3);
+      const currentTwoCourts =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+
+      const merged =
+        mergeLiveStateSnapshot(
+          currentTwoCourts,
+          staleThreeCourts,
+          "ADMIN"
+        );
+
+      assert.deepEqual(
+        merged.courts.map(
+          (court) => court.id
+        ),
+        [
+          1,
+          2,
+        ]
+      );
+    }
+  );
+
+  run(
+    "game court add and delete patches synchronize for stale clients",
+    () => {
+      resetStore(16, 2);
+      const base =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      useMatchStore.getState().addCourt();
+      const afterAdd =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const added =
+        mergeLiveStateSnapshot(
+          base,
+          afterAdd,
+          "ADMIN",
+          "admin-a",
+          createLiveStatePatch(
+            base,
+            afterAdd
+          )
+        );
+
+      assert.deepEqual(
+        added.courts.map(
+          (court) => court.id
+        ),
+        [
+          1,
+          2,
+          3,
+        ]
+      );
+
+      useMatchStore.setState(added);
+      const beforeDelete =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      useMatchStore
+        .getState()
+        .removeCourt(3);
+      const afterDelete =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const deleted =
+        mergeLiveStateSnapshot(
+          beforeDelete,
+          afterDelete,
+          "MASTER",
+          "master-a",
+          createLiveStatePatch(
+            beforeDelete,
+            afterDelete
+          )
+        );
+
+      assert.deepEqual(
+        deleted.courts.map(
+          (court) => court.id
+        ),
+        [
+          1,
+          2,
+        ]
+      );
+    }
+  );
+
+  run(
+    "queued court add and delete patches synchronize for stale clients",
+    () => {
+      resetStore(16, 2);
+      useMatchStore.setState({
+        queuedCourts: [],
+      });
+      const base =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      useMatchStore.getState().addQueuedCourt();
+      const afterAdd =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const added =
+        mergeLiveStateSnapshot(
+          base,
+          afterAdd,
+          "ADMIN",
+          "admin-a",
+          createLiveStatePatch(
+            base,
+            afterAdd
+          )
+        );
+
+      assert.deepEqual(
+        added.queuedCourts.map(
+          (court) => court.id
+        ),
+        [1]
+      );
+
+      useMatchStore.setState(added);
+      const beforeDelete =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      useMatchStore
+        .getState()
+        .removeQueuedCourt(1);
+      const afterDelete =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const deleted =
+        mergeLiveStateSnapshot(
+          beforeDelete,
+          afterDelete,
+          "MASTER",
+          "master-a",
+          createLiveStatePatch(
+            beforeDelete,
+            afterDelete
+          )
+        );
+
+      assert.deepEqual(
+        deleted.queuedCourts,
+        []
+      );
+    }
+  );
+
+  run(
     "left players are excluded from visible waiting queue",
     () => {
       const players = [

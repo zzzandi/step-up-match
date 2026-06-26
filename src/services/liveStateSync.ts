@@ -945,6 +945,17 @@ function mergeBootstrapSnapshots(
 
   incoming.courts.forEach(
     (incomingCourt) => {
+      if (
+        !courtById.has(
+          incomingCourt.id
+        ) &&
+        !hasActiveCourtAssignment(
+          incomingCourt
+        )
+      ) {
+        return;
+      }
+
       courtById.set(
         incomingCourt.id,
         mergeBootstrapCourt(
@@ -978,12 +989,29 @@ function mergeBootstrapSnapshots(
             )
         )
       : current.queuedCourts;
+  const baseQueuedCourtIds =
+    new Set(
+      baseQueuedCourts.map(
+        (court) => court.id
+      )
+    );
+  const incomingQueuedCourtsToMerge =
+    incoming.queuedCourts.filter(
+      (court) =>
+        baseQueuedCourtIds.has(
+          court.id
+        ) ||
+        Boolean(
+          court.teamA?.length &&
+            court.teamB?.length
+        )
+    );
   const queuedCourts =
     reconcileQueuedCourts(
       courts,
       mergeById(
         baseQueuedCourts,
-        incoming.queuedCourts
+        incomingQueuedCourtsToMerge
       )
     );
 
