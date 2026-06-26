@@ -3590,7 +3590,7 @@ try {
   );
 
   run(
-    "late login after reducing 3 game courts to 2 does not restore empty court 3",
+    "late login receives reduced court list through delete patch",
     () => {
       resetStore(16, 3);
       const staleLateClient =
@@ -3609,7 +3609,12 @@ try {
         mergeLiveStateSnapshot(
           staleLateClient,
           managerWithTwoCourts,
-          "MASTER"
+          "MASTER",
+          "master-a",
+          createLiveStatePatch(
+            staleLateClient,
+            managerWithTwoCourts
+          )
         );
 
       assert.deepEqual(
@@ -3675,25 +3680,23 @@ try {
   );
 
   run(
-    "stale empty game court snapshot cannot restore a removed court",
+    "stale shorter game court snapshot cannot remove a newly added empty court",
     () => {
-      resetStore(16, 3);
-      const staleThreeCourts =
+      resetStore(16, 2);
+      const staleTwoCourts =
         createLiveStateSnapshot(
           useMatchStore.getState()
         );
-      useMatchStore
-        .getState()
-        .removeCourt(3);
-      const currentTwoCourts =
+      useMatchStore.getState().addCourt();
+      const currentThreeCourts =
         createLiveStateSnapshot(
           useMatchStore.getState()
         );
 
       const merged =
         mergeLiveStateSnapshot(
-          currentTwoCourts,
-          staleThreeCourts,
+          currentThreeCourts,
+          staleTwoCourts,
           "ADMIN"
         );
 
@@ -3704,6 +3707,7 @@ try {
         [
           1,
           2,
+          3,
         ]
       );
     }

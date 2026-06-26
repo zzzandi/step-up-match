@@ -910,32 +910,9 @@ function mergeBootstrapSnapshots(
     return incoming;
   }
 
-  const incomingCourtIds =
-    new Set(
-      incoming.courts.map(
-        (court) => court.id
-      )
-    );
-  const shouldRespectIncomingCourtRemoval =
-    incoming.courts.length > 0 &&
-    incoming.courts.length <
-      current.courts.length;
-  const baseCourts =
-    shouldRespectIncomingCourtRemoval
-      ? current.courts.filter(
-          (court) =>
-            incomingCourtIds.has(
-              court.id
-            ) ||
-            hasActiveCourtAssignment(
-              court
-            )
-        )
-      : current.courts;
-
   const courtById =
     new Map(
-      baseCourts.map(
+      current.courts.map(
         (court) => [
           court.id,
           court,
@@ -945,17 +922,6 @@ function mergeBootstrapSnapshots(
 
   incoming.courts.forEach(
     (incomingCourt) => {
-      if (
-        !courtById.has(
-          incomingCourt.id
-        ) &&
-        !hasActiveCourtAssignment(
-          incomingCourt
-        )
-      ) {
-        return;
-      }
-
       courtById.set(
         incomingCourt.id,
         mergeBootstrapCourt(
