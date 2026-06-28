@@ -45,25 +45,17 @@ import type {
 import {
   getEffectiveHiddenSkill,
 } from "@/utils/skillOverrides";
+import {
+  getSkillByGrade,
+  gradeOptions,
+} from "@/utils/grades";
 
 interface User {
   id: string;
   name: string;
   gender?: string;
-  grade?: string;
+  grade?: Grade;
 }
-
-const defaultHiddenSkillByGrade: Record<
-  Grade,
-  number
-> = {
-  A: 95,
-  B: 80,
-  C: 65,
-  D: 50,
-  E: 35,
-  F: 20,
-};
 
 function toGender(
   value: string | undefined
@@ -76,14 +68,9 @@ function toGender(
 function toGrade(
   value: string | undefined
 ): Grade {
-  return [
-    "A",
-    "B",
-    "C",
-    "D",
-    "E",
-    "F",
-  ].includes(value ?? "")
+  return gradeOptions.includes(
+    value as Grade
+  )
     ? (value as Grade)
     : "F";
 }
@@ -494,9 +481,7 @@ export default function JoinPage() {
               getEffectiveHiddenSkill(
                 selectedUser.name,
                 existingPlayer?.hiddenSkill ??
-                  defaultHiddenSkillByGrade[
-                    grade
-                  ]
+                  getSkillByGrade(grade)
               ),
             isPresent: true,
             arrivalTime:

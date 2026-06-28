@@ -339,7 +339,8 @@ export interface MatchStore {
   replaceCourtPlayer: (
     courtId: number,
     outgoingPlayerId: string,
-    incomingPlayerId: string
+    incomingPlayerId: string,
+    target?: "GAME" | "QUEUE"
   ) => void;
 
   assignManualMatch: (
@@ -358,7 +359,8 @@ export interface MatchStore {
   swapCourtPlayers: (
     courtId: number,
     firstPlayerId: string,
-    secondPlayerId: string
+    secondPlayerId: string,
+    target?: "GAME" | "QUEUE"
   ) => boolean;
 
   selectRecommendation: (
@@ -1583,18 +1585,24 @@ export const useMatchStore =
       replaceCourtPlayer: (
         courtId,
         outgoingPlayerId,
-        incomingPlayerId
+        incomingPlayerId,
+        target = "GAME"
       ) => {
         const {
           courts,
+          queuedCourts,
           players,
           notifications,
           dismissedNotificationIds,
           excludedMatchPairs,
         } = get();
 
+        const sourceCourts =
+          target === "QUEUE"
+            ? queuedCourts
+            : courts;
         const court =
-          courts.find(
+          sourceCourts.find(
             (item) =>
               item.id === courtId
           );
@@ -1662,53 +1670,54 @@ export const useMatchStore =
           return;
         }
 
-        const restoredWaitingAt =
-          outgoingPlayer.waitingStartedAt ??
+        const replacementStartedAt =
           new Date();
 
         const updatedPlayers =
-          players.map(
-            (player) => {
-              if (
-                player.id ===
-                outgoingPlayerId
-              ) {
-                return {
-                  ...player,
-                  status:
-                    "WAITING" as const,
-                  waitingStartedAt:
-                    restoredWaitingAt,
-                  playingStartedAt:
-                    undefined,
-                  consecutiveMatches: 0,
-                };
-              }
+          target === "QUEUE"
+            ? players
+            : players.map(
+                (player) => {
+                  if (
+                    player.id ===
+                    outgoingPlayerId
+                  ) {
+                    return {
+                      ...player,
+                      status:
+                        "WAITING" as const,
+                      waitingStartedAt:
+                        replacementStartedAt,
+                      playingStartedAt:
+                        undefined,
+                      consecutiveMatches: 0,
+                    };
+                  }
 
-              if (
-                player.id ===
-                incomingPlayerId
-              ) {
-                return {
-                  ...player,
-                  status:
-                    "PLAYING" as const,
-                  playingStartedAt:
-                    new Date(),
-                  matchCount:
-                    player.matchCount +
-                    1,
-                  consecutiveMatches:
-                    player.consecutiveMatches +
-                    1,
-                  lastMatchAt:
-                    new Date(),
-                };
-              }
+                  if (
+                    player.id ===
+                    incomingPlayerId
+                  ) {
+                    return {
+                      ...player,
+                      status:
+                        "PLAYING" as const,
+                      playingStartedAt:
+                        replacementStartedAt,
+                      matchCount:
+                        player.matchCount +
+                        1,
+                      consecutiveMatches:
+                        player.consecutiveMatches +
+                        1,
+                      lastMatchAt:
+                        replacementStartedAt,
+                    };
+                  }
 
-              return player;
-            }
-          );
+                  return player;
+                }
+              );
 
         const replacementPlayer =
           updatedPlayers.find(
@@ -1732,8 +1741,8 @@ export const useMatchStore =
                 : player
             ) as [Player, Player];
 
-        const updatedCourts =
-          courts.map((item) => {
+        const updatedSourceCourts =
+          sourceCourts.map((item) => {
             if (
               item.id !==
                 courtId ||
@@ -1757,7 +1766,7 @@ export const useMatchStore =
           });
 
         const updatedCourt =
-          updatedCourts.find(
+          updatedSourceCourts.find(
             (item) =>
               item.id === courtId
           );
@@ -1779,11 +1788,18 @@ export const useMatchStore =
             .join(" + ") ?? "";
 
         const message =
-          `Court ${courtId} player replacement: ${outgoingPlayer.name} -> ${incomingPlayer.name}. ${teamAText} vs ${teamBText}`;
+          `${target === "QUEUE" ? "Queued court" : "Court"} ${courtId} player replacement: ${outgoingPlayer.name} -> ${incomingPlayer.name}. ${teamAText} vs ${teamBText}`;
 
         set({
           players: updatedPlayers,
-          courts: updatedCourts,
+          courts:
+            target === "GAME"
+              ? updatedSourceCourts
+              : courts,
+          queuedCourts:
+            target === "QUEUE"
+              ? updatedSourceCourts
+              : queuedCourts,
           notifications: compactNotifications([
             ...notifications,
             {
@@ -1819,15 +1835,17 @@ export const useMatchStore =
           ], dismissedNotificationIds)
         });
 
-        void syncActiveAttendanceStats(
-          updatedPlayers.filter(
-            (player) =>
-              player.id ===
-                outgoingPlayerId ||
-              player.id ===
-                incomingPlayerId
-          )
-        ).catch(console.error);
+        if (target === "GAME") {
+          void syncActiveAttendanceStats(
+            updatedPlayers.filter(
+              (player) =>
+                player.id ===
+                  outgoingPlayerId ||
+                player.id ===
+                  incomingPlayerId
+            )
+          ).catch(console.error);
+        }
       },
 
         rerollRecommendations:
@@ -2382,7 +2400,8 @@ export const useMatchStore =
       swapCourtPlayers: (
         courtId,
         firstPlayerId,
-        secondPlayerId
+        secondPlayerId,
+        target = "GAME"
       ) => {
         if (
           !firstPlayerId ||
@@ -2395,9 +2414,14 @@ export const useMatchStore =
 
         const {
           courts,
+          queuedCourts,
         } = get();
+        const sourceCourts =
+          target === "QUEUE"
+            ? queuedCourts
+            : courts;
         const court =
-          courts.find(
+          sourceCourts.find(
             (item) =>
               item.id === courtId
           );
@@ -2448,32 +2472,41 @@ export const useMatchStore =
                 )!
               : player;
 
+        const updatedCourts =
+          sourceCourts.map(
+            (item) =>
+              item.id === courtId &&
+              item.teamA &&
+              item.teamB
+                ? {
+                    ...item,
+                    teamA:
+                      item.teamA.map(
+                        swapPlayer
+                      ) as [
+                        Player,
+                        Player,
+                      ],
+                    teamB:
+                      item.teamB.map(
+                        swapPlayer
+                      ) as [
+                        Player,
+                        Player,
+                      ],
+                  }
+                : item
+          );
+
         set({
           courts:
-            courts.map(
-              (item) =>
-                item.id === courtId &&
-                item.teamA &&
-                item.teamB
-                  ? {
-                      ...item,
-                      teamA:
-                        item.teamA.map(
-                          swapPlayer
-                        ) as [
-                          Player,
-                          Player,
-                        ],
-                      teamB:
-                        item.teamB.map(
-                          swapPlayer
-                        ) as [
-                          Player,
-                          Player,
-                        ],
-                    }
-                  : item
-            ),
+            target === "GAME"
+              ? updatedCourts
+              : courts,
+          queuedCourts:
+            target === "QUEUE"
+              ? updatedCourts
+              : queuedCourts,
         });
 
         return true;

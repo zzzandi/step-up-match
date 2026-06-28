@@ -25,6 +25,10 @@ import {
 import type {
   Grade,
 } from "@/types/player";
+import {
+  getSkillByGrade,
+  gradeOptions,
+} from "@/utils/grades";
 
 const label = {
   required:
@@ -118,7 +122,8 @@ export default function GuestJoinPage() {
             grade:
               guest.grade ?? grade,
             hiddenSkill:
-              guest.hidden_skill ?? 35,
+              guest.hidden_skill ??
+              getSkillByGrade(grade),
             isPresent: true,
             arrivalTime: new Date(),
             matchCount: 0,
@@ -209,14 +214,7 @@ export default function GuestJoinPage() {
             }
             className="w-full rounded-xl border border-slate-700 bg-slate-800 p-3"
           >
-            {[
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-            ].map((item) => (
+            {gradeOptions.map((item) => (
               <option
                 key={item}
                 value={item}

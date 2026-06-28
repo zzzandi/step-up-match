@@ -554,6 +554,24 @@ function mergeBootstrapCourt(
     incomingActive &&
     currentActive
   ) {
+    if (
+      hasFinishedMatchForCourt(
+        currentHistory,
+        incoming
+      )
+    ) {
+      return current;
+    }
+
+    if (
+      hasFinishedMatchForCourt(
+        incomingHistory,
+        current
+      )
+    ) {
+      return incoming;
+    }
+
     const currentStartedAt =
       new Date(
         current.startedAt ?? 0

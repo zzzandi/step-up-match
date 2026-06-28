@@ -5186,6 +5186,268 @@ try {
   );
 
   run(
+    "queued court replacement keeps players waiting and does not change stats",
+    () => {
+      resetStore(10, 1);
+      useMatchStore.setState({
+        queuedCourts: [
+          {
+            id: 1,
+            status: "EMPTY",
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          },
+        ],
+      });
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-02"],
+          ["player-03", "player-04"],
+          "QUEUE"
+        );
+
+      const before = new Map(
+        useMatchStore
+          .getState()
+          .players.map((player) => [
+            player.id,
+            {
+              matchCount:
+                player.matchCount,
+              status: player.status,
+              waitingStartedAt:
+                player.waitingStartedAt?.getTime(),
+            },
+          ])
+      );
+
+      useMatchStore
+        .getState()
+        .replaceCourtPlayer(
+          1,
+          "player-04",
+          "player-05",
+          "QUEUE"
+        );
+
+      const state =
+        useMatchStore.getState();
+      assert.deepEqual(
+        [
+          ...state.queuedCourts[0].teamA,
+          ...state.queuedCourts[0].teamB,
+        ].map((player) => player.id),
+        [
+          "player-01",
+          "player-02",
+          "player-03",
+          "player-05",
+        ]
+      );
+
+      for (const playerId of [
+        "player-04",
+        "player-05",
+      ]) {
+        const player =
+          state.players.find(
+            (item) =>
+              item.id === playerId
+          );
+        const previous =
+          before.get(playerId);
+        assert.equal(
+          player.status,
+          "WAITING"
+        );
+        assert.equal(
+          player.matchCount,
+          previous.matchCount
+        );
+        assert.equal(
+          player.waitingStartedAt?.getTime(),
+          previous.waitingStartedAt
+        );
+      }
+    }
+  );
+
+  run(
+    "queued court internal player swap only changes queued court teams",
+    () => {
+      resetStore(10, 1);
+      useMatchStore.setState({
+        queuedCourts: [
+          {
+            id: 1,
+            status: "EMPTY",
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          },
+        ],
+      });
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-02"],
+          ["player-03", "player-04"],
+          "QUEUE"
+        );
+      const beforePlayers =
+        useMatchStore
+          .getState()
+          .players.map((player) => ({
+            id: player.id,
+            status: player.status,
+            matchCount:
+              player.matchCount,
+            waitingStartedAt:
+              player.waitingStartedAt?.getTime(),
+          }));
+
+      assert.equal(
+        useMatchStore
+          .getState()
+          .swapCourtPlayers(
+            1,
+            "player-02",
+            "player-03",
+            "QUEUE"
+          ),
+        true
+      );
+
+      const state =
+        useMatchStore.getState();
+      assert.deepEqual(
+        state.queuedCourts[0].teamA.map(
+          (player) => player.id
+        ),
+        ["player-01", "player-03"]
+      );
+      assert.deepEqual(
+        state.queuedCourts[0].teamB.map(
+          (player) => player.id
+        ),
+        ["player-02", "player-04"]
+      );
+      assert.deepEqual(
+        state.players.map((player) => ({
+          id: player.id,
+          status: player.status,
+          matchCount:
+            player.matchCount,
+          waitingStartedAt:
+            player.waitingStartedAt?.getTime(),
+        })),
+        beforePlayers
+      );
+    }
+  );
+
+  run(
+    "single-woman mixed balance uses gender-adjusted grade strength",
+    () => {
+      const baseTime =
+        new Date(
+          "2026-06-22T10:00:00.000Z"
+        );
+      const makeCustomPlayer = (
+        id,
+        gender,
+        grade,
+        hiddenSkill
+      ) => ({
+        id,
+        name: id,
+        gender,
+        grade,
+        hiddenSkill,
+        isPresent: true,
+        arrivalTime: baseTime,
+        matchCount: 0,
+        consecutiveMatches: 0,
+        status: "WAITING",
+        waitingStartedAt:
+          baseTime,
+        lastPartners: [],
+        lastOpponents: [],
+      });
+
+      const womanC =
+        makeCustomPlayer(
+          "woman-c",
+          "F",
+          "C",
+          65
+        );
+      const manA =
+        makeCustomPlayer(
+          "man-a",
+          "M",
+          "A",
+          85
+        );
+      const womanE =
+        makeCustomPlayer(
+          "woman-e",
+          "F",
+          "E",
+          45
+        );
+      const manE1 =
+        makeCustomPlayer(
+          "man-e-1",
+          "M",
+          "E",
+          45
+        );
+      const manE2 =
+        makeCustomPlayer(
+          "man-e-2",
+          "M",
+          "E",
+          45
+        );
+      const manF1 =
+        makeCustomPlayer(
+          "man-f-1",
+          "M",
+          "F",
+          35
+        );
+      const manF2 =
+        makeCustomPlayer(
+          "man-f-2",
+          "M",
+          "F",
+          35
+        );
+
+      assert.ok(
+        scoreMatch({
+          id: "mixed-1",
+          teamA: [womanC, manF1],
+          teamB: [manE1, manF2],
+        }).balance >= 35
+      );
+
+      assert.ok(
+        scoreMatch({
+          id: "mixed-2",
+          teamA: [manA, womanE],
+          teamB: [manE1, manE2],
+        }).balance >= 30
+      );
+    }
+  );
+
+  run(
     "fixed partner does not force a just-finished partner back in",
     () => {
       resetStore(12, 1);

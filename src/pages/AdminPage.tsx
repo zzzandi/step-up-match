@@ -33,6 +33,9 @@ import {
   getEffectiveHiddenSkill,
 } from "@/utils/skillOverrides";
 import {
+  getSkillByGrade,
+} from "@/utils/grades";
+import {
   runLocalOnlyMutation,
 } from "@/services/localStateMutationGuard";
 import {
@@ -880,23 +883,8 @@ export default function AdminPage() {
   }: {
     name: string;
     gender: "M" | "F";
-    grade:
-      | "A"
-      | "B"
-      | "C"
-      | "D"
-      | "E"
-      | "F";
+    grade: Player["grade"];
   }) => {
-    const skillMap = {
-      A: 85,
-      B: 75,
-      C: 65,
-      D: 55,
-      E: 45,
-      F: 35,
-    };
-
     try {
       if (testMode.active) {
         const newPlayer: Player = {
@@ -905,7 +893,7 @@ export default function AdminPage() {
           gender,
           grade,
           hiddenSkill:
-            skillMap[grade],
+            getSkillByGrade(grade),
           isPresent: true,
           arrivalTime: new Date(),
           matchCount: 0,
@@ -955,7 +943,7 @@ export default function AdminPage() {
 
         hiddenSkill:
           user.hidden_skill ??
-          skillMap[grade],
+          getSkillByGrade(grade),
 
         isPresent: true,
 
@@ -1043,13 +1031,7 @@ export default function AdminPage() {
   }: {
     name: string;
     gender: "M" | "F";
-    grade:
-      | "A"
-      | "B"
-      | "C"
-      | "D"
-      | "E"
-      | "F";
+    grade: Player["grade"];
   }) => {
     if (!isMaster) {
       return;
@@ -1062,22 +1044,13 @@ export default function AdminPage() {
       return;
     }
 
-    const skillMap = {
-      A: 85,
-      B: 75,
-      C: 65,
-      D: 55,
-      E: 45,
-      F: 35,
-    };
-
     try {
       await getOrCreateUser({
         name,
         gender,
         grade,
         hiddenSkill:
-          skillMap[grade],
+          getSkillByGrade(grade),
       });
       window.alert(
         `${name.trim()}님을 모임원으로 등록했습니다. 이제 Player로 로그인할 수 있습니다.`
@@ -1097,12 +1070,7 @@ export default function AdminPage() {
       name: string;
       gender?: "M" | "F" | null;
       grade?:
-        | "A"
-        | "B"
-        | "C"
-        | "D"
-        | "E"
-        | "F"
+        | Player["grade"]
         | null;
       hidden_skill?: number | null;
       fixed_partner_id?: string | null;

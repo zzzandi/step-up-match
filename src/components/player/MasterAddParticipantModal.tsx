@@ -14,19 +14,15 @@ import {
 import {
   useMatchStore,
 } from "@/store/useMatchStore";
+import type {
+  Grade,
+} from "@/types/player";
 
 interface Member {
   id: string;
   name: string;
   gender?: "M" | "F" | null;
-  grade?:
-    | "A"
-    | "B"
-    | "C"
-    | "D"
-    | "E"
-    | "F"
-    | null;
+  grade?: Grade | null;
   hidden_skill?: number | null;
   is_active?: boolean | null;
 }

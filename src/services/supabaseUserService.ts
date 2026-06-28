@@ -11,6 +11,12 @@ import {
 import {
   getKstDateKey,
 } from "@/utils/kstDate";
+import type {
+  Grade,
+} from "@/types/player";
+import {
+  getSkillByGrade,
+} from "@/utils/grades";
 
 const SESSION_ID =
   "c3112be7-3e3d-4db4-9850-2ff305095a76";
@@ -200,13 +206,7 @@ export async function getOrCreateUser({
 }: {
   name: string;
   gender: "M" | "F";
-  grade:
-    | "A"
-    | "B"
-    | "C"
-    | "D"
-    | "E"
-    | "F";
+  grade: Grade;
   hiddenSkill: number;
 }) {
   ensureSupabaseConfigured();
@@ -281,27 +281,12 @@ export async function createGuestUser({
 }: {
   name: string;
   gender: "M" | "F";
-  grade:
-    | "A"
-    | "B"
-    | "C"
-    | "D"
-    | "E"
-    | "F";
+  grade: Grade;
 }) {
   ensureSupabaseConfigured();
 
   const normalizedName =
     name.trim();
-  const skillMap = {
-    A: 85,
-    B: 75,
-    C: 65,
-    D: 55,
-    E: 45,
-    F: 35,
-  };
-
   if (!normalizedName) {
     throw new Error(
       "Guest name is required."
@@ -317,7 +302,7 @@ export async function createGuestUser({
         gender,
         grade,
         hidden_skill:
-          skillMap[grade],
+          getSkillByGrade(grade),
         is_active: false,
       })
       .select()
@@ -709,13 +694,7 @@ export async function updateUserProfile({
   userId: string;
   name: string;
   gender: "M" | "F";
-  grade:
-    | "A"
-    | "B"
-    | "C"
-    | "D"
-    | "E"
-    | "F";
+  grade: Grade;
   hiddenSkill: number;
 }) {
   ensureSupabaseConfigured();

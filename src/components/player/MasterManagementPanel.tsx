@@ -22,6 +22,10 @@ import type {
   Grade,
   Gender,
 } from "@/types/player";
+import {
+  getSkillByGrade,
+  gradeOptions,
+} from "@/utils/grades";
 
 interface Member {
   id: string;
@@ -77,18 +81,6 @@ const text = {
   memberSaveFailed:
     "\uD68C\uC6D0 \uC815\uBCF4\uB97C \uC800\uC7A5\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.",
 } as const;
-
-const skillByGrade: Record<
-  Grade,
-  number
-> = {
-  A: 85,
-  B: 75,
-  C: 65,
-  D: 55,
-  E: 45,
-  F: 35,
-};
 
 export default function MasterManagementPanel({
   onResetToday,
@@ -259,7 +251,7 @@ export default function MasterManagementPanel({
     try {
       setSaving(true);
       const hiddenSkill =
-        skillByGrade[grade];
+        getSkillByGrade(grade);
       await updateUserProfile({
         userId:
           selectedMember.id,
@@ -562,14 +554,7 @@ export default function MasterManagementPanel({
               }
               className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2"
             >
-              {([
-                "A",
-                "B",
-                "C",
-                "D",
-                "E",
-                "F",
-              ] as Grade[]).map(
+              {gradeOptions.map(
                 (item) => (
                   <option
                     key={item}

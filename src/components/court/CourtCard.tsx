@@ -295,7 +295,8 @@ export default function CourtCard({
     replaceCourtPlayer(
       court.id,
       outgoingPlayerId,
-      incomingPlayerId
+      incomingPlayerId,
+      matchTarget
     );
     setOutgoingPlayerId("");
     setIncomingPlayerId("");
@@ -430,7 +431,7 @@ export default function CourtCard({
         </>
       )}
 
-      {!readOnly && isAssigned && !isQueueCourt && (
+      {!readOnly && isAssigned && (
         <div className="mt-6 space-y-3">
           <button
             type="button"
@@ -621,7 +622,8 @@ export default function CourtCard({
                       !swapCourtPlayers(
                         court.id,
                         firstSwapPlayerId,
-                        secondSwapPlayerId
+                        secondSwapPlayerId,
+                        matchTarget
                       )
                     ) {
                       window.alert(
@@ -652,23 +654,25 @@ export default function CourtCard({
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={() => {
-              if (
-                window.confirm(
-                  text.finishConfirm
-                )
-              ) {
-                finishCourtMatch(
-                  court.id
-                );
-              }
-            }}
-            className="w-full rounded-xl bg-lime-400 py-3 font-bold text-black"
-          >
-            {text.finishMatch}
-          </button>
+          {!isQueueCourt && (
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    text.finishConfirm
+                  )
+                ) {
+                  finishCourtMatch(
+                    court.id
+                  );
+                }
+              }}
+              className="w-full rounded-xl bg-lime-400 py-3 font-bold text-black"
+            >
+              {text.finishMatch}
+            </button>
+          )}
         </div>
       )}
 

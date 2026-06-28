@@ -3,12 +3,24 @@ export type Gender =
   | "F";
 
 export type Grade =
+  | "A+"
   | "A"
+  | "A-"
+  | "B+"
   | "B"
+  | "B-"
+  | "C+"
   | "C"
+  | "C-"
+  | "D+"
   | "D"
+  | "D-"
+  | "E+"
   | "E"
-  | "F";
+  | "E-"
+  | "F+"
+  | "F"
+  | "F-";
 
 export type PlayerStatus =
   | "WAITING"

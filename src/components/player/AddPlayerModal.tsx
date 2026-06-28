@@ -1,5 +1,12 @@
 import { useState } from "react";
 
+import type {
+  Grade,
+} from "@/types/player";
+import {
+  gradeOptions,
+} from "@/utils/grades";
+
 interface AddPlayerModalProps {
   open: boolean;
   showGrade?: boolean;
@@ -12,13 +19,7 @@ interface AddPlayerModalProps {
     player: {
       name: string;
       gender: "M" | "F";
-      grade:
-        | "A"
-        | "B"
-        | "C"
-        | "D"
-        | "E"
-        | "F";
+      grade: Grade;
     }
   ) => void | Promise<void>;
 }
@@ -40,9 +41,7 @@ export default function AddPlayerModal({
     );
 
   const [grade, setGrade] =
-    useState<
-      "A" | "B" | "C" | "D" | "E" | "F"
-    >("C");
+    useState<Grade>("C");
 
   if (!open) {
     return null;
@@ -123,13 +122,7 @@ export default function AddPlayerModal({
               onChange={(e) =>
                 setGrade(
                   e.target
-                    .value as
-                    | "A"
-                    | "B"
-                    | "C"
-                    | "D"
-                    | "E"
-                    | "F"
+                    .value as Grade
                 )
               }
               className="
@@ -140,12 +133,16 @@ export default function AddPlayerModal({
                 py-3
               "
             >
-              <option>A</option>
-              <option>B</option>
-              <option>C</option>
-              <option>D</option>
-              <option>E</option>
-              <option>F</option>
+              {gradeOptions.map(
+                (item) => (
+                  <option
+                    key={item}
+                    value={item}
+                  >
+                    {item}
+                  </option>
+                )
+              )}
             </select>
           )}
         </div>

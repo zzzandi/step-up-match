@@ -12,6 +12,9 @@ import {
   getEffectiveHiddenSkill,
 } from "@/utils/skillOverrides";
 import {
+  getSingleWomanMixedSkill,
+} from "@/utils/grades";
+import {
   getRestMinutes,
 } from "@/utils/time";
 
@@ -27,6 +30,30 @@ function isFixedPartnerPair(
   return (
     playerA.fixedPartner === playerB.id ||
     playerB.fixedPartner === playerA.id
+  );
+}
+
+function getBalanceSkill(
+  player: TeamMatch["teamA"][number],
+  allPlayers: TeamMatch["teamA"][number][]
+) {
+  const womanCount =
+    allPlayers.filter(
+      (item) =>
+        item.gender === "F"
+    ).length;
+
+  if (
+    womanCount === 1 &&
+    player.gender === "F"
+  ) {
+    return getSingleWomanMixedSkill(
+      player.grade
+    );
+  }
+
+  return getEffectiveHiddenSkill(
+    player
   );
 }
 
@@ -52,19 +79,27 @@ export function scoreMatch(
   } = match;
   const weights =
     ENGINE_CONFIG.teamCreation;
+  const allPlayers = [
+    ...teamA,
+    ...teamB,
+  ];
   const teamASkill =
-    getEffectiveHiddenSkill(
-      teamA[0]
+    getBalanceSkill(
+      teamA[0],
+      allPlayers
     ) +
-    getEffectiveHiddenSkill(
-      teamA[1]
+    getBalanceSkill(
+      teamA[1],
+      allPlayers
     );
   const teamBSkill =
-    getEffectiveHiddenSkill(
-      teamB[0]
+    getBalanceSkill(
+      teamB[0],
+      allPlayers
     ) +
-    getEffectiveHiddenSkill(
-      teamB[1]
+    getBalanceSkill(
+      teamB[1],
+      allPlayers
     );
   const gap =
     Math.abs(

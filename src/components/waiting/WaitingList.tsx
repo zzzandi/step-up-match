@@ -3,6 +3,9 @@ import {
   useState,
 } from "react";
 
+import type {
+  Court,
+} from "@/types/court";
 import type { Player } from "@/types/player";
 import {
   useMatchStore,
@@ -28,6 +31,35 @@ interface WaitingListProps {
   onLeave?: (player: Player) => void;
 }
 
+function clearCourtIfIncludesPlayer(
+  courts: Court[],
+  playerId: string
+) {
+  return courts.map((court) => {
+    const assigned = [
+      ...(court.teamA ?? []),
+      ...(court.teamB ?? []),
+    ];
+
+    if (
+      !assigned.some(
+        (player) =>
+          player.id === playerId
+      )
+    ) {
+      return court;
+    }
+
+    return {
+      ...court,
+      status: "EMPTY" as const,
+      teamA: null,
+      teamB: null,
+      startedAt: null,
+    };
+  });
+}
+
 export default function WaitingList({
   players,
   readOnly = false,
@@ -35,18 +67,6 @@ export default function WaitingList({
   leaveablePlayerIds = [],
   onLeave,
 }: WaitingListProps) {
-  const allPlayers =
-    useMatchStore(
-      (state) =>
-        state.players
-    );
-
-  const setPlayers =
-    useMatchStore(
-      (state) =>
-        state.setPlayers
-    );
-
   const [, forceUpdate] =
     useState(0);
 
@@ -88,26 +108,96 @@ export default function WaitingList({
         return;
       }
 
-      const updated =
-        allPlayers.map(
-          (player) => {
+      const leftAt =
+        new Date();
+
+      useMatchStore.setState(
+        (state) => {
+          const affectedCourtPlayerIds =
+            new Set<string>();
+
+          [
+            ...state.courts,
+            ...state.queuedCourts,
+          ].forEach((court) => {
+            const assigned = [
+              ...(court.teamA ?? []),
+              ...(court.teamB ?? []),
+            ];
+
             if (
-              player.id !==
-              targetPlayer.id
+              assigned.some(
+                (player) =>
+                  player.id ===
+                  targetPlayer.id
+              )
             ) {
-              return player;
+              assigned.forEach(
+                (player) =>
+                  affectedCourtPlayerIds.add(
+                    player.id
+                  )
+              );
             }
+          });
 
-            return {
-              ...player,
-              status: "LEFT" as const,
-              isPresent: false,
-            };
-          }
-        );
+          const updatedPlayers =
+            state.players.map(
+              (player) => {
+                if (
+                  player.id ===
+                  targetPlayer.id
+                ) {
+                  return {
+                    ...player,
+                    status:
+                      "LEFT" as const,
+                    isPresent: false,
+                    waitingStartedAt:
+                      undefined,
+                    playingStartedAt:
+                      undefined,
+                    consecutiveMatches: 0,
+                  };
+                }
 
-      setPlayers(
-        updated
+                if (
+                  affectedCourtPlayerIds.has(
+                    player.id
+                  ) &&
+                  player.status ===
+                    "PLAYING"
+                ) {
+                  return {
+                    ...player,
+                    status:
+                      "WAITING" as const,
+                    waitingStartedAt:
+                      leftAt,
+                    playingStartedAt:
+                      undefined,
+                    consecutiveMatches: 0,
+                  };
+                }
+
+                return player;
+              }
+            );
+
+          return {
+            players: updatedPlayers,
+            courts:
+              clearCourtIfIncludesPlayer(
+                state.courts,
+                targetPlayer.id
+              ),
+            queuedCourts:
+              clearCourtIfIncludesPlayer(
+                state.queuedCourts,
+                targetPlayer.id
+              ),
+          };
+        }
       );
 
       publishLiveSessionEvent({
@@ -182,7 +272,7 @@ export default function WaitingList({
                     {showGrade && (
                       <>
                         {player.grade}
-                        등급
+                        급
                         {" · "}
                       </>
                     )}
