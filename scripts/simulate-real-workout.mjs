@@ -3921,6 +3921,110 @@ try {
   );
 
   run(
+    "delayed full snapshot repairs a client that first received an empty stale finish",
+    () => {
+      resetStore(12, 1);
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-02"],
+          ["player-03", "player-04"]
+        );
+      useMatchStore.setState({
+        queuedCourts: [
+          {
+            id: 1,
+            status: "QUEUED",
+            teamA: [
+              useMatchStore.getState()
+                .players[4],
+              useMatchStore.getState()
+                .players[5],
+            ],
+            teamB: [
+              useMatchStore.getState()
+                .players[6],
+              useMatchStore.getState()
+                .players[7],
+            ],
+            startedAt: new Date(
+              "2026-06-22T10:10:00.000Z"
+            ),
+          },
+        ],
+      });
+      const healthyBeforeFinish =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+
+      useMatchStore
+        .getState()
+        .finishCourtMatch(1);
+      const healthyAfterFinish =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+
+      const temporarilyWrongClient = {
+        ...healthyBeforeFinish,
+        courts:
+          healthyBeforeFinish.courts.map(
+            (court) =>
+              court.id === 1
+                ? {
+                    ...court,
+                    status: "EMPTY",
+                    teamA: null,
+                    teamB: null,
+                    startedAt: null,
+                  }
+                : court
+          ),
+        queuedCourts:
+          healthyBeforeFinish.queuedCourts.map(
+            (court) =>
+              court.id === 1
+                ? {
+                    ...court,
+                    status: "EMPTY",
+                    teamA: null,
+                    teamB: null,
+                    startedAt: null,
+                  }
+                : court
+          ),
+      };
+
+      const repaired =
+        mergeLiveStateSnapshot(
+          temporarilyWrongClient,
+          healthyAfterFinish,
+          "MASTER",
+          "master-main"
+        );
+
+      assert.deepEqual(
+        [
+          ...repaired.courts[0].teamA,
+          ...repaired.courts[0].teamB,
+        ].map((player) => player.id),
+        [
+          "player-05",
+          "player-06",
+          "player-07",
+          "player-08",
+        ]
+      );
+      assert.equal(
+        repaired.queuedCourts[0].status,
+        "EMPTY"
+      );
+    }
+  );
+
+  run(
     "late login receives reduced court list through delete patch",
     () => {
       resetStore(16, 3);

@@ -102,6 +102,20 @@ const DASHBOARD_DATE_KEY =
   "step-up-match-dashboard-date";
 const LIVE_SNAPSHOT_REQUEST_EVENT =
   "step-up-match-request-live-snapshot";
+const CRITICAL_REBROADCAST_DELAYS =
+  [250, 900, 2200] as const;
+
+function isCriticalLiveStatePatch(
+  patch: LiveStatePatch
+) {
+  return patch.changedKeys.some(
+    (key) =>
+      key === "players" ||
+      key === "courts" ||
+      key === "queuedCourts" ||
+      key === "matchHistory"
+  );
+}
 
 function ProtectedRoute({
   role,
@@ -485,6 +499,8 @@ function App() {
         string,
         number
       >();
+    const criticalRebroadcastTimers =
+      new Set<number>();
     const pendingSnapshotRequestIds =
       new Set<string>();
     const snapshotRequestExpiryTimers =
@@ -523,6 +539,36 @@ function App() {
         requestId,
       });
     };
+    const scheduleCriticalRebroadcast =
+      (patch: LiveStatePatch) => {
+        if (
+          !isCriticalLiveStatePatch(
+            patch
+          )
+        ) {
+          return;
+        }
+
+        publishLiveSessionEvent({
+          type: "STATE_CHANGED",
+        });
+
+        CRITICAL_REBROADCAST_DELAYS.forEach(
+          (delay) => {
+            const timer =
+              window.setTimeout(() => {
+                criticalRebroadcastTimers.delete(
+                  timer
+                );
+                publishStateSnapshot();
+              }, delay);
+
+            criticalRebroadcastTimers.add(
+              timer
+            );
+          }
+        );
+      };
     const refreshLiveSnapshot = () => {
       if (
         getTestModeState().active
@@ -774,6 +820,14 @@ function App() {
 
           if (
             event.type ===
+            "STATE_CHANGED"
+          ) {
+            requestSnapshot();
+            return;
+          }
+
+          if (
+            event.type ===
             "END_TODAY"
           ) {
             useMatchStore
@@ -860,6 +914,9 @@ function App() {
             publishStateSnapshot(
               patch
             );
+            scheduleCriticalRebroadcast(
+              patch
+            );
           }
         }
       );
@@ -898,6 +955,12 @@ function App() {
           )
       );
       snapshotResponseTimers.forEach(
+        (timer) =>
+          window.clearTimeout(
+            timer
+          )
+      );
+      criticalRebroadcastTimers.forEach(
         (timer) =>
           window.clearTimeout(
             timer
