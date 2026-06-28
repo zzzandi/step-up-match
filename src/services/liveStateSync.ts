@@ -444,6 +444,237 @@ function reconcileQueuedCourts(
     .sort((a, b) => a.id - b.id);
 }
 
+function getOldestQueuedCourt(
+  queuedCourts: LiveStateSnapshot["queuedCourts"]
+) {
+  return queuedCourts
+    .filter(
+      (court) =>
+        court.teamA &&
+        court.teamB
+    )
+    .sort((a, b) => {
+      const aCreatedAt =
+        a.startedAt
+          ? new Date(
+              a.startedAt
+            ).getTime()
+          : 0;
+      const bCreatedAt =
+        b.startedAt
+          ? new Date(
+              b.startedAt
+            ).getTime()
+          : 0;
+
+      if (
+        aCreatedAt !== bCreatedAt
+      ) {
+        return (
+          aCreatedAt -
+          bCreatedAt
+        );
+      }
+
+      return a.id - b.id;
+    })[0];
+}
+
+function getLatestEndedAtForCourt(
+  histories: LiveStateSnapshot["matchHistory"],
+  courtId: number
+) {
+  return histories
+    .filter(
+      (history) =>
+        history.courtId === courtId
+    )
+    .sort(
+      (a, b) =>
+        new Date(
+          b.endedAt
+        ).getTime() -
+        new Date(
+          a.endedAt
+        ).getTime()
+    )[0]?.endedAt;
+}
+
+function promoteQueuedCourtsAfterStaleFinish(
+  snapshot: LiveStateSnapshot,
+  current: LiveStateSnapshot,
+  incoming: LiveStateSnapshot,
+  patch: LiveStatePatch
+) {
+  const changedCourtIds =
+    patch.changedEntityIds?.courts ??
+    [];
+
+  if (
+    changedCourtIds.length === 0 ||
+    patch.changedKeys.includes(
+      "queuedCourts"
+    )
+  ) {
+    return snapshot;
+  }
+
+  const currentCourtById =
+    new Map(
+      current.courts.map(
+        (court) => [
+          court.id,
+          court,
+        ]
+      )
+    );
+  const incomingCourtById =
+    new Map(
+      incoming.courts.map(
+        (court) => [
+          court.id,
+          court,
+        ]
+      )
+    );
+
+  let players =
+    snapshot.players;
+  let courts =
+    snapshot.courts;
+  let queuedCourts =
+    snapshot.queuedCourts;
+  let changed = false;
+
+  changedCourtIds
+    .map(Number)
+    .sort((a, b) => a - b)
+    .forEach((courtId) => {
+      const currentCourt =
+        currentCourtById.get(courtId);
+      const incomingCourt =
+        incomingCourtById.get(courtId);
+      const mergedCourt =
+        courts.find(
+          (court) =>
+            court.id === courtId
+        );
+
+      if (
+        !currentCourt?.teamA ||
+        !currentCourt.teamB ||
+        incomingCourt?.teamA ||
+        incomingCourt?.teamB ||
+        mergedCourt?.teamA ||
+        mergedCourt?.teamB
+      ) {
+        return;
+      }
+
+      const queuedCourt =
+        getOldestQueuedCourt(
+          queuedCourts
+        );
+
+      if (
+        !queuedCourt?.teamA ||
+        !queuedCourt.teamB
+      ) {
+        return;
+      }
+
+      const promotedAt =
+        new Date(
+          getLatestEndedAtForCourt(
+            incoming.matchHistory,
+            courtId
+          ) ?? new Date()
+        );
+      const promotedIds =
+        new Set(
+          [
+            ...queuedCourt.teamA,
+            ...queuedCourt.teamB,
+          ].map((player) => player.id)
+        );
+
+      players = players.map(
+        (player) =>
+          promotedIds.has(player.id)
+            ? {
+                ...player,
+                status:
+                  "PLAYING" as const,
+                matchCount:
+                  player.matchCount + 1,
+                consecutiveMatches:
+                  player.consecutiveMatches +
+                  1,
+                playingStartedAt:
+                  promotedAt,
+                lastMatchAt:
+                  promotedAt,
+              }
+            : player
+      );
+
+      const playerById =
+        new Map(
+          players.map((player) => [
+            player.id,
+            player,
+          ])
+        );
+
+      courts = courts.map((court) =>
+        court.id === courtId
+          ? {
+              ...court,
+              status:
+                "PLAYING" as const,
+              teamA:
+                queuedCourt.teamA!.map(
+                  (player) =>
+                    playerById.get(
+                      player.id
+                    ) ?? player
+                ) as typeof queuedCourt.teamA,
+              teamB:
+                queuedCourt.teamB!.map(
+                  (player) =>
+                    playerById.get(
+                      player.id
+                    ) ?? player
+                ) as typeof queuedCourt.teamB,
+              startedAt:
+                promotedAt,
+            }
+          : court
+      );
+
+      queuedCourts =
+        queuedCourts.map((court) =>
+          court.id === queuedCourt.id
+            ? emptyCourtLike(court)
+            : court
+        );
+      changed = true;
+    });
+
+  return changed
+    ? {
+        ...snapshot,
+        players,
+        courts,
+        queuedCourts:
+          reconcileQueuedCourts(
+            courts,
+            queuedCourts
+          ),
+      }
+    : snapshot;
+}
+
 function hasFinishedMatchForCourt(
   histories: LiveStateSnapshot["matchHistory"],
   court: LiveStateSnapshot["courts"][number]
@@ -1552,6 +1783,16 @@ export function mergeLiveStateSnapshot(
         ),
     };
 
+    const withStaleFinishPromotion =
+      changed.has("courts")
+        ? promoteQueuedCourtsAfterStaleFinish(
+            withReconciledQueuedCourts,
+            current,
+            incoming,
+            patch
+          )
+        : withReconciledQueuedCourts;
+
     return (
       changed.has(
         "fixedPartnerAssignments"
@@ -1561,9 +1802,9 @@ export function mergeLiveStateSnapshot(
       )
     )
       ? filterResolvedPartnerRequests(
-          withReconciledQueuedCourts
+          withStaleFinishPromotion
         )
-      : withReconciledQueuedCourts;
+      : withStaleFinishPromotion;
   }
 
   const players =

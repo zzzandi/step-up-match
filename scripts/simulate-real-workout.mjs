@@ -3590,6 +3590,245 @@ try {
   );
 
   run(
+    "queued courts promote by creation order, not by court id",
+    () => {
+      resetStore(16, 2);
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-02"],
+          ["player-03", "player-04"]
+        );
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          2,
+          ["player-05", "player-06"],
+          ["player-07", "player-08"]
+        );
+      useMatchStore.setState({
+        queuedCourts: [
+          {
+            id: 1,
+            status: "QUEUED",
+            teamA: [
+              useMatchStore.getState()
+                .players[8],
+              useMatchStore.getState()
+                .players[9],
+            ],
+            teamB: [
+              useMatchStore.getState()
+                .players[10],
+              useMatchStore.getState()
+                .players[11],
+            ],
+            startedAt: new Date(
+              "2026-06-22T10:10:00.000Z"
+            ),
+          },
+          {
+            id: 2,
+            status: "QUEUED",
+            teamA: [
+              useMatchStore.getState()
+                .players[12],
+              useMatchStore.getState()
+                .players[13],
+            ],
+            teamB: [
+              useMatchStore.getState()
+                .players[14],
+              useMatchStore.getState()
+                .players[15],
+            ],
+            startedAt: new Date(
+              "2026-06-22T10:20:00.000Z"
+            ),
+          },
+        ],
+      });
+
+      useMatchStore
+        .getState()
+        .finishCourtMatch(1);
+
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-02"],
+          ["player-03", "player-04"],
+          "QUEUE"
+        );
+      useMatchStore.setState((state) => ({
+        queuedCourts:
+          state.queuedCourts.map(
+            (court) =>
+              court.id === 1
+                ? {
+                    ...court,
+                    startedAt:
+                      new Date(
+                        "2026-06-22T10:30:00.000Z"
+                      ),
+                  }
+                : court
+          ),
+      }));
+
+      useMatchStore
+        .getState()
+        .finishCourtMatch(2);
+
+      const promotedIds = [
+        ...useMatchStore.getState()
+          .courts[1].teamA,
+        ...useMatchStore.getState()
+          .courts[1].teamB,
+      ].map((player) => player.id);
+
+      assert.deepEqual(
+        promotedIds,
+        [
+          "player-13",
+          "player-14",
+          "player-15",
+          "player-16",
+        ]
+      );
+
+      const remainingQueuedIds = [
+        ...useMatchStore.getState()
+          .queuedCourts[0].teamA,
+        ...useMatchStore.getState()
+          .queuedCourts[0].teamB,
+      ].map((player) => player.id);
+
+      assert.deepEqual(
+        remainingQueuedIds,
+        [
+          "player-01",
+          "player-02",
+          "player-03",
+          "player-04",
+        ]
+      );
+    }
+  );
+
+  run(
+    "stale manager finish patch promotes local queued match instead of leaving court empty",
+    () => {
+      resetStore(12, 1);
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-02"],
+          ["player-03", "player-04"]
+        );
+      useMatchStore.setState({
+        queuedCourts: [
+          {
+            id: 1,
+            status: "QUEUED",
+            teamA: [
+              useMatchStore.getState()
+                .players[4],
+              useMatchStore.getState()
+                .players[5],
+            ],
+            teamB: [
+              useMatchStore.getState()
+                .players[6],
+              useMatchStore.getState()
+                .players[7],
+            ],
+            startedAt: new Date(
+              "2026-06-22T10:10:00.000Z"
+            ),
+          },
+        ],
+      });
+      const currentWithQueuedMatch =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+
+      useMatchStore.setState({
+        queuedCourts: [
+          {
+            id: 1,
+            status: "EMPTY",
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          },
+        ],
+      });
+      const staleBeforeFinish =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      useMatchStore
+        .getState()
+        .finishCourtMatch(1);
+      const staleAfterFinish =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+
+      const merged =
+        mergeLiveStateSnapshot(
+          currentWithQueuedMatch,
+          staleAfterFinish,
+          "ADMIN",
+          "admin-stale",
+          createLiveStatePatch(
+            staleBeforeFinish,
+            staleAfterFinish
+          )
+        );
+
+      assert.deepEqual(
+        [
+          ...merged.courts[0].teamA,
+          ...merged.courts[0].teamB,
+        ].map((player) => player.id),
+        [
+          "player-05",
+          "player-06",
+          "player-07",
+          "player-08",
+        ]
+      );
+      assert.equal(
+        merged.queuedCourts[0].status,
+        "EMPTY"
+      );
+      assert.ok(
+        merged.players
+          .filter((player) =>
+            [
+              "player-05",
+              "player-06",
+              "player-07",
+              "player-08",
+            ].includes(player.id)
+          )
+          .every(
+            (player) =>
+              player.status ===
+                "PLAYING" &&
+              player.matchCount === 1
+          )
+      );
+    }
+  );
+
+  run(
     "late login receives reduced court list through delete patch",
     () => {
       resetStore(16, 3);

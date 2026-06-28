@@ -166,6 +166,42 @@ function ensureDefaultQueuedCourts(
   return next;
 }
 
+function getNextQueuedCourt(
+  queuedCourts: Court[]
+) {
+  return queuedCourts
+    .filter(
+      (court) =>
+        court.teamA &&
+        court.teamB
+    )
+    .sort((a, b) => {
+      const aCreatedAt =
+        a.startedAt
+          ? new Date(
+              a.startedAt
+            ).getTime()
+          : 0;
+      const bCreatedAt =
+        b.startedAt
+          ? new Date(
+              b.startedAt
+            ).getTime()
+          : 0;
+
+      if (
+        aCreatedAt !== bCreatedAt
+      ) {
+        return (
+          aCreatedAt -
+          bCreatedAt
+        );
+      }
+
+      return a.id - b.id;
+    })[0];
+}
+
 function compactNotifications(
   notifications: AppNotification[],
   dismissedNotificationIds: string[]
@@ -1317,10 +1353,8 @@ export const useMatchStore =
           );
 
         const nextQueuedCourt =
-          queuedCourts.find(
-            (court) =>
-              court.teamA &&
-              court.teamB
+          getNextQueuedCourt(
+            queuedCourts
           );
         const promotedTeamA =
           nextQueuedCourt?.teamA ?? null;
@@ -2082,7 +2116,7 @@ export const useMatchStore =
                 teamB,
               startedAt:
                 activeTarget === "QUEUE"
-                  ? null
+                  ? startedAt
                   : startedAt,
             };
 
@@ -2301,7 +2335,7 @@ export const useMatchStore =
           teamB,
           startedAt:
             target === "QUEUE"
-              ? null
+              ? startedAt
               : startedAt,
         };
         const playerNotifications =

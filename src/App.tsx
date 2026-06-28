@@ -458,12 +458,16 @@ function App() {
       getAccessSession() &&
       !getTestModeState().active
     ) {
-      void recoverDashboardLocally()
-        .catch(console.error);
+      useMatchStore
+        .getState()
+        .endTodaySession();
+      clearAccessSession();
+      navigate("/");
+      return;
     }
+
   }, [
     navigate,
-    recoverDashboardLocally,
   ]);
 
   useEffect(() => {
