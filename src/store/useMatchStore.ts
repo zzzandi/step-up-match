@@ -1665,6 +1665,31 @@ export const useMatchStore =
           return;
         }
 
+        const incomingAlreadyQueued =
+          target === "QUEUE" &&
+          queuedCourts.some(
+            (queuedCourt) =>
+              queuedCourt.id !==
+                courtId &&
+              [
+                ...(queuedCourt.teamA ??
+                  []),
+                ...(queuedCourt.teamB ??
+                  []),
+              ].some(
+                (player) =>
+                  player.id ===
+                  incomingPlayerId
+              )
+          );
+
+        if (incomingAlreadyQueued) {
+          window.alert(
+            "이미 다른 대기코트에 포함된 선수는 선택할 수 없습니다."
+          );
+          return;
+        }
+
         const replacementIds =
           new Set(
             [
@@ -1994,6 +2019,25 @@ export const useMatchStore =
               (player) =>
                 player.id
             );
+          const selectedIdSet =
+            new Set(selectedIds);
+          const selectedAlreadyQueued =
+            activeTarget === "QUEUE" &&
+            queuedCourts.some(
+              (queuedCourt) =>
+                queuedCourt.id !==
+                  selectedRecommendation.courtId &&
+                [
+                  ...(queuedCourt.teamA ??
+                    []),
+                  ...(queuedCourt.teamB ??
+                    []),
+                ].some((player) =>
+                  selectedIdSet.has(
+                    player.id
+                  )
+                )
+            );
           const targetCourt =
             (activeTarget === "QUEUE"
               ? queuedCourts
@@ -2020,6 +2064,7 @@ export const useMatchStore =
             !targetCourt ||
             targetCourt.status ===
               "PLAYING" ||
+            selectedAlreadyQueued ||
             currentSelectedPlayers.some(
               (player) => !player
             )
@@ -2235,6 +2280,23 @@ export const useMatchStore =
         ];
         const selectedIdSet =
           new Set(selectedIds);
+        const selectedAlreadyQueued =
+          target === "QUEUE" &&
+          queuedCourts.some(
+            (queuedCourt) =>
+              queuedCourt.id !==
+                courtId &&
+              [
+                ...(queuedCourt.teamA ??
+                  []),
+                ...(queuedCourt.teamB ??
+                  []),
+              ].some((player) =>
+                selectedIdSet.has(
+                  player.id
+                )
+              )
+          );
         const hasExcludedPair =
           excludedMatchPairs.some(
             ([
@@ -2251,6 +2313,7 @@ export const useMatchStore =
 
         if (
           selectedIdSet.size !== 4 ||
+          selectedAlreadyQueued ||
           hasExcludedPair
         ) {
           return false;

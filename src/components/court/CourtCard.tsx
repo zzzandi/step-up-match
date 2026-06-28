@@ -145,6 +145,11 @@ export default function CourtCard({
       (state) =>
         state.players
     );
+  const queuedCourts =
+    useMatchStore(
+      (state) =>
+        state.queuedCourts
+    );
   const assignedPlayers =
     useMemo(
       () => [
@@ -153,11 +158,43 @@ export default function CourtCard({
       ],
       [court.teamA, court.teamB]
     );
+  const otherQueuedPlayerIds =
+    useMemo(
+      () =>
+        new Set(
+          isQueueCourt
+            ? queuedCourts
+                .filter(
+                  (item) =>
+                    item.id !==
+                    court.id
+                )
+                .flatMap(
+                  (item) => [
+                    ...(item.teamA ?? []),
+                    ...(item.teamB ?? []),
+                  ]
+                )
+                .map(
+                  (player) =>
+                    player.id
+                )
+            : []
+        ),
+      [
+        court.id,
+        isQueueCourt,
+        queuedCourts,
+      ]
+    );
   const waitingPlayers =
     players.filter(
       (player) =>
         player.status === "WAITING" &&
         player.isPresent &&
+        !otherQueuedPlayerIds.has(
+          player.id
+        ) &&
         !assignedPlayers.some(
           (assigned) =>
             assigned.id === player.id

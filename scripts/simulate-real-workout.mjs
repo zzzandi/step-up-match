@@ -3829,6 +3829,98 @@ try {
   );
 
   run(
+    "master promoted queued match patch reaches other roles without refresh",
+    () => {
+      resetStore(12, 1);
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-02"],
+          ["player-03", "player-04"]
+        );
+      useMatchStore.setState({
+        queuedCourts: [
+          {
+            id: 1,
+            status: "QUEUED",
+            teamA: [
+              useMatchStore.getState()
+                .players[4],
+              useMatchStore.getState()
+                .players[5],
+            ],
+            teamB: [
+              useMatchStore.getState()
+                .players[6],
+              useMatchStore.getState()
+                .players[7],
+            ],
+            startedAt: new Date(
+              "2026-06-22T10:10:00.000Z"
+            ),
+          },
+        ],
+      });
+      const beforeFinish =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+
+      useMatchStore
+        .getState()
+        .finishCourtMatch(1);
+      const afterFinish =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const patch =
+        createLiveStatePatch(
+          beforeFinish,
+          afterFinish
+        );
+
+      for (const role of [
+        "ADMIN",
+        "PLAYER",
+        "MASTER",
+      ]) {
+        const merged =
+          mergeLiveStateSnapshot(
+            beforeFinish,
+            afterFinish,
+            "MASTER",
+            "master-main",
+            patch
+          );
+
+        assert.equal(
+          merged.courts[0].status,
+          "PLAYING",
+          `${role} should receive promoted game court`
+        );
+        assert.deepEqual(
+          [
+            ...merged.courts[0].teamA,
+            ...merged.courts[0].teamB,
+          ].map((player) => player.id),
+          [
+            "player-05",
+            "player-06",
+            "player-07",
+            "player-08",
+          ]
+        );
+        assert.equal(
+          merged.queuedCourts[0].status,
+          "EMPTY",
+          `${role} should receive cleared queued court`
+        );
+      }
+    }
+  );
+
+  run(
     "late login receives reduced court list through delete patch",
     () => {
       resetStore(16, 3);
@@ -5511,6 +5603,93 @@ try {
           previous.waitingStartedAt
         );
       }
+    }
+  );
+
+  run(
+    "queued court editing cannot duplicate a player already queued elsewhere",
+    () => {
+      resetStore(12, 1);
+      useMatchStore.setState({
+        queuedCourts: [
+          {
+            id: 1,
+            status: "EMPTY",
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          },
+          {
+            id: 2,
+            status: "EMPTY",
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          },
+        ],
+      });
+
+      assert.equal(
+        useMatchStore
+          .getState()
+          .assignManualMatch(
+            1,
+            ["player-01", "player-02"],
+            ["player-03", "player-04"],
+            "QUEUE"
+          ),
+        true
+      );
+
+      assert.equal(
+        useMatchStore
+          .getState()
+          .assignManualMatch(
+            2,
+            ["player-04", "player-05"],
+            ["player-06", "player-07"],
+            "QUEUE"
+          ),
+        false
+      );
+
+      assert.equal(
+        useMatchStore
+          .getState()
+          .assignManualMatch(
+            2,
+            ["player-05", "player-06"],
+            ["player-07", "player-08"],
+            "QUEUE"
+          ),
+        true
+      );
+
+      useMatchStore
+        .getState()
+        .replaceCourtPlayer(
+          2,
+          "player-08",
+          "player-02",
+          "QUEUE"
+        );
+
+      const queuedCourtTwoIds = [
+        ...useMatchStore.getState()
+          .queuedCourts[1].teamA,
+        ...useMatchStore.getState()
+          .queuedCourts[1].teamB,
+      ].map((player) => player.id);
+
+      assert.deepEqual(
+        queuedCourtTwoIds,
+        [
+          "player-05",
+          "player-06",
+          "player-07",
+          "player-08",
+        ]
+      );
     }
   );
 
