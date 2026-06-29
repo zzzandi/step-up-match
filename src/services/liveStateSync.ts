@@ -605,14 +605,7 @@ function promoteQueuedCourtsAfterStaleFinish(
                 ...player,
                 status:
                   "PLAYING" as const,
-                matchCount:
-                  player.matchCount + 1,
-                consecutiveMatches:
-                  player.consecutiveMatches +
-                  1,
                 playingStartedAt:
-                  promotedAt,
-                lastMatchAt:
                   promotedAt,
               }
             : player

@@ -1239,11 +1239,31 @@ try {
             (player) =>
               player.id === id &&
               player.status === "PLAYING" &&
-              player.matchCount === 1
+              player.matchCount === 0
           )
         )
       );
       assert.equal(next.matchHistory.length, 1);
+
+      useMatchStore
+        .getState()
+        .finishCourtMatch(1);
+      const afterPromotedFinish =
+        useMatchStore.getState();
+      assert.ok(
+        queuedIds.every((id) =>
+          afterPromotedFinish.players.some(
+            (player) =>
+              player.id === id &&
+              player.status === "WAITING" &&
+              player.matchCount === 1
+          )
+        )
+      );
+      assert.equal(
+        afterPromotedFinish.matchHistory.length,
+        2
+      );
     }
   );
 
@@ -3822,7 +3842,7 @@ try {
             (player) =>
               player.status ===
                 "PLAYING" &&
-              player.matchCount === 1
+              player.matchCount === 0
           )
       );
     }
@@ -5578,7 +5598,7 @@ try {
   );
 
   run(
-    "replacement player increments match count exactly once",
+    "replacement player match count increases only after the game is finished",
     () => {
       resetStore(10, 1);
       useMatchStore
@@ -5610,12 +5630,48 @@ try {
 
       assert.equal(
         incoming.matchCount,
-        beforeReplacement.matchCount + 1
+        beforeReplacement.matchCount
       );
       assert.equal(incoming.status, "PLAYING");
       assert.equal(outgoing.status, "WAITING");
       assert.ok(
         getRestMinutes(outgoing.waitingStartedAt) <= 60
+      );
+
+      useMatchStore
+        .getState()
+        .finishCourtMatch(1);
+
+      const finished =
+        useMatchStore.getState();
+      const finishedIncoming =
+        finished.players.find(
+          (player) => player.id === "player-05"
+        );
+      const finishedOutgoing =
+        finished.players.find(
+          (player) => player.id === "player-04"
+        );
+
+      assert.equal(
+        finishedIncoming.matchCount,
+        beforeReplacement.matchCount + 1
+      );
+      assert.equal(
+        finishedOutgoing.matchCount,
+        outgoing.matchCount
+      );
+      const finishedPlayerIds = [
+        ...finished.matchHistory.at(-1).teamA,
+        ...finished.matchHistory.at(-1).teamB,
+      ];
+      assert.equal(
+        finishedPlayerIds.includes("player-05"),
+        true
+      );
+      assert.equal(
+        finishedPlayerIds.includes("player-04"),
+        false
       );
     }
   );

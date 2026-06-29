@@ -63,10 +63,6 @@ export function initializeMatches(
             status:
               "PLAYING" as const,
 
-            matchCount:
-              player.matchCount +
-              1,
-
             playingStartedAt:
               new Date(),
           };

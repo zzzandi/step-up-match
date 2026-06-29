@@ -1370,8 +1370,10 @@ export const useMatchStore =
                 player.id
             )
           );
-        const promotedAt =
+        const finishedAt =
           new Date();
+        const promotedAt =
+          finishedAt;
 
         const updatedPlayers =
           players.map(
@@ -1408,10 +1410,21 @@ export const useMatchStore =
                     "WAITING" as const,
 
                   waitingStartedAt:
-                    new Date(),
+                    finishedAt,
 
                   playingStartedAt:
                     undefined,
+
+                  matchCount:
+                    player.matchCount +
+                    1,
+
+                  consecutiveMatches:
+                    player.consecutiveMatches +
+                    1,
+
+                  lastMatchAt:
+                    finishedAt,
 
                   lastPartners:
                     [
@@ -1448,15 +1461,7 @@ export const useMatchStore =
                   ...player,
                   status:
                     "PLAYING" as const,
-                  matchCount:
-                    player.matchCount +
-                    1,
-                  consecutiveMatches:
-                    player.consecutiveMatches +
-                    1,
                   playingStartedAt:
-                    promotedAt,
-                  lastMatchAt:
                     promotedAt,
                 };
               }
@@ -1480,9 +1485,6 @@ export const useMatchStore =
             updatedPlayers.filter(
               (player) =>
                 finishedIds.includes(
-                  player.id
-                ) ||
-                promotedIds.has(
                   player.id
                 )
             )
@@ -1762,14 +1764,6 @@ export const useMatchStore =
                       status:
                         "PLAYING" as const,
                       playingStartedAt:
-                        replacementStartedAt,
-                      matchCount:
-                        player.matchCount +
-                        1,
-                      consecutiveMatches:
-                        player.consecutiveMatches +
-                        1,
-                      lastMatchAt:
                         replacementStartedAt,
                     };
                   }
@@ -2133,15 +2127,7 @@ export const useMatchStore =
                   ...player,
                   status:
                     "PLAYING" as const,
-                  matchCount:
-                    player.matchCount +
-                    1,
-                  consecutiveMatches:
-                    player.consecutiveMatches +
-                    1,
                   playingStartedAt:
-                    startedAt,
-                  lastMatchAt:
                     startedAt,
                 };
               }
@@ -2431,15 +2417,7 @@ export const useMatchStore =
                           ...player,
                           status:
                             "PLAYING" as const,
-                          matchCount:
-                            player.matchCount +
-                            1,
-                          consecutiveMatches:
-                            player.consecutiveMatches +
-                            1,
                           playingStartedAt:
-                            startedAt,
-                          lastMatchAt:
                             startedAt,
                         }
                       : player
