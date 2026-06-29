@@ -1178,6 +1178,14 @@ try {
         next.players.filter((player) => player.status === "PLAYING").length,
         0
       );
+      assert.equal(
+        next.workoutReportEvents[0].type,
+        "MANUAL_MATCH"
+      );
+      assert.equal(
+        next.workoutReportEvents[0].target,
+        "QUEUE"
+      );
     }
   );
 
@@ -1263,6 +1271,18 @@ try {
       assert.equal(
         afterPromotedFinish.matchHistory.length,
         2
+      );
+      assert.equal(
+        afterPromotedFinish.workoutReportEvents.filter(
+          (event) => event.type === "AUTO_MATCH"
+        ).length,
+        1
+      );
+      assert.equal(
+        afterPromotedFinish.workoutReportEvents.filter(
+          (event) => event.type === "QUEUED_PROMOTED"
+        ).length,
+        1
       );
     }
   );
@@ -5636,6 +5656,17 @@ try {
       assert.equal(outgoing.status, "WAITING");
       assert.ok(
         getRestMinutes(outgoing.waitingStartedAt) <= 60
+      );
+      assert.equal(
+        next.workoutReportEvents[0].type,
+        "PLAYER_REPLACED"
+      );
+      assert.deepEqual(
+        next.workoutReportEvents[0].playerIds,
+        [
+          "player-04",
+          "player-05",
+        ]
       );
 
       useMatchStore

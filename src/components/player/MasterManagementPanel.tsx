@@ -18,6 +18,7 @@ import {
 import {
   useMatchStore,
 } from "@/store/useMatchStore";
+import WorkoutReportPanel from "@/components/report/WorkoutReportPanel";
 import type {
   Grade,
   Gender,
@@ -373,6 +374,8 @@ export default function MasterManagementPanel({
           </button>
         </div>
       </div>
+
+      <WorkoutReportPanel />
 
       <div className="rounded-2xl bg-slate-800 p-4">
         <h3 className="font-bold">

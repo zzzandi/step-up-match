@@ -8,6 +8,7 @@ const ARRAY_FIELDS = [
   "notifications",
   "dismissedNotificationIds",
   "matchHistory",
+  "workoutReportEvents",
   "excludedMatchPairs",
 ] as const;
 

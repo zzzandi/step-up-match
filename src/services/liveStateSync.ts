@@ -17,6 +17,7 @@ export type LiveStateSnapshot = Pick<
   | "notifications"
   | "dismissedNotificationIds"
   | "matchHistory"
+  | "workoutReportEvents"
   | "womenDoublesPriority"
   | "excludedMatchPairs"
 >;
@@ -32,7 +33,8 @@ export type LiveStateEntityKey =
   | "fixedPartnerAssignments"
   | "fixedPartnerRequestResolutions"
   | "notifications"
-  | "matchHistory";
+  | "matchHistory"
+  | "workoutReportEvents";
 
 export interface LiveStatePatch {
   changedKeys: LiveStateKey[];
@@ -102,6 +104,8 @@ export function createLiveStateSnapshot(
       state.dismissedNotificationIds,
     matchHistory:
       state.matchHistory,
+    workoutReportEvents:
+      state.workoutReportEvents,
     womenDoublesPriority:
       state.womenDoublesPriority,
     excludedMatchPairs:
@@ -207,6 +211,7 @@ const liveStateKeys: LiveStateKey[] =
     "notifications",
     "dismissedNotificationIds",
     "matchHistory",
+    "workoutReportEvents",
     "womenDoublesPriority",
     "excludedMatchPairs",
   ];
@@ -221,6 +226,7 @@ const entityKeys:
     "fixedPartnerRequestResolutions",
     "notifications",
     "matchHistory",
+    "workoutReportEvents",
   ];
 
 export function createLiveStatePatch(
@@ -1296,6 +1302,12 @@ function mergeBootstrapSnapshots(
           true
         )
       ),
+    workoutReportEvents:
+      mergeById(
+        incoming.workoutReportEvents,
+        current.workoutReportEvents,
+        true
+      ),
     womenDoublesPriority:
       current.womenDoublesPriority ||
       incoming.womenDoublesPriority,
@@ -1692,6 +1704,22 @@ export function mergeLiveStateSnapshot(
 
     if (
       changed.has(
+        "workoutReportEvents"
+      )
+    ) {
+      next.workoutReportEvents =
+        mergeChangedEntities(
+          current.workoutReportEvents,
+          incoming.workoutReportEvents,
+          patch.changedEntityIds
+            ?.workoutReportEvents,
+          patch.removedEntityIds
+            ?.workoutReportEvents
+        );
+    }
+
+    if (
+      changed.has(
         "womenDoublesPriority"
       )
     ) {
@@ -1989,6 +2017,12 @@ export function mergeLiveStateSnapshot(
           incoming.matchHistory,
           true
         )
+      ),
+    workoutReportEvents:
+      mergeById(
+        current.workoutReportEvents,
+        incoming.workoutReportEvents,
+        true
       ),
     })
   );

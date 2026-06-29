@@ -7,6 +7,10 @@ import type { MatchHistory } from "@/types/matchHistory";
 import type {
   MatchRecommendation,
 } from "@/types/match";
+import type {
+  WorkoutReportEvent,
+  WorkoutReportEventType,
+} from "@/types/workoutReport";
 
 import {
   generateRecommendations,
@@ -62,6 +66,43 @@ export type ExcludedMatchPair = [
   string,
   string,
 ];
+
+function createWorkoutReportEvent({
+  type,
+  courtId,
+  target,
+  players,
+  description,
+  createdAt = new Date(),
+}: {
+  type: WorkoutReportEventType;
+  courtId: number;
+  target?: "GAME" | "QUEUE";
+  players: Player[];
+  description: string;
+  createdAt?: Date;
+}): WorkoutReportEvent {
+  return {
+    id: crypto.randomUUID(),
+    type,
+    courtId,
+    target,
+    createdAt:
+      createdAt.toISOString(),
+    playerIds:
+      players.map(
+        (player) => player.id
+      ),
+    playerNames:
+      Object.fromEntries(
+        players.map((player) => [
+          player.id,
+          player.name,
+        ])
+      ),
+    description,
+  };
+}
 
 function isAllowedNotificationMessage(
   message: string
@@ -267,6 +308,9 @@ export interface MatchStore {
 
   matchHistory: MatchHistory[];
 
+  workoutReportEvents:
+    WorkoutReportEvent[];
+
   recommendations:
     MatchRecommendation[];
 
@@ -438,6 +482,8 @@ export const useMatchStore =
       dismissedNotificationIds: [],
 
       matchHistory: [],
+
+      workoutReportEvents: [],
 
       recommendations: [],
 
@@ -1035,6 +1081,8 @@ export const useMatchStore =
           womenDoublesPriority:
             false,
           matchHistory: [],
+          workoutReportEvents:
+            [],
         });
       },
 
@@ -1125,6 +1173,8 @@ export const useMatchStore =
                     )
                   ) !== targetDate
               ),
+            workoutReportEvents:
+              [],
           });
           return;
         }
@@ -1151,6 +1201,8 @@ export const useMatchStore =
                   )
                 ) !== targetDate
             ),
+          workoutReportEvents:
+            [],
           recommendations: [],
           selectedRecommendation:
             null,
@@ -1317,6 +1369,7 @@ export const useMatchStore =
           courts,
           queuedCourts,
           matchHistory,
+          workoutReportEvents,
         } = get();
 
         const targetCourt =
@@ -1559,6 +1612,27 @@ export const useMatchStore =
               ],
               get().dismissedNotificationIds
             );
+          const promotedPlayers =
+            [
+              ...(promotedTeamA ?? []),
+              ...(promotedTeamB ?? []),
+            ];
+          const promoteReportEvent =
+            nextQueuedCourt &&
+            promotedPlayers.length === 4
+              ? createWorkoutReportEvent({
+                  type:
+                    "QUEUED_PROMOTED",
+                  courtId,
+                  target: "GAME",
+                  players:
+                    promotedPlayers,
+                  createdAt:
+                    promotedAt,
+                  description:
+                    `대기 코트 ${nextQueuedCourt.id} 대진이 Court ${courtId}로 승격`,
+                })
+              : null;
 
           set({
             players:
@@ -1576,6 +1650,13 @@ export const useMatchStore =
                     ...matchHistory,
                   ]
                 : matchHistory,
+            workoutReportEvents:
+              promoteReportEvent
+                ? [
+                    promoteReportEvent,
+                    ...workoutReportEvents,
+                  ]
+                : workoutReportEvents,
           
             courts:
               courts.map(
@@ -1631,6 +1712,7 @@ export const useMatchStore =
           notifications,
           dismissedNotificationIds,
           excludedMatchPairs,
+          workoutReportEvents,
         } = get();
 
         const sourceCourts =
@@ -1842,6 +1924,21 @@ export const useMatchStore =
 
         const message =
           `${target === "QUEUE" ? "Queued court" : "Court"} ${courtId} player replacement: ${outgoingPlayer.name} -> ${incomingPlayer.name}. ${teamAText} vs ${teamBText}`;
+        const reportEvent =
+          createWorkoutReportEvent({
+            type:
+              "PLAYER_REPLACED",
+            courtId,
+            target,
+            players: [
+              outgoingPlayer,
+              incomingPlayer,
+            ],
+            createdAt:
+              replacementStartedAt,
+            description:
+              `${target === "QUEUE" ? "대기 코트" : "Court"} ${courtId} 선수 교체: ${outgoingPlayer.name} → ${incomingPlayer.name}`,
+          });
 
         set({
           players: updatedPlayers,
@@ -1853,6 +1950,11 @@ export const useMatchStore =
             target === "QUEUE"
               ? updatedSourceCourts
               : queuedCourts,
+          workoutReportEvents:
+            [
+              reportEvent,
+              ...workoutReportEvents,
+            ],
           notifications: compactNotifications([
             ...notifications,
             {
@@ -1995,6 +2097,7 @@ export const useMatchStore =
             courts,
             queuedCourts,
             players,
+            workoutReportEvents,
           } = get();
           const activeTarget =
             target ?? recommendationTarget;
@@ -2171,6 +2274,24 @@ export const useMatchStore =
             activeTarget === "QUEUE"
               ? `\ub300\uae30 \ucf54\ud2b8 ${selectedRecommendation.courtId} \ub300\uc9c4 \uc0dd\uc131: ${teamAText} vs ${teamBText}`
               : `Court ${selectedRecommendation.courtId} \ub300\uc9c4 \uc0dd\uc131: ${teamAText} vs ${teamBText}`;
+          const reportEvent =
+            createWorkoutReportEvent({
+              type:
+                "AUTO_MATCH",
+              courtId:
+                selectedRecommendation.courtId,
+              target:
+                activeTarget,
+              players:
+                [
+                  ...teamA,
+                  ...teamB,
+                ],
+              createdAt:
+                startedAt,
+              description:
+                displayAssignmentMessage,
+            });
 
           const assignedNotifications =
             teamA
@@ -2219,6 +2340,11 @@ export const useMatchStore =
               [],
             selectedRecommendation:
               null,
+            workoutReportEvents:
+              [
+                reportEvent,
+                ...workoutReportEvents,
+              ],
             notifications: compactNotifications([
               ...get().notifications,
               {
@@ -2259,6 +2385,7 @@ export const useMatchStore =
           queuedCourts,
           players,
           excludedMatchPairs,
+          workoutReportEvents,
         } = get();
         const selectedIds = [
           ...teamAPlayerIds,
@@ -2374,6 +2501,21 @@ export const useMatchStore =
           target === "QUEUE"
             ? `\ub300\uae30 \ucf54\ud2b8 ${courtId} \uc218\ub3d9 \ub300\uc9c4 \uc0dd\uc131: ${teamAText} vs ${teamBText}`
             : `Court ${courtId} \uc218\ub3d9 \ub300\uc9c4 \uc0dd\uc131: ${teamAText} vs ${teamBText}`;
+        const reportEvent =
+          createWorkoutReportEvent({
+            type:
+              "MANUAL_MATCH",
+            courtId,
+            target,
+            players: [
+              ...teamA,
+              ...teamB,
+            ],
+            createdAt:
+              startedAt,
+            description:
+              assignmentMessage,
+          });
         const updatedCourt: Court = {
           ...court,
           status:
@@ -2439,6 +2581,11 @@ export const useMatchStore =
                     : item
                 )
               : queuedCourts,
+          workoutReportEvents:
+            [
+              reportEvent,
+              ...workoutReportEvents,
+            ],
           notifications: compactNotifications(
             [
               ...get().notifications,
@@ -2490,6 +2637,7 @@ export const useMatchStore =
         const {
           courts,
           queuedCourts,
+          workoutReportEvents,
         } = get();
         const sourceCourts =
           target === "QUEUE"
@@ -2572,6 +2720,33 @@ export const useMatchStore =
                   }
                 : item
           );
+        const firstPlayer =
+          assigned.find(
+            (player) =>
+              player.id === firstPlayerId
+          )!;
+        const secondPlayer =
+          assigned.find(
+            (player) =>
+              player.id === secondPlayerId
+          )!;
+        const eventAt =
+          new Date();
+        const reportEvent =
+          createWorkoutReportEvent({
+            type:
+              "COURT_PLAYERS_SWAPPED",
+            courtId,
+            target,
+            players: [
+              firstPlayer,
+              secondPlayer,
+            ],
+            createdAt:
+              eventAt,
+            description:
+              `${target === "QUEUE" ? "대기 코트" : "Court"} ${courtId} 코트 내 선수 위치 교체: ${firstPlayer.name} ↔ ${secondPlayer.name}`,
+          });
 
         set({
           courts:
@@ -2582,6 +2757,11 @@ export const useMatchStore =
             target === "QUEUE"
               ? updatedCourts
               : queuedCourts,
+          workoutReportEvents:
+            [
+              reportEvent,
+              ...workoutReportEvents,
+            ],
         });
 
         return true;
