@@ -331,18 +331,6 @@ export function selectCandidates(
             candidatePool[k],
             candidatePool[l],
           ];
-          const femaleCount =
-            group.filter(
-              (player) =>
-                player.gender === "F"
-            ).length;
-
-          if (
-            femaleCount === 1 ||
-            femaleCount === 3
-          ) {
-            continue;
-          }
 
           if (
             containsExcludedPair(

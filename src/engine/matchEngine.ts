@@ -121,10 +121,19 @@ export function generateRecommendations(
             buildMatches(
               group
             );
+          const femaleCount =
+            group.filter(
+              (player) =>
+                player.gender === "F"
+            ).length;
+          const allowsOddWomanMatch =
+            femaleCount === 1 ||
+            femaleCount === 3;
 
           matches.forEach(
             (match) => {
               if (
+                !allowsOddWomanMatch &&
                 !isCompatibleGenderMatch(
                   match.teamA,
                   match.teamB

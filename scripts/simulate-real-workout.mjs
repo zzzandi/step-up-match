@@ -87,6 +87,11 @@ try {
   } = await server.ssrLoadModule(
     "/src/engine/v2/recommendationScorer.ts"
   );
+  const {
+    selectCandidates,
+  } = await server.ssrLoadModule(
+    "/src/engine/playerSelector.ts"
+  );
 
   const results = [];
   const run = (
@@ -1676,12 +1681,25 @@ try {
             court.status,
             "PLAYING"
           );
-          assert.ok(
-            isCompatibleGenderMatch(
-              court.teamA,
-              court.teamB
-            )
-          );
+          const femaleCount =
+            [
+              ...court.teamA,
+              ...court.teamB,
+            ].filter(
+              (player) =>
+                player.gender === "F"
+            ).length;
+          if (
+            femaleCount !== 1 &&
+            femaleCount !== 3
+          ) {
+            assert.ok(
+              isCompatibleGenderMatch(
+                court.teamA,
+                court.teamB
+              )
+            );
+          }
           const ids = [
             ...court.teamA,
             ...court.teamB,
@@ -5995,13 +6013,6 @@ try {
           "C",
           65
         );
-      const manA =
-        makeCustomPlayer(
-          "man-a",
-          "M",
-          "A",
-          85
-        );
       const womanE =
         makeCustomPlayer(
           "woman-e",
@@ -6037,6 +6048,13 @@ try {
           "F",
           35
         );
+      const manF3 =
+        makeCustomPlayer(
+          "man-f-3",
+          "M",
+          "F",
+          35
+        );
 
       assert.ok(
         scoreMatch({
@@ -6049,9 +6067,120 @@ try {
       assert.ok(
         scoreMatch({
           id: "mixed-2",
-          teamA: [manA, womanE],
-          teamB: [manE1, manE2],
+          teamA: [womanE, manF1],
+          teamB: [manF2, manF3],
         }).balance >= 30
+      );
+    }
+  );
+
+  run(
+    "single waiting woman is not skipped when she has high rest priority",
+    () => {
+      const now =
+        Date.now();
+      const makeCustomPlayer = (
+        id,
+        gender,
+        grade,
+        waitingMinutes,
+        matchCount = 2
+      ) => ({
+        id,
+        name: id,
+        gender,
+        grade,
+        hiddenSkill:
+          grade === "F"
+            ? 35
+            : 45,
+        isPresent: true,
+        arrivalTime:
+          new Date(
+            now -
+              waitingMinutes *
+                60 *
+                1000
+          ),
+        matchCount,
+        consecutiveMatches: 0,
+        status: "WAITING",
+        waitingStartedAt:
+          new Date(
+            now -
+              waitingMinutes *
+                60 *
+                1000
+          ),
+        lastPartners: [],
+        lastOpponents: [],
+      });
+
+      const waitingPlayers = [
+        makeCustomPlayer(
+          "woman-e-rested",
+          "F",
+          "E",
+          55,
+          0
+        ),
+        makeCustomPlayer(
+          "man-1",
+          "M",
+          "E",
+          18
+        ),
+        makeCustomPlayer(
+          "man-2",
+          "M",
+          "E",
+          17
+        ),
+        makeCustomPlayer(
+          "man-3",
+          "M",
+          "F",
+          16
+        ),
+        makeCustomPlayer(
+          "man-4",
+          "M",
+          "F",
+          15
+        ),
+        makeCustomPlayer(
+          "man-5",
+          "M",
+          "E",
+          14
+        ),
+        makeCustomPlayer(
+          "man-6",
+          "M",
+          "F",
+          13
+        ),
+      ];
+      const selected =
+        selectCandidates(
+          waitingPlayers,
+          1
+        );
+
+      assert.equal(
+        selected.some(
+          (player) =>
+            player.id ===
+            "woman-e-rested"
+        ),
+        true
+      );
+      assert.equal(
+        selected.filter(
+          (player) =>
+            player.gender === "F"
+        ).length,
+        1
       );
     }
   );
