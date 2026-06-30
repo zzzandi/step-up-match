@@ -10,10 +10,15 @@ import type {
   MatchHistory,
 } from "@/types/matchHistory";
 
-type PairCount = {
-  names: string;
-  count: number;
-};
+interface MixingRow {
+  id: string;
+  name: string;
+  matchCount: number;
+  metCount: number;
+  possibleCount: number;
+  missedCount: number;
+  mixPercent: number;
+}
 
 function getDateText() {
   return new Intl.DateTimeFormat(
@@ -27,6 +32,21 @@ function getDateText() {
       weekday: "short",
     }
   ).format(new Date());
+}
+
+function formatKstTime(
+  value: Date | string
+) {
+  return new Intl.DateTimeFormat(
+    "ko-KR",
+    {
+      timeZone:
+        "Asia/Seoul",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }
+  ).format(new Date(value));
 }
 
 function getHistoryPlayerIds(
@@ -60,65 +80,20 @@ function getPlayerName(
   );
 }
 
-function pairKey(
-  playerAId: string,
-  playerBId: string
-) {
-  return [
-    playerAId,
-    playerBId,
-  ]
-    .sort()
-    .join("|");
-}
-
-function addPair(
-  counts: Map<string, number>,
-  playerAId: string,
-  playerBId: string
-) {
-  const key =
-    pairKey(
-      playerAId,
-      playerBId
-    );
-  counts.set(
-    key,
-    (counts.get(key) ?? 0) +
-      1
-  );
-}
-
-function formatTopPairs(
-  counts: Map<string, number>,
+function formatTeam(
+  playerIds: [string, string],
   histories: MatchHistory[],
   names: Map<string, string>
-): PairCount[] {
-  return [
-    ...counts.entries(),
-  ]
-    .map(
-      ([key, count]) => {
-        const [
-          playerAId,
-          playerBId,
-        ] = key.split("|");
-
-        return {
-          names: `${getPlayerName(playerAId, histories, names)}-${getPlayerName(playerBId, histories, names)}`,
-          count,
-        };
-      }
+) {
+  return playerIds
+    .map((playerId) =>
+      getPlayerName(
+        playerId,
+        histories,
+        names
+      )
     )
-    .filter(
-      (item) =>
-        item.count > 1
-    )
-    .sort(
-      (a, b) =>
-        b.count - a.count
-    )
-    .slice(0, 5);
+    .join(" + ");
 }
 
 export default function WorkoutReportPanel() {
@@ -191,10 +166,8 @@ export default function WorkoutReportPanel() {
 
       const matchCountByPlayer =
         new Map<string, number>();
-      const partnerCounts =
-        new Map<string, number>();
-      const sameGameCounts =
-        new Map<string, number>();
+      const sameGamePlayersByPlayer =
+        new Map<string, Set<string>>();
 
       histories.forEach(
         (history) => {
@@ -203,62 +176,97 @@ export default function WorkoutReportPanel() {
               history
             );
 
-          ids.forEach((playerId) =>
+          ids.forEach((playerId) => {
             matchCountByPlayer.set(
               playerId,
               (matchCountByPlayer.get(
                 playerId
               ) ?? 0) + 1
-            )
-          );
+            );
 
-          addPair(
-            partnerCounts,
-            history.teamA[0],
-            history.teamA[1]
-          );
-          addPair(
-            partnerCounts,
-            history.teamB[0],
-            history.teamB[1]
-          );
-
-          for (
-            let i = 0;
-            i < ids.length;
-            i += 1
-          ) {
-            for (
-              let j = i + 1;
-              j < ids.length;
-              j += 1
+            if (
+              !sameGamePlayersByPlayer.has(
+                playerId
+              )
             ) {
-              addPair(
-                sameGameCounts,
-                ids[i],
-                ids[j]
+              sameGamePlayersByPlayer.set(
+                playerId,
+                new Set()
               );
             }
-          }
+
+            ids
+              .filter(
+                (otherId) =>
+                  otherId !== playerId
+              )
+              .forEach((otherId) =>
+                sameGamePlayersByPlayer
+                  .get(playerId)!
+                  .add(otherId)
+              );
+          });
         }
       );
 
-      const participantRows =
+      const participantCount =
+        participantIds.size;
+      const possibleCount =
+        Math.max(
+          0,
+          participantCount - 1
+        );
+
+      const mixingRows: MixingRow[] =
         [...participantIds]
-          .map((playerId) => ({
-            id: playerId,
-            name:
-              getPlayerName(
-                playerId,
-                histories,
-                currentNames
-              ),
-            matchCount:
-              matchCountByPlayer.get(
+          .map((playerId) => {
+            const metCount =
+              sameGamePlayersByPlayer.get(
                 playerId
-              ) ?? 0,
-          }))
+              )?.size ?? 0;
+            const mixPercent =
+              possibleCount > 0
+                ? Math.round(
+                    (metCount /
+                      possibleCount) *
+                      100
+                  )
+                : 0;
+
+            return {
+              id: playerId,
+              name:
+                getPlayerName(
+                  playerId,
+                  histories,
+                  currentNames
+                ),
+              matchCount:
+                matchCountByPlayer.get(
+                  playerId
+                ) ?? 0,
+              metCount,
+              possibleCount,
+              missedCount:
+                Math.max(
+                  0,
+                  possibleCount -
+                    metCount
+                ),
+              mixPercent,
+            };
+          })
           .sort((a, b) => {
+            if (
+              a.mixPercent !==
+              b.mixPercent
+            ) {
+              return (
+                a.mixPercent -
+                b.mixPercent
+              );
+            }
+
             if (
               b.matchCount !==
               a.matchCount
@@ -275,33 +283,32 @@ export default function WorkoutReportPanel() {
             );
           });
 
+      const participantRows =
+        [...mixingRows].sort(
+          (a, b) => {
+            if (
+              b.matchCount !==
+              a.matchCount
+            ) {
+              return (
+                b.matchCount -
+                a.matchCount
+              );
+            }
+
+            return a.name.localeCompare(
+              b.name,
+              "ko"
+            );
+          }
+        );
+
       const matchCounts =
         participantRows.map(
           (row) => row.matchCount
         );
-      const totalMatches =
+      const completedMatches =
         histories.length;
-      const participantCount =
-        participantRows.length;
-      const maxMatches =
-        Math.max(
-          0,
-          ...matchCounts
-        );
-      const minMatches =
-        participantCount > 0
-          ? Math.min(
-              ...matchCounts
-            )
-          : 0;
-      const averageMatches =
-        participantCount > 0
-          ? (
-              (totalMatches * 4) /
-              participantCount
-            ).toFixed(1)
-          : "0.0";
-
       const autoGameEvents =
         workoutReportEvents.filter(
           (event) =>
@@ -316,6 +323,66 @@ export default function WorkoutReportPanel() {
               "MANUAL_MATCH" &&
             event.target === "GAME"
         ).length;
+      const promotedEvents =
+        workoutReportEvents.filter(
+          (event) =>
+            event.type ===
+            "QUEUED_PROMOTED"
+        ).length;
+      const totalGameEvents =
+        autoGameEvents +
+        manualGameEvents +
+        promotedEvents;
+      const totalMatches =
+        totalGameEvents > 0
+          ? totalGameEvents
+          : completedMatches;
+      const maxMatches =
+        Math.max(
+          0,
+          ...matchCounts
+        );
+      const minMatches =
+        participantCount > 0
+          ? Math.min(
+              ...matchCounts
+            )
+          : 0;
+      const averageMatches =
+        participantCount > 0
+          ? (
+              (completedMatches * 4) /
+              participantCount
+            ).toFixed(1)
+          : "0.0";
+      const averageMixPercent =
+        mixingRows.length > 0
+          ? Math.round(
+              mixingRows.reduce(
+                (sum, row) =>
+                  sum +
+                  row.mixPercent,
+                0
+              ) / mixingRows.length
+            )
+          : 0;
+      const leastMixedRows =
+        mixingRows.slice(0, 5);
+      const mostMixedRows =
+        [...mixingRows]
+          .sort(
+            (a, b) =>
+              b.mixPercent -
+              a.mixPercent
+          )
+          .slice(0, 5);
+      const noMissRows =
+        mixingRows.filter(
+          (row) =>
+            row.missedCount === 0 &&
+            row.possibleCount > 0
+        );
+
       const autoQueuedEvents =
         workoutReportEvents.filter(
           (event) =>
@@ -331,12 +398,6 @@ export default function WorkoutReportPanel() {
               "MANUAL_MATCH" &&
             event.target ===
               "QUEUE"
-        ).length;
-      const promotedEvents =
-        workoutReportEvents.filter(
-          (event) =>
-            event.type ===
-            "QUEUED_PROMOTED"
         ).length;
       const replacementEvents =
         workoutReportEvents.filter(
@@ -359,53 +420,6 @@ export default function WorkoutReportPanel() {
               "number"
         ).length;
 
-      const repeatedPartnerPairs =
-        formatTopPairs(
-          partnerCounts,
-          histories,
-          currentNames
-        );
-      const repeatedSameGamePairs =
-        formatTopPairs(
-          sameGameCounts,
-          histories,
-          currentNames
-        );
-      const duplicatePartnerCount =
-        [...partnerCounts.values()]
-          .map((count) =>
-            Math.max(
-              0,
-              count - 1
-            )
-          )
-          .reduce(
-            (sum, count) =>
-              sum + count,
-            0
-          );
-      const duplicateSameGameCount =
-        [...sameGameCounts.values()]
-          .map((count) =>
-            Math.max(
-              0,
-              count - 1
-            )
-          )
-          .reduce(
-            (sum, count) =>
-              sum + count,
-            0
-          );
-
-      const fairnessLine =
-        totalMatches === 0
-          ? "아직 종료된 경기 기록이 없습니다."
-          : `최다 ${maxMatches}경기 / 최소 ${minMatches}경기 / 평균 ${averageMatches}경기입니다.`;
-      const mixLine =
-        totalMatches === 0
-          ? "섞임 지표는 경기 종료 후 집계됩니다."
-          : `파트너 반복 ${duplicatePartnerCount}건, 같은 경기 반복 ${duplicateSameGameCount}건이 기록되었습니다.`;
       const participantLine =
         participantRows
           .map(
@@ -413,32 +427,50 @@ export default function WorkoutReportPanel() {
               `${row.name} ${row.matchCount}경기`
           )
           .join(", ");
-      const topPartnerLine =
-        repeatedPartnerPairs.length > 0
-          ? repeatedPartnerPairs
+      const mixingLine =
+        mixingRows
+          .map(
+            (row) =>
+              `${row.name} ${row.mixPercent}%(${row.metCount}/${row.possibleCount}명, 미경험 ${row.missedCount}명)`
+          )
+          .join(", ");
+      const leastMixedLine =
+        leastMixedRows.length > 0
+          ? leastMixedRows
               .map(
-                (item) =>
-                  `${item.names} ${item.count}회`
+                (row) =>
+                  `${row.name} ${row.mixPercent}%`
               )
               .join(", ")
-          : "2회 이상 반복 파트너 없음";
-      const topSameGameLine =
-        repeatedSameGamePairs.length > 0
-          ? repeatedSameGamePairs
-              .map(
-                (item) =>
-                  `${item.names} ${item.count}회`
-              )
+          : "기록 없음";
+      const noMissLine =
+        noMissRows.length > 0
+          ? noMissRows
+              .map((row) => row.name)
               .join(", ")
-          : "2회 이상 같은 경기 반복 없음";
+          : "없음";
+      const matchLines =
+        histories
+          .map((history, index) => {
+            const scoreText =
+              typeof history.teamAScore ===
+                "number" &&
+              typeof history.teamBScore ===
+                "number"
+                ? ` ${history.teamAScore}:${history.teamBScore}`
+                : "";
+
+            return `${index + 1}. Court ${history.courtId} ${formatKstTime(history.startedAt)}~${formatKstTime(history.endedAt)} ${formatTeam(history.teamA, histories, currentNames)} vs ${formatTeam(history.teamB, histories, currentNames)}${scoreText}`;
+          })
+          .join("\n");
 
       const copyText = [
         `🏸 STEP UP MATCH 오늘 운동 리포트 (${getDateText()})`,
         "",
         `참여 인원: ${participantCount}명`,
-        `종료된 경기: ${totalMatches}경기`,
-        `점수 입력 완료: ${scoredMatches}/${totalMatches}경기`,
-        `경기 수 분포: ${fairnessLine}`,
+        `오늘 총 경기: ${totalMatches}경기`,
+        `종료/점수 입력: ${completedMatches}경기 / ${scoredMatches}경기`,
+        `경기 수 분포: 최다 ${maxMatches}경기 / 최소 ${minMatches}경기 / 평균 ${averageMatches}경기`,
         "",
         "대진 운영 기록",
         `- 게임코트 자동 대진: ${autoGameEvents}회`,
@@ -450,22 +482,34 @@ export default function WorkoutReportPanel() {
         `- 코트 내 선수 위치 교체: ${swapEvents}회`,
         "",
         "섞임 지표",
-        `- ${mixLine}`,
-        `- 반복 파트너 상위: ${topPartnerLine}`,
-        `- 같은 경기 반복 상위: ${topSameGameLine}`,
+        `- 평균 섞임률: ${averageMixPercent}%`,
+        `- 가장 덜 섞인 인원: ${leastMixedLine}`,
+        `- 오늘 모든 참가자와 한 번 이상 같은 경기를 한 인원: ${noMissLine}`,
+        "",
+        "개인별 섞임률",
+        mixingLine || "기록 없음",
         "",
         "인원별 경기 수",
         participantLine || "기록 없음",
+        "",
+        "오늘 전체 경기",
+        matchLines || "기록 없음",
       ].join("\n");
 
       return {
         participantRows,
+        mixingRows,
         participantCount,
         totalMatches,
+        completedMatches,
         scoredMatches,
         maxMatches,
         minMatches,
         averageMatches,
+        averageMixPercent,
+        leastMixedRows,
+        mostMixedRows,
+        noMissRows,
         autoGameEvents,
         manualGameEvents,
         autoQueuedEvents,
@@ -473,10 +517,8 @@ export default function WorkoutReportPanel() {
         promotedEvents,
         replacementEvents,
         swapEvents,
-        duplicatePartnerCount,
-        duplicateSameGameCount,
-        repeatedPartnerPairs,
-        repeatedSameGamePairs,
+        histories,
+        currentNames,
         copyText,
       };
     }, [
@@ -511,7 +553,7 @@ export default function WorkoutReportPanel() {
             오늘 운동 리포트
           </h3>
           <p className="mt-1 text-sm leading-6 text-slate-400">
-            종료된 경기와 운영 이벤트를 기준으로 단톡방에 공유할 객관 수치를 정리합니다.
+            오늘 생성된 경기, 종료 기록, 개인별 섞임률을 기준으로 단톡방에 공유할 객관 수치를 정리합니다.
           </p>
         </div>
         <button
@@ -538,7 +580,7 @@ export default function WorkoutReportPanel() {
         </div>
         <div className="rounded-xl bg-slate-950/60 p-3">
           <div className="text-slate-400">
-            종료 경기
+            오늘 총 경기
           </div>
           <div className="mt-1 text-2xl font-black text-white">
             {report.totalMatches}경기
@@ -554,10 +596,10 @@ export default function WorkoutReportPanel() {
         </div>
         <div className="rounded-xl bg-slate-950/60 p-3">
           <div className="text-slate-400">
-            최다/최소
+            평균 섞임률
           </div>
           <div className="mt-1 text-2xl font-black text-white">
-            {report.maxMatches}/{report.minMatches}
+            {report.averageMixPercent}%
           </div>
         </div>
       </div>
@@ -580,6 +622,9 @@ export default function WorkoutReportPanel() {
             <p>
               선수 교체/코트 내 교체: {report.replacementEvents}/{report.swapEvents}회
             </p>
+            <p>
+              종료/점수 입력: {report.completedMatches}/{report.scoredMatches}경기
+            </p>
           </div>
         </div>
 
@@ -589,15 +634,53 @@ export default function WorkoutReportPanel() {
           </div>
           <div className="mt-2 space-y-1 text-slate-400">
             <p>
-              파트너 반복: {report.duplicatePartnerCount}건
+              평균 섞임률: {report.averageMixPercent}%
             </p>
             <p>
-              같은 경기 반복: {report.duplicateSameGameCount}건
+              가장 덜 섞인 인원:{" "}
+              {report.leastMixedRows
+                .map(
+                  (row) =>
+                    `${row.name} ${row.mixPercent}%`
+                )
+                .join(", ") || "기록 없음"}
             </p>
             <p>
-              점수 입력: {report.scoredMatches}/{report.totalMatches}경기
+              전체 참가자와 한 번 이상 만난 인원:{" "}
+              {report.noMissRows
+                .map((row) => row.name)
+                .join(", ") || "없음"}
             </p>
           </div>
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-xl bg-slate-950/60 p-3">
+        <div className="font-bold text-slate-200">
+          개인별 섞임률
+        </div>
+        <p className="mt-1 text-xs leading-5 text-slate-500">
+          섞임률은 오늘 참가자 중 같은 경기에 한 번 이상 같이 배치된 사람의 비율입니다.
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2 text-sm">
+          {report.mixingRows.length ===
+          0 ? (
+            <span className="text-slate-500">
+              아직 집계할 경기 기록이 없습니다.
+            </span>
+          ) : (
+            report.mixingRows.map(
+              (row) => (
+                <span
+                  key={row.id}
+                  className="rounded-full bg-slate-800 px-3 py-1 text-slate-200"
+                  title={`${row.metCount}/${row.possibleCount}명과 같은 경기, 미경험 ${row.missedCount}명`}
+                >
+                  {row.name} {row.mixPercent}% ({row.metCount}/{row.possibleCount})
+                </span>
+              )
+            )
+          )}
         </div>
       </div>
 
@@ -621,6 +704,60 @@ export default function WorkoutReportPanel() {
                   {row.name} {row.matchCount}경기
                 </span>
               )
+            )
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-xl bg-slate-950/60 p-3">
+        <div className="font-bold text-slate-200">
+          오늘 전체 경기
+        </div>
+        <div className="mt-2 space-y-2 text-sm text-slate-300">
+          {report.histories.length ===
+          0 ? (
+            <p className="text-slate-500">
+              아직 종료된 경기 기록이 없습니다.
+            </p>
+          ) : (
+            report.histories.map(
+              (history, index) => {
+                const scoreText =
+                  typeof history.teamAScore ===
+                    "number" &&
+                  typeof history.teamBScore ===
+                    "number"
+                    ? ` · ${history.teamAScore}:${history.teamBScore}`
+                    : "";
+
+                return (
+                  <div
+                    key={history.id}
+                    className="rounded-xl bg-slate-900 px-3 py-2"
+                  >
+                    {index + 1}. Court {history.courtId}{" "}
+                    {formatKstTime(
+                      history.startedAt
+                    )}
+                    ~
+                    {formatKstTime(
+                      history.endedAt
+                    )}{" "}
+                    {formatTeam(
+                      history.teamA,
+                      report.histories,
+                      report.currentNames
+                    )}{" "}
+                    vs{" "}
+                    {formatTeam(
+                      history.teamB,
+                      report.histories,
+                      report.currentNames
+                    )}
+                    {scoreText}
+                  </div>
+                );
+              }
             )
           )}
         </div>
