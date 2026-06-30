@@ -121,10 +121,10 @@ export function scorePlayerSelection(
 
   const diversity =
     Math.max(
-      0,
+      -1,
       1 -
-        repeatedPairs / 4 -
-        hardRepeatedPairs / 3
+        repeatedPairs / 3 -
+        hardRepeatedPairs / 1.5
     ) * weights.diversity;
   const matchCount =
     players.reduce(

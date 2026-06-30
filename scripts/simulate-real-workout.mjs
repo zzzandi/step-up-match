@@ -92,6 +92,11 @@ try {
   } = await server.ssrLoadModule(
     "/src/engine/playerSelector.ts"
   );
+  const {
+    scorePlayerSelection,
+  } = await server.ssrLoadModule(
+    "/src/engine/v2/selectionScorer.ts"
+  );
 
   const results = [];
   const run = (
@@ -6278,6 +6283,198 @@ try {
         selectedIds.has("player-01") &&
           selectedIds.has("player-02"),
         false
+      );
+    }
+  );
+
+  run(
+    "team scoring strongly penalizes avoidable skill imbalance",
+    () => {
+      const now =
+        Date.now();
+      const makePlayer = (
+        id,
+        gender,
+        grade,
+        hiddenSkill
+      ) => ({
+        id,
+        name: id,
+        gender,
+        grade,
+        hiddenSkill,
+        isPresent: true,
+        arrivalTime:
+          new Date(
+            now - 20 * 60 * 1000
+          ),
+        matchCount: 2,
+        consecutiveMatches: 0,
+        status: "WAITING",
+        waitingStartedAt:
+          new Date(
+            now - 20 * 60 * 1000
+          ),
+        lastPartners: [],
+        lastOpponents: [],
+      });
+
+      const strongA =
+        makePlayer(
+          "strong-a",
+          "M",
+          "A",
+          80
+        );
+      const strongB =
+        makePlayer(
+          "strong-b",
+          "M",
+          "A",
+          80
+        );
+      const weakA =
+        makePlayer(
+          "weak-a",
+          "M",
+          "F",
+          35
+        );
+      const weakB =
+        makePlayer(
+          "weak-b",
+          "M",
+          "F",
+          35
+        );
+
+      const unbalanced =
+        scoreMatch({
+          id: "unbalanced",
+          teamA: [strongA, strongB],
+          teamB: [weakA, weakB],
+        });
+      const balanced =
+        scoreMatch({
+          id: "balanced",
+          teamA: [strongA, weakA],
+          teamB: [strongB, weakB],
+        });
+
+      assert.ok(
+        unbalanced.balanceGapPenalty > 0
+      );
+      assert.ok(
+        balanced.total >
+          unbalanced.total
+      );
+      assert.ok(
+        balanced.balanceGap <
+          unbalanced.balanceGap
+      );
+    }
+  );
+
+  run(
+    "selection scoring can go negative for heavily repeated same-game groups",
+    () => {
+      const now =
+        Date.now();
+      const makePlayer = (
+        id,
+        repeatedIds = []
+      ) => ({
+        id,
+        name: id,
+        gender: "M",
+        grade: "E",
+        hiddenSkill: 45,
+        isPresent: true,
+        arrivalTime:
+          new Date(
+            now - 30 * 60 * 1000
+          ),
+        matchCount: 3,
+        consecutiveMatches: 0,
+        status: "WAITING",
+        waitingStartedAt:
+          new Date(
+            now - 30 * 60 * 1000
+          ),
+        lastPartners:
+          repeatedIds.slice(0, 2),
+        lastOpponents:
+          repeatedIds,
+      });
+
+      const repeatedGroup = [
+        makePlayer(
+          "repeat-1",
+          [
+            "repeat-2",
+            "repeat-3",
+            "repeat-4",
+            "repeat-2",
+            "repeat-3",
+            "repeat-4",
+          ]
+        ),
+        makePlayer(
+          "repeat-2",
+          [
+            "repeat-1",
+            "repeat-3",
+            "repeat-4",
+            "repeat-1",
+            "repeat-3",
+            "repeat-4",
+          ]
+        ),
+        makePlayer(
+          "repeat-3",
+          [
+            "repeat-1",
+            "repeat-2",
+            "repeat-4",
+            "repeat-1",
+            "repeat-2",
+            "repeat-4",
+          ]
+        ),
+        makePlayer(
+          "repeat-4",
+          [
+            "repeat-1",
+            "repeat-2",
+            "repeat-3",
+            "repeat-1",
+            "repeat-2",
+            "repeat-3",
+          ]
+        ),
+      ];
+      const freshGroup = [
+        makePlayer("fresh-1"),
+        makePlayer("fresh-2"),
+        makePlayer("fresh-3"),
+        makePlayer("fresh-4"),
+      ];
+
+      const repeatedScore =
+        scorePlayerSelection(
+          repeatedGroup
+        );
+      const freshScore =
+        scorePlayerSelection(
+          freshGroup
+        );
+
+      assert.ok(
+        repeatedScore.diversity < 0
+      );
+      assert.ok(
+        freshScore.total >
+          repeatedScore.total
       );
     }
   );

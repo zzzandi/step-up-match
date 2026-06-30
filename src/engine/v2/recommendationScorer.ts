@@ -22,6 +22,12 @@ const FIXED_PARTNER_TEAM_BONUS = 8;
 const MIN_FIXED_PARTNER_REST_MINUTES = 8;
 const MAX_FIXED_PARTNER_BALANCE_GAP = 10;
 const FIXED_PARTNER_IMBALANCE_PENALTY_PER_POINT = 2;
+const BALANCE_SOFT_LIMIT = 8;
+const BALANCE_HEAVY_LIMIT = 16;
+const BALANCE_PENALTY_PER_POINT = 2.5;
+const BALANCE_HEAVY_PENALTY_PER_POINT = 3;
+const PARTNER_REPEAT_PENALTY = 18;
+const OPPONENT_REPEAT_PENALTY = 8;
 
 function isFixedPartnerPair(
   playerA: TeamMatch["teamA"][number],
@@ -57,9 +63,52 @@ function getBalanceSkill(
   );
 }
 
+function countOccurrences(
+  items: string[],
+  target: string
+) {
+  return items.filter(
+    (item) => item === target
+  ).length;
+}
+
+function countRecentPartnerRepeats(
+  playerA: TeamMatch["teamA"][number],
+  playerB: TeamMatch["teamA"][number]
+) {
+  return (
+    countOccurrences(
+      playerA.lastPartners,
+      playerB.id
+    ) +
+    countOccurrences(
+      playerB.lastPartners,
+      playerA.id
+    )
+  );
+}
+
+function countRecentOpponentRepeats(
+  playerA: TeamMatch["teamA"][number],
+  playerB: TeamMatch["teamA"][number]
+) {
+  return (
+    countOccurrences(
+      playerA.lastOpponents,
+      playerB.id
+    ) +
+    countOccurrences(
+      playerB.lastOpponents,
+      playerA.id
+    )
+  );
+}
+
 export interface RecommendationScore {
   total: number;
   balance: number;
+  balanceGap: number;
+  balanceGapPenalty: number;
   diversity: number;
   partnerDiversity: number;
   opponentDiversity: number;
@@ -111,6 +160,17 @@ export function scoreMatch(
       0,
       weights.balance - gap
     );
+  const balanceGapPenalty =
+    Math.max(
+      0,
+      gap - BALANCE_SOFT_LIMIT
+    ) *
+      BALANCE_PENALTY_PER_POINT +
+    Math.max(
+      0,
+      gap - BALANCE_HEAVY_LIMIT
+    ) *
+      BALANCE_HEAVY_PENALTY_PER_POINT;
 
   let partnerPenalty = 0;
 
@@ -118,55 +178,58 @@ export function scoreMatch(
     !isFixedPartnerPair(
       teamA[0],
       teamA[1]
-    ) &&
-    (teamA[0].lastPartners.includes(
-      teamA[1].id
-    ) ||
-      teamA[1].lastPartners.includes(
-        teamA[0].id
-      ))
+    )
   ) {
-    partnerPenalty -= 15;
+    partnerPenalty -=
+      Math.min(
+        3,
+        countRecentPartnerRepeats(
+          teamA[0],
+          teamA[1]
+        )
+      ) * PARTNER_REPEAT_PENALTY;
   }
 
   if (
     !isFixedPartnerPair(
       teamB[0],
       teamB[1]
-    ) &&
-    (teamB[0].lastPartners.includes(
-      teamB[1].id
-    ) ||
-      teamB[1].lastPartners.includes(
-        teamB[0].id
-      ))
+    )
   ) {
-    partnerPenalty -= 15;
+    partnerPenalty -=
+      Math.min(
+        3,
+        countRecentPartnerRepeats(
+          teamB[0],
+          teamB[1]
+        )
+      ) * PARTNER_REPEAT_PENALTY;
   }
 
   const partnerDiversity =
-    weights.partnerDiversity +
-    partnerPenalty;
+    Math.max(
+      -weights.partnerDiversity,
+      weights.partnerDiversity +
+        partnerPenalty
+    );
   let opponentPenalty = 0;
 
   teamA.forEach((player) => {
     teamB.forEach((opponent) => {
-      if (
-        player.lastOpponents.includes(
-          opponent.id
-        ) ||
-        opponent.lastOpponents.includes(
-          player.id
-        )
-      ) {
-        opponentPenalty -= 5;
-      }
+      opponentPenalty -=
+        Math.min(
+          3,
+          countRecentOpponentRepeats(
+            player,
+            opponent
+          )
+        ) * OPPONENT_REPEAT_PENALTY;
     });
   });
 
   const opponentDiversity =
     Math.max(
-      0,
+      -weights.opponentDiversity,
       weights.opponentDiversity +
         opponentPenalty
     );
@@ -250,11 +313,14 @@ export function scoreMatch(
     genderBonus +
     fixedPartnerBonus *
       FIXED_PARTNER_TEAM_BONUS -
+    balanceGapPenalty -
     fixedPartnerBalancePenalty;
 
   return {
     total,
     balance,
+    balanceGap: gap,
+    balanceGapPenalty,
     diversity,
     partnerDiversity,
     opponentDiversity,

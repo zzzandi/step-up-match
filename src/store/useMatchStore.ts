@@ -1490,7 +1490,7 @@ export const useMatchStore =
                         )
                         .map((p) => p.id),
                     ].slice(
-                      -2
+                      -6
                     ),
  
                   lastOpponents:
@@ -1500,7 +1500,7 @@ export const useMatchStore =
                         (p) => p.id
                       ),
                     ].slice(
-                      -6
+                      -18
                     ),
                 };
               }
