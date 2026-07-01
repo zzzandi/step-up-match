@@ -10,6 +10,7 @@ import type {
 import type {
   WorkoutReportEvent,
   WorkoutReportEventType,
+  WorkoutReportSnapshot,
 } from "@/types/workoutReport";
 
 import {
@@ -66,6 +67,69 @@ export type ExcludedMatchPair = [
   string,
   string,
 ];
+
+function getKstDateKey(
+  date = new Date()
+) {
+  return new Intl.DateTimeFormat(
+    "en-CA",
+    {
+      timeZone: "Asia/Seoul",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }
+  ).format(date);
+}
+
+function createWorkoutReportSnapshot({
+  players,
+  matchHistory,
+  workoutReportEvents,
+  createdAt = new Date(),
+}: {
+  players: Player[];
+  matchHistory: MatchHistory[];
+  workoutReportEvents: WorkoutReportEvent[];
+  createdAt?: Date;
+}): WorkoutReportSnapshot | null {
+  if (
+    players.length === 0 &&
+    matchHistory.length === 0 &&
+    workoutReportEvents.length === 0
+  ) {
+    return null;
+  }
+
+  return {
+    id: crypto.randomUUID(),
+    workoutDate:
+      getKstDateKey(createdAt),
+    createdAt:
+      createdAt.toISOString(),
+    players,
+    matchHistory,
+    workoutReportEvents,
+  };
+}
+
+function appendWorkoutReportSnapshot(
+  snapshots: WorkoutReportSnapshot[],
+  snapshot: WorkoutReportSnapshot | null
+) {
+  if (!snapshot) {
+    return snapshots;
+  }
+
+  return [
+    snapshot,
+    ...snapshots.filter(
+      (item) =>
+        item.workoutDate !==
+        snapshot.workoutDate
+    ),
+  ].slice(0, 30);
+}
 
 function createWorkoutReportEvent({
   type,
@@ -311,6 +375,9 @@ export interface MatchStore {
   workoutReportEvents:
     WorkoutReportEvent[];
 
+  workoutReportSnapshots:
+    WorkoutReportSnapshot[];
+
   recommendations:
     MatchRecommendation[];
 
@@ -484,6 +551,8 @@ export const useMatchStore =
       matchHistory: [],
 
       workoutReportEvents: [],
+
+      workoutReportSnapshots: [],
 
       recommendations: [],
 
@@ -1060,6 +1129,19 @@ export const useMatchStore =
         },
 
       endTodaySession: () => {
+        const {
+          players,
+          matchHistory,
+          workoutReportEvents,
+          workoutReportSnapshots,
+        } = get();
+        const snapshot =
+          createWorkoutReportSnapshot({
+            players,
+            matchHistory,
+            workoutReportEvents,
+          });
+
         set({
           players: [],
           courts: [],
@@ -1083,6 +1165,11 @@ export const useMatchStore =
           matchHistory: [],
           workoutReportEvents:
             [],
+          workoutReportSnapshots:
+            appendWorkoutReportSnapshot(
+              workoutReportSnapshots,
+              snapshot
+            ),
         });
       },
 

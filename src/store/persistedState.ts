@@ -9,6 +9,7 @@ const ARRAY_FIELDS = [
   "dismissedNotificationIds",
   "matchHistory",
   "workoutReportEvents",
+  "workoutReportSnapshots",
   "excludedMatchPairs",
 ] as const;
 
@@ -209,6 +210,79 @@ export function normalizePersistedMatchState(
       );
 
     return history;
+  });
+  normalized.workoutReportSnapshots = (
+    normalized.workoutReportSnapshots as unknown[]
+  ).map((value) => {
+    if (
+      !value ||
+      typeof value !== "object" ||
+      Array.isArray(value)
+    ) {
+      return value;
+    }
+
+    const snapshot = {
+      ...(value as Record<
+        string,
+        unknown
+      >),
+    };
+
+    snapshot.players = Array.isArray(
+      snapshot.players
+    )
+      ? snapshot.players
+          .map(revivePlayer)
+          .filter(Boolean)
+      : [];
+    snapshot.matchHistory =
+      Array.isArray(
+        snapshot.matchHistory
+      )
+        ? snapshot.matchHistory.map(
+            (historyValue) => {
+              if (
+                !historyValue ||
+                typeof historyValue !==
+                  "object" ||
+                Array.isArray(
+                  historyValue
+                )
+              ) {
+                return historyValue;
+              }
+
+              const history = {
+                ...(historyValue as Record<
+                  string,
+                  unknown
+                >),
+              };
+
+              history.startedAt =
+                reviveDate(
+                  history.startedAt,
+                  new Date(0)
+                );
+              history.endedAt =
+                reviveDate(
+                  history.endedAt,
+                  new Date(0)
+                );
+
+              return history;
+            }
+          )
+        : [];
+    snapshot.workoutReportEvents =
+      Array.isArray(
+        snapshot.workoutReportEvents
+      )
+        ? snapshot.workoutReportEvents
+        : [];
+
+    return snapshot;
   });
   normalized.recommendations = [];
   normalized.selectedRecommendation =

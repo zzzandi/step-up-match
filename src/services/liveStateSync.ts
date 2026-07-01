@@ -18,6 +18,7 @@ export type LiveStateSnapshot = Pick<
   | "dismissedNotificationIds"
   | "matchHistory"
   | "workoutReportEvents"
+  | "workoutReportSnapshots"
   | "womenDoublesPriority"
   | "excludedMatchPairs"
 >;
@@ -34,7 +35,8 @@ export type LiveStateEntityKey =
   | "fixedPartnerRequestResolutions"
   | "notifications"
   | "matchHistory"
-  | "workoutReportEvents";
+  | "workoutReportEvents"
+  | "workoutReportSnapshots";
 
 export interface LiveStatePatch {
   changedKeys: LiveStateKey[];
@@ -106,6 +108,8 @@ export function createLiveStateSnapshot(
       state.matchHistory,
     workoutReportEvents:
       state.workoutReportEvents,
+    workoutReportSnapshots:
+      state.workoutReportSnapshots,
     womenDoublesPriority:
       state.womenDoublesPriority,
     excludedMatchPairs:
@@ -212,6 +216,7 @@ const liveStateKeys: LiveStateKey[] =
     "dismissedNotificationIds",
     "matchHistory",
     "workoutReportEvents",
+    "workoutReportSnapshots",
     "womenDoublesPriority",
     "excludedMatchPairs",
   ];
@@ -227,6 +232,7 @@ const entityKeys:
     "notifications",
     "matchHistory",
     "workoutReportEvents",
+    "workoutReportSnapshots",
   ];
 
 export function createLiveStatePatch(
@@ -1308,6 +1314,12 @@ function mergeBootstrapSnapshots(
         current.workoutReportEvents,
         true
       ),
+    workoutReportSnapshots:
+      mergeById(
+        incoming.workoutReportSnapshots,
+        current.workoutReportSnapshots,
+        true
+      ),
     womenDoublesPriority:
       current.womenDoublesPriority ||
       incoming.womenDoublesPriority,
@@ -1720,6 +1732,22 @@ export function mergeLiveStateSnapshot(
 
     if (
       changed.has(
+        "workoutReportSnapshots"
+      )
+    ) {
+      next.workoutReportSnapshots =
+        mergeChangedEntities(
+          current.workoutReportSnapshots,
+          incoming.workoutReportSnapshots,
+          patch.changedEntityIds
+            ?.workoutReportSnapshots,
+          patch.removedEntityIds
+            ?.workoutReportSnapshots
+        );
+    }
+
+    if (
+      changed.has(
         "womenDoublesPriority"
       )
     ) {
@@ -2022,6 +2050,12 @@ export function mergeLiveStateSnapshot(
       mergeById(
         current.workoutReportEvents,
         incoming.workoutReportEvents,
+        true
+      ),
+    workoutReportSnapshots:
+      mergeById(
+        current.workoutReportSnapshots,
+        incoming.workoutReportSnapshots,
         true
       ),
     })

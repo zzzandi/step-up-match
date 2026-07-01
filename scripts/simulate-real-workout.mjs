@@ -5335,6 +5335,9 @@ try {
       const historyCount =
         useMatchStore.getState()
           .matchHistory.length;
+      const eventCount =
+        useMatchStore.getState()
+          .workoutReportEvents.length;
       useMatchStore
         .getState()
         .endTodaySession();
@@ -5368,6 +5371,27 @@ try {
         next.matchHistory.length,
         0
       );
+      assert.equal(
+        next.workoutReportEvents
+          .length,
+        0
+      );
+      assert.equal(
+        next.workoutReportSnapshots
+          .length > 0,
+        true
+      );
+      assert.equal(
+        next.workoutReportSnapshots[0]
+          .matchHistory.length,
+        historyCount
+      );
+      assert.equal(
+        next.workoutReportSnapshots[0]
+          .workoutReportEvents
+          .length,
+        eventCount
+      );
     }
   );
 
@@ -5394,6 +5418,10 @@ try {
               [],
             notifications: [],
             matchHistory: [],
+            workoutReportEvents:
+              [],
+            workoutReportSnapshots:
+              [],
             womenDoublesPriority:
               false,
             excludedMatchPairs:

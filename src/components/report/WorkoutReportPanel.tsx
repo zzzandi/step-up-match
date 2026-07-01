@@ -111,6 +111,11 @@ export default function WorkoutReportPanel() {
       (state) =>
         state.workoutReportEvents
     );
+  const workoutReportSnapshots =
+    useMatchStore(
+      (state) =>
+        state.workoutReportSnapshots
+    );
   const [
     copied,
     setCopied,
@@ -118,8 +123,34 @@ export default function WorkoutReportPanel() {
 
   const report =
     useMemo(() => {
+      const latestSnapshot =
+        [...workoutReportSnapshots].sort(
+          (a, b) =>
+            new Date(
+              b.createdAt
+            ).getTime() -
+            new Date(
+              a.createdAt
+            ).getTime()
+        )[0];
+      const shouldUseSnapshot =
+        matchHistory.length === 0 &&
+        workoutReportEvents.length === 0 &&
+        Boolean(latestSnapshot);
+      const reportPlayers =
+        shouldUseSnapshot
+          ? latestSnapshot!.players
+          : players;
+      const reportMatchHistory =
+        shouldUseSnapshot
+          ? latestSnapshot!.matchHistory
+          : matchHistory;
+      const reportEvents =
+        shouldUseSnapshot
+          ? latestSnapshot!.workoutReportEvents
+          : workoutReportEvents;
       const histories =
-        [...matchHistory].sort(
+        [...reportMatchHistory].sort(
           (a, b) =>
             new Date(
               a.startedAt
@@ -130,7 +161,7 @@ export default function WorkoutReportPanel() {
         );
       const currentNames =
         new Map(
-          players.map(
+          reportPlayers.map(
             (player) => [
               player.id,
               player.name,
@@ -140,7 +171,7 @@ export default function WorkoutReportPanel() {
       const participantIds =
         new Set<string>();
 
-      players
+      reportPlayers
         .filter(
           (player) =>
             player.isPresent &&
@@ -310,21 +341,21 @@ export default function WorkoutReportPanel() {
       const completedMatches =
         histories.length;
       const autoGameEvents =
-        workoutReportEvents.filter(
+        reportEvents.filter(
           (event) =>
             event.type ===
               "AUTO_MATCH" &&
             event.target === "GAME"
         ).length;
       const manualGameEvents =
-        workoutReportEvents.filter(
+        reportEvents.filter(
           (event) =>
             event.type ===
               "MANUAL_MATCH" &&
             event.target === "GAME"
         ).length;
       const promotedEvents =
-        workoutReportEvents.filter(
+        reportEvents.filter(
           (event) =>
             event.type ===
             "QUEUED_PROMOTED"
@@ -384,7 +415,7 @@ export default function WorkoutReportPanel() {
         );
 
       const autoQueuedEvents =
-        workoutReportEvents.filter(
+        reportEvents.filter(
           (event) =>
             event.type ===
               "AUTO_MATCH" &&
@@ -392,7 +423,7 @@ export default function WorkoutReportPanel() {
               "QUEUE"
         ).length;
       const manualQueuedEvents =
-        workoutReportEvents.filter(
+        reportEvents.filter(
           (event) =>
             event.type ===
               "MANUAL_MATCH" &&
@@ -400,13 +431,13 @@ export default function WorkoutReportPanel() {
               "QUEUE"
         ).length;
       const replacementEvents =
-        workoutReportEvents.filter(
+        reportEvents.filter(
           (event) =>
             event.type ===
             "PLAYER_REPLACED"
         ).length;
       const swapEvents =
-        workoutReportEvents.filter(
+        reportEvents.filter(
           (event) =>
             event.type ===
             "COURT_PLAYERS_SWAPPED"
@@ -520,11 +551,18 @@ export default function WorkoutReportPanel() {
         histories,
         currentNames,
         copyText,
+        isSnapshotReport:
+          shouldUseSnapshot,
+        snapshotCreatedAt:
+          latestSnapshot?.createdAt,
+        snapshotWorkoutDate:
+          latestSnapshot?.workoutDate,
       };
     }, [
       matchHistory,
       players,
       workoutReportEvents,
+      workoutReportSnapshots,
     ]);
 
   async function copyReport() {
@@ -568,6 +606,16 @@ export default function WorkoutReportPanel() {
             : "문안 복사"}
         </button>
       </div>
+
+      {report.isSnapshotReport && (
+        <div className="mt-4 rounded-xl border border-amber-300/30 bg-amber-300/10 p-3 text-sm leading-6 text-amber-100">
+          오늘 운동 데이터가 초기화되어 마지막 백업 리포트를 표시합니다.
+          {report.snapshotWorkoutDate &&
+            ` 날짜: ${report.snapshotWorkoutDate}`}
+          {report.snapshotCreatedAt &&
+            ` / 백업 시각: ${formatKstTime(report.snapshotCreatedAt)}`}
+        </div>
+      )}
 
       <div className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
         <div className="rounded-xl bg-slate-950/60 p-3">

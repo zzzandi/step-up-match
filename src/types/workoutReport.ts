@@ -1,3 +1,10 @@
+import type {
+  MatchHistory,
+} from "@/types/matchHistory";
+import type {
+  Player,
+} from "@/types/player";
+
 export type WorkoutReportEventType =
   | "AUTO_MATCH"
   | "MANUAL_MATCH"
@@ -17,4 +24,13 @@ export interface WorkoutReportEvent {
     string
   >;
   description: string;
+}
+
+export interface WorkoutReportSnapshot {
+  id: string;
+  workoutDate: string;
+  createdAt: string;
+  players: Player[];
+  matchHistory: MatchHistory[];
+  workoutReportEvents: WorkoutReportEvent[];
 }
