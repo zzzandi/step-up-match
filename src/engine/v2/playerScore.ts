@@ -8,6 +8,27 @@ import {
   ENGINE_CONFIG,
 } from "./engineConfig";
 
+const EXPECTED_MATCH_INTERVAL_MINUTES = 18;
+
+function getAttendanceMinutes(
+  player: Player
+) {
+  const startedAt =
+    player.arrivalTime ??
+    player.waitingStartedAt;
+
+  if (!startedAt) {
+    return 0;
+  }
+
+  return Math.max(
+    0,
+    (Date.now() -
+      new Date(startedAt).getTime()) /
+      60_000
+  );
+}
+
 export function calculatePlayerScore(
   player: Player
 ) {
@@ -23,17 +44,22 @@ export function calculatePlayerScore(
       60
     ) *
     (weights.rest / 60);
+  const expectedMatchCount =
+    getAttendanceMinutes(player) /
+    EXPECTED_MATCH_INTERVAL_MINUTES;
+  const matchDeficit =
+    expectedMatchCount -
+    player.matchCount;
   const matchCount =
     Math.max(
       0,
-      10 - player.matchCount
+      Math.min(2, matchDeficit)
     ) *
-    (weights.matchCount / 10);
+    (weights.matchCount / 2);
   const consecutive =
-    Math.max(
-      0,
-      2 -
-        player.consecutiveMatches
+    -Math.min(
+      2,
+      player.consecutiveMatches
     ) *
     (weights.consecutive / 2);
 

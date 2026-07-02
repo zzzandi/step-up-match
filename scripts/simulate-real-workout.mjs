@@ -97,6 +97,11 @@ try {
   } = await server.ssrLoadModule(
     "/src/engine/v2/selectionScorer.ts"
   );
+  const {
+    calculatePlayerScore,
+  } = await server.ssrLoadModule(
+    "/src/engine/v2/playerScore.ts"
+  );
 
   const results = [];
   const run = (
@@ -6672,6 +6677,138 @@ try {
       assert.ok(
         freshScore.total >
           repeatedScore.total
+      );
+    }
+  );
+
+  run(
+    "old same-day shared games are still penalized after many later games",
+    () => {
+      const now =
+        Date.now();
+      const makePlayer = (
+        id,
+        repeatedIds = []
+      ) => ({
+        id,
+        name: id,
+        gender: "M",
+        grade: "E",
+        hiddenSkill: 45,
+        isPresent: true,
+        arrivalTime:
+          new Date(
+            now - 90 * 60 * 1000
+          ),
+        matchCount: 4,
+        consecutiveMatches: 0,
+        status: "WAITING",
+        waitingStartedAt:
+          new Date(
+            now - 20 * 60 * 1000
+          ),
+        lastPartners:
+          repeatedIds.slice(0, 1),
+        lastOpponents: [
+          ...repeatedIds,
+          ...Array.from(
+            { length: 24 },
+            (_, index) =>
+              `${id}-later-${index}`
+          ),
+        ],
+      });
+
+      const repeatedGroup = [
+        makePlayer("old-1", [
+          "old-2",
+          "old-3",
+          "old-4",
+        ]),
+        makePlayer("old-2", [
+          "old-1",
+          "old-3",
+          "old-4",
+        ]),
+        makePlayer("old-3", [
+          "old-1",
+          "old-2",
+          "old-4",
+        ]),
+        makePlayer("old-4", [
+          "old-1",
+          "old-2",
+          "old-3",
+        ]),
+      ];
+      const freshGroup = [
+        makePlayer("new-1"),
+        makePlayer("new-2"),
+        makePlayer("new-3"),
+        makePlayer("new-4"),
+      ];
+
+      const repeatedScore =
+        scorePlayerSelection(
+          repeatedGroup
+        );
+      const freshScore =
+        scorePlayerSelection(
+          freshGroup
+        );
+
+      assert.ok(
+        repeatedScore.diversity <
+          freshScore.diversity
+      );
+      assert.ok(
+        freshScore.total >
+          repeatedScore.total
+      );
+    }
+  );
+
+  run(
+    "late zero-match player does not outrank rested early player solely by raw match count",
+    () => {
+      const now =
+        Date.now();
+      const latePlayer = {
+        ...makePlayer(0),
+        id: "late",
+        arrivalTime:
+          new Date(
+            now - 8 * 60 * 1000
+          ),
+        waitingStartedAt:
+          new Date(
+            now - 8 * 60 * 1000
+          ),
+        matchCount: 0,
+        consecutiveMatches: 0,
+      };
+      const earlyPlayer = {
+        ...makePlayer(1),
+        id: "early",
+        arrivalTime:
+          new Date(
+            now - 100 * 60 * 1000
+          ),
+        waitingStartedAt:
+          new Date(
+            now - 25 * 60 * 1000
+          ),
+        matchCount: 4,
+        consecutiveMatches: 0,
+      };
+
+      assert.ok(
+        calculatePlayerScore(
+          earlyPlayer
+        ) >
+          calculatePlayerScore(
+            latePlayer
+          )
       );
     }
   );

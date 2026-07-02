@@ -8,6 +8,8 @@ import {
   ENGINE_CONFIG,
 } from "./engineConfig";
 
+const EXPECTED_MATCH_INTERVAL_MINUTES = 18;
+
 export interface SelectionScore {
   total: number;
   rest: number;
@@ -59,6 +61,25 @@ function isFixedPartnerPair(
   );
 }
 
+function getAttendanceMinutes(
+  player: Player
+) {
+  const startedAt =
+    player.arrivalTime ??
+    player.waitingStartedAt;
+
+  if (!startedAt) {
+    return 0;
+  }
+
+  return Math.max(
+    0,
+    (Date.now() -
+      new Date(startedAt).getTime()) /
+      60_000
+  );
+}
+
 export function scorePlayerSelection(
   players: [Player, Player, Player, Player]
 ): SelectionScore {
@@ -81,6 +102,7 @@ export function scorePlayerSelection(
     weights.rest;
 
   let repeatedPairs = 0;
+  let repeatedPairSlots = 0;
   let hardRepeatedPairs = 0;
 
   for (
@@ -102,11 +124,17 @@ export function scorePlayerSelection(
         continue;
       }
 
-      repeatedPairs +=
+      const sharedGames =
         countRecentSharedGames(
           players[i],
           players[j]
         );
+
+      repeatedPairs += sharedGames;
+
+      if (sharedGames > 0) {
+        repeatedPairSlots += 1;
+      }
 
       if (
         hasRecentHardRepeat(
@@ -121,10 +149,11 @@ export function scorePlayerSelection(
 
   const diversity =
     Math.max(
-      -1,
+      -2,
       1 -
-        repeatedPairs / 3 -
-        hardRepeatedPairs / 1.5
+        repeatedPairSlots / 2 -
+        repeatedPairs / 4 -
+        hardRepeatedPairs
     ) * weights.diversity;
   const matchCount =
     players.reduce(
@@ -132,9 +161,16 @@ export function scorePlayerSelection(
         sum +
         Math.max(
           0,
-          10 - player.matchCount
+          Math.min(
+            2,
+            getAttendanceMinutes(
+              player
+            ) /
+              EXPECTED_MATCH_INTERVAL_MINUTES -
+              player.matchCount
+          )
         ) /
-          10,
+          2,
       0
     ) /
     players.length *
@@ -143,10 +179,9 @@ export function scorePlayerSelection(
     players.reduce(
       (sum, player) =>
         sum +
-        Math.max(
-          0,
-          2 -
-            player.consecutiveMatches
+        -Math.min(
+          2,
+          player.consecutiveMatches
         ) /
           2,
       0
