@@ -443,7 +443,7 @@ function reconcileQueuedCourts(
         .filter(Boolean)
     );
 
-  return queuedCourts
+  const reconciled = queuedCourts
     .map((court) => {
       const queuedKey =
         courtPlayerKey(court);
@@ -454,6 +454,62 @@ function reconcileQueuedCourts(
         : court;
     })
     .sort((a, b) => a.id - b.id);
+
+  const occupiedCourts = reconciled
+    .filter(
+      (court) =>
+        court.teamA &&
+        court.teamB
+    )
+    .sort((a, b) => {
+      const aCreatedAt =
+        a.startedAt
+          ? new Date(
+              a.startedAt
+            ).getTime()
+          : 0;
+      const bCreatedAt =
+        b.startedAt
+          ? new Date(
+              b.startedAt
+            ).getTime()
+          : 0;
+
+      if (
+        aCreatedAt !== bCreatedAt
+      ) {
+        return (
+          aCreatedAt -
+          bCreatedAt
+        );
+      }
+
+      return a.id - b.id;
+    })
+    .map((court, index) => ({
+      ...court,
+      id: index + 1,
+      status: "QUEUED" as const,
+    }));
+
+  const targetLength = Math.max(
+    reconciled.length,
+    occupiedCourts.length
+  );
+  const next: LiveStateSnapshot["queuedCourts"] =
+    [...occupiedCourts];
+
+  while (next.length < targetLength) {
+    next.push({
+      id: next.length + 1,
+      status: "EMPTY" as const,
+      teamA: null,
+      teamB: null,
+      startedAt: null,
+    });
+  }
+
+  return next;
 }
 
 function getOldestQueuedCourt(

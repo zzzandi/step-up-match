@@ -271,6 +271,65 @@ function ensureDefaultQueuedCourts(
   return next;
 }
 
+function normalizeQueuedCourtOrder(
+  courts: Court[]
+) {
+  const occupiedCourts = courts
+    .filter(
+      (court) =>
+        court.teamA &&
+        court.teamB
+    )
+    .sort((a, b) => {
+      const aCreatedAt =
+        a.startedAt
+          ? new Date(
+              a.startedAt
+            ).getTime()
+          : 0;
+      const bCreatedAt =
+        b.startedAt
+          ? new Date(
+              b.startedAt
+            ).getTime()
+          : 0;
+
+      if (
+        aCreatedAt !== bCreatedAt
+      ) {
+        return (
+          aCreatedAt -
+          bCreatedAt
+        );
+      }
+
+      return a.id - b.id;
+    })
+    .map((court, index) => ({
+      ...court,
+      id: index + 1,
+      status: "QUEUED" as const,
+    }));
+
+  const targetLength =
+    Math.max(
+      DEFAULT_QUEUED_COURT_COUNT,
+      courts.length,
+      occupiedCourts.length
+    );
+  const next: Court[] = [
+    ...occupiedCourts,
+  ];
+
+  while (next.length < targetLength) {
+    next.push(
+      createEmptyCourt(next.length + 1)
+    );
+  }
+
+  return next;
+}
+
 function getNextQueuedCourt(
   queuedCourts: Court[]
 ) {
@@ -1769,15 +1828,11 @@ export const useMatchStore =
               ),
             queuedCourts:
               nextQueuedCourt
-                ? ensureDefaultQueuedCourts(
-                    queuedCourts.map(
-                    (court) =>
-                      court.id ===
-                      nextQueuedCourt.id
-                        ? createEmptyCourt(
-                            court.id
-                          )
-                        : court
+                ? normalizeQueuedCourtOrder(
+                    queuedCourts.filter(
+                      (court) =>
+                        court.id !==
+                        nextQueuedCourt.id
                     )
                   )
                 : queuedCourts,
@@ -2231,6 +2286,13 @@ export const useMatchStore =
                 court.id ===
                 selectedRecommendation.courtId
             );
+          const targetCourtOccupied =
+            Boolean(
+              targetCourt?.teamA ||
+                targetCourt?.teamB
+            ) ||
+            targetCourt?.status !==
+              "EMPTY";
           const currentSelectedPlayers =
             selectedIds.map(
               (playerId) =>
@@ -2246,8 +2308,7 @@ export const useMatchStore =
 
           if (
             !targetCourt ||
-            targetCourt.status ===
-              "PLAYING" ||
+            targetCourtOccupied ||
             selectedAlreadyQueued ||
             currentSelectedPlayers.some(
               (player) => !player
@@ -2543,7 +2604,9 @@ export const useMatchStore =
 
         if (
           !court ||
-          court.status === "PLAYING" ||
+          court.status !== "EMPTY" ||
+          court.teamA ||
+          court.teamB ||
           selectedPlayers.some(
             (player) => !player
           )

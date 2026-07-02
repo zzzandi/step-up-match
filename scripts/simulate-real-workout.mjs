@@ -3720,7 +3720,7 @@ try {
       useMatchStore
         .getState()
         .assignManualMatch(
-          1,
+          2,
           ["player-01", "player-02"],
           ["player-03", "player-04"],
           "QUEUE"
@@ -3729,7 +3729,7 @@ try {
         queuedCourts:
           state.queuedCourts.map(
             (court) =>
-              court.id === 1
+              court.id === 2
                 ? {
                     ...court,
                     startedAt:
@@ -3771,6 +3771,175 @@ try {
 
       assert.deepEqual(
         remainingQueuedIds,
+        [
+          "player-01",
+          "player-02",
+          "player-03",
+          "player-04",
+        ]
+      );
+    }
+  );
+
+  run(
+    "promoted queued court compacts remaining queued matches to the first visible slot",
+    () => {
+      resetStore(12, 1);
+      useMatchStore.setState({
+        queuedCourts: [
+          {
+            id: 1,
+            status: "EMPTY",
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          },
+          {
+            id: 2,
+            status: "EMPTY",
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          },
+        ],
+      });
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-02"],
+          ["player-03", "player-04"]
+        );
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-05", "player-06"],
+          ["player-07", "player-08"],
+          "QUEUE"
+        );
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          2,
+          ["player-09", "player-10"],
+          ["player-11", "player-12"],
+          "QUEUE"
+        );
+
+      useMatchStore
+        .getState()
+        .finishCourtMatch(1);
+
+      const promotedIds = [
+        ...useMatchStore.getState()
+          .courts[0].teamA,
+        ...useMatchStore.getState()
+          .courts[0].teamB,
+      ].map((player) => player.id);
+      const firstQueuedIds = [
+        ...useMatchStore.getState()
+          .queuedCourts[0].teamA,
+        ...useMatchStore.getState()
+          .queuedCourts[0].teamB,
+      ].map((player) => player.id);
+      const secondQueuedCourt =
+        useMatchStore.getState()
+          .queuedCourts[1];
+
+      assert.deepEqual(
+        promotedIds,
+        [
+          "player-05",
+          "player-06",
+          "player-07",
+          "player-08",
+        ]
+      );
+      assert.equal(
+        useMatchStore.getState()
+          .queuedCourts[0].id,
+        1
+      );
+      assert.deepEqual(
+        firstQueuedIds,
+        [
+          "player-09",
+          "player-10",
+          "player-11",
+          "player-12",
+        ]
+      );
+      assert.equal(
+        secondQueuedCourt.id,
+        2
+      );
+      assert.equal(
+        secondQueuedCourt.status,
+        "EMPTY"
+      );
+      assert.equal(
+        secondQueuedCourt.teamA,
+        null
+      );
+      assert.equal(
+        secondQueuedCourt.teamB,
+        null
+      );
+    }
+  );
+
+  run(
+    "occupied queued court cannot be overwritten by duplicate manual assignment",
+    () => {
+      resetStore(12, 1);
+      useMatchStore.setState({
+        queuedCourts: [
+          {
+            id: 1,
+            status: "EMPTY",
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          },
+        ],
+      });
+      const firstCreated =
+        useMatchStore
+          .getState()
+          .assignManualMatch(
+            1,
+            ["player-01", "player-02"],
+            ["player-03", "player-04"],
+            "QUEUE"
+          );
+      const duplicateCreated =
+        useMatchStore
+          .getState()
+          .assignManualMatch(
+            1,
+            ["player-05", "player-06"],
+            ["player-07", "player-08"],
+            "QUEUE"
+          );
+
+      const queuedIds = [
+        ...useMatchStore.getState()
+          .queuedCourts[0].teamA,
+        ...useMatchStore.getState()
+          .queuedCourts[0].teamB,
+      ].map((player) => player.id);
+
+      assert.equal(
+        firstCreated,
+        true
+      );
+      assert.equal(
+        duplicateCreated,
+        false
+      );
+      assert.deepEqual(
+        queuedIds,
         [
           "player-01",
           "player-02",
