@@ -5711,6 +5711,131 @@ try {
   );
 
   run(
+    "workout report snapshot stores only the session date matches",
+    () => {
+      resetStore(8, 1);
+      const today =
+        new Intl.DateTimeFormat(
+          "en-CA",
+          {
+            timeZone:
+              "Asia/Seoul",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          }
+        ).format(new Date());
+
+      useMatchStore.setState({
+        matchHistory: [
+          {
+            id: "old-history",
+            courtId: 1,
+            teamA: [
+              "player-01",
+              "player-02",
+            ],
+            teamB: [
+              "player-03",
+              "player-04",
+            ],
+            playerNames: {},
+            startedAt:
+              new Date(
+                "2026-07-01T20:00:00+09:00"
+              ),
+            endedAt:
+              new Date(
+                "2026-07-01T20:15:00+09:00"
+              ),
+          },
+          {
+            id: "today-history",
+            courtId: 1,
+            teamA: [
+              "player-05",
+              "player-06",
+            ],
+            teamB: [
+              "player-07",
+              "player-08",
+            ],
+            playerNames: {},
+            startedAt:
+              new Date(
+                `${today}T20:00:00+09:00`
+              ),
+            endedAt:
+              new Date(
+                `${today}T20:15:00+09:00`
+              ),
+          },
+        ],
+        workoutReportEvents: [
+          {
+            id: "old-event",
+            type: "AUTO_MATCH",
+            courtId: 1,
+            target: "GAME",
+            createdAt:
+              "2026-07-01T20:00:00+09:00",
+            playerIds: [
+              "player-01",
+              "player-02",
+              "player-03",
+              "player-04",
+            ],
+            playerNames: {},
+            description:
+              "old event",
+          },
+          {
+            id: "today-event",
+            type: "AUTO_MATCH",
+            courtId: 1,
+            target: "GAME",
+            createdAt:
+              `${today}T20:00:00+09:00`,
+            playerIds: [
+              "player-05",
+              "player-06",
+              "player-07",
+              "player-08",
+            ],
+            playerNames: {},
+            description:
+              "today event",
+          },
+        ],
+      });
+
+      useMatchStore
+        .getState()
+        .endTodaySession();
+      const snapshot =
+        useMatchStore.getState()
+          .workoutReportSnapshots[0];
+
+      assert.equal(
+        snapshot.workoutDate,
+        today
+      );
+      assert.deepEqual(
+        snapshot.matchHistory.map(
+          (history) => history.id
+        ),
+        ["today-history"]
+      );
+      assert.deepEqual(
+        snapshot.workoutReportEvents.map(
+          (event) => event.id
+        ),
+        ["today-event"]
+      );
+    }
+  );
+
+  run(
     "운동 개설 직후 지연된 빈 운영진 응답이 도착해도 참가자·코트·설정 유지",
     () => {
       resetStore(12, 3);

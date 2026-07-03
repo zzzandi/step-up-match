@@ -185,28 +185,34 @@ export default function WorkoutReportPanel({
           workoutReportEvents.length ===
             0 &&
           Boolean(snapshotToUse));
+      const reportDate =
+        shouldUseSnapshot
+          ? snapshotToUse!.workoutDate
+          : getKstDateKey();
       const reportPlayers =
         shouldUseSnapshot
           ? snapshotToUse!.players
           : players;
       const reportMatchHistory =
-        shouldUseSnapshot
+        (shouldUseSnapshot
           ? snapshotToUse!.matchHistory
-          : matchHistory.filter(
-              (history) =>
-                getKstDateKey(
-                  history.endedAt
-                ) === getKstDateKey()
-            );
+          : matchHistory
+        ).filter(
+          (history) =>
+            getKstDateKey(
+              history.endedAt
+            ) === reportDate
+        );
       const reportEvents =
-        shouldUseSnapshot
+        (shouldUseSnapshot
           ? snapshotToUse!.workoutReportEvents
-          : workoutReportEvents.filter(
-              (event) =>
-                getKstDateKey(
-                  event.createdAt
-                ) === getKstDateKey()
-            );
+          : workoutReportEvents
+        ).filter(
+          (event) =>
+            getKstDateKey(
+              event.createdAt
+            ) === reportDate
+        );
       const histories =
         [...reportMatchHistory].sort(
           (a, b) =>

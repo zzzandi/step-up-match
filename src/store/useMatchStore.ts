@@ -93,23 +93,41 @@ function createWorkoutReportSnapshot({
   workoutReportEvents: WorkoutReportEvent[];
   createdAt?: Date;
 }): WorkoutReportSnapshot | null {
+  const workoutDate =
+    getKstDateKey(createdAt);
+  const filteredMatchHistory =
+    matchHistory.filter(
+      (history) =>
+        getKstDateKey(
+          new Date(history.endedAt)
+        ) === workoutDate
+    );
+  const filteredWorkoutReportEvents =
+    workoutReportEvents.filter(
+      (event) =>
+        getKstDateKey(
+          new Date(event.createdAt)
+        ) === workoutDate
+    );
+
   if (
     players.length === 0 &&
-    matchHistory.length === 0 &&
-    workoutReportEvents.length === 0
+    filteredMatchHistory.length === 0 &&
+    filteredWorkoutReportEvents.length === 0
   ) {
     return null;
   }
 
   return {
     id: crypto.randomUUID(),
-    workoutDate:
-      getKstDateKey(createdAt),
+    workoutDate,
     createdAt:
       createdAt.toISOString(),
     players,
-    matchHistory,
-    workoutReportEvents,
+    matchHistory:
+      filteredMatchHistory,
+    workoutReportEvents:
+      filteredWorkoutReportEvents,
   };
 }
 
