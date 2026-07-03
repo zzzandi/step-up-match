@@ -82,6 +82,49 @@ function getKstDateKey(
   ).format(date);
 }
 
+function getLatestWorkoutDateFromReportData({
+  matchHistory,
+  workoutReportEvents,
+  fallbackDate,
+}: {
+  matchHistory: MatchHistory[];
+  workoutReportEvents: WorkoutReportEvent[];
+  fallbackDate: string;
+}) {
+  const datedItems = [
+    ...matchHistory.map(
+      (history) => ({
+        date: getKstDateKey(
+          new Date(history.endedAt)
+        ),
+        time: new Date(
+          history.endedAt
+        ).getTime(),
+      })
+    ),
+    ...workoutReportEvents.map(
+      (event) => ({
+        date: getKstDateKey(
+          new Date(event.createdAt)
+        ),
+        time: new Date(
+          event.createdAt
+        ).getTime(),
+      })
+    ),
+  ].filter((item) =>
+    Number.isFinite(item.time)
+  );
+
+  if (datedItems.length === 0) {
+    return fallbackDate;
+  }
+
+  return datedItems.sort(
+    (a, b) => b.time - a.time
+  )[0].date;
+}
+
 function createWorkoutReportSnapshot({
   players,
   matchHistory,
@@ -94,7 +137,14 @@ function createWorkoutReportSnapshot({
   createdAt?: Date;
 }): WorkoutReportSnapshot | null {
   const workoutDate =
-    getKstDateKey(createdAt);
+    getLatestWorkoutDateFromReportData(
+      {
+        matchHistory,
+        workoutReportEvents,
+        fallbackDate:
+          getKstDateKey(createdAt),
+      }
+    );
   const filteredMatchHistory =
     matchHistory.filter(
       (history) =>

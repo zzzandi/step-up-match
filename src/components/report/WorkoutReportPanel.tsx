@@ -68,6 +68,49 @@ function getKstDateKey(
   ).format(new Date(value));
 }
 
+function getLatestWorkoutDateFromReportData({
+  histories,
+  events,
+  fallbackDate,
+}: {
+  histories: MatchHistory[];
+  events: {
+    createdAt: string;
+  }[];
+  fallbackDate: string;
+}) {
+  const datedItems = [
+    ...histories.map(
+      (history) => ({
+        date: getKstDateKey(
+          history.endedAt
+        ),
+        time: new Date(
+          history.endedAt
+        ).getTime(),
+      })
+    ),
+    ...events.map((event) => ({
+      date: getKstDateKey(
+        event.createdAt
+      ),
+      time: new Date(
+        event.createdAt
+      ).getTime(),
+    })),
+  ].filter((item) =>
+    Number.isFinite(item.time)
+  );
+
+  if (datedItems.length === 0) {
+    return fallbackDate;
+  }
+
+  return datedItems.sort(
+    (a, b) => b.time - a.time
+  )[0].date;
+}
+
 function getHistoryPlayerIds(
   history: MatchHistory
 ) {
@@ -187,7 +230,16 @@ export default function WorkoutReportPanel({
           Boolean(snapshotToUse));
       const reportDate =
         shouldUseSnapshot
-          ? snapshotToUse!.workoutDate
+          ? getLatestWorkoutDateFromReportData(
+              {
+                histories:
+                  snapshotToUse!.matchHistory,
+                events:
+                  snapshotToUse!.workoutReportEvents,
+                fallbackDate:
+                  snapshotToUse!.workoutDate,
+              }
+            )
           : getKstDateKey();
       const reportPlayers =
         shouldUseSnapshot
