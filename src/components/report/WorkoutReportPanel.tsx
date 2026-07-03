@@ -53,6 +53,21 @@ function formatKstTime(
   ).format(new Date(value));
 }
 
+function getKstDateKey(
+  value: Date | string = new Date()
+) {
+  return new Intl.DateTimeFormat(
+    "en-CA",
+    {
+      timeZone:
+        "Asia/Seoul",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }
+  ).format(new Date(value));
+}
+
 function getHistoryPlayerIds(
   history: MatchHistory
 ) {
@@ -177,11 +192,21 @@ export default function WorkoutReportPanel({
       const reportMatchHistory =
         shouldUseSnapshot
           ? snapshotToUse!.matchHistory
-          : matchHistory;
+          : matchHistory.filter(
+              (history) =>
+                getKstDateKey(
+                  history.endedAt
+                ) === getKstDateKey()
+            );
       const reportEvents =
         shouldUseSnapshot
           ? snapshotToUse!.workoutReportEvents
-          : workoutReportEvents;
+          : workoutReportEvents.filter(
+              (event) =>
+                getKstDateKey(
+                  event.createdAt
+                ) === getKstDateKey()
+            );
       const histories =
         [...reportMatchHistory].sort(
           (a, b) =>

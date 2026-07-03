@@ -1320,7 +1320,20 @@ export const useMatchStore =
                   ) !== targetDate
               ),
             workoutReportEvents:
-              [],
+              get().workoutReportEvents.filter(
+                (event) =>
+                  formatter.format(
+                    new Date(
+                      event.createdAt
+                    )
+                  ) !== targetDate
+              ),
+            workoutReportSnapshots:
+              get().workoutReportSnapshots.filter(
+                (snapshot) =>
+                  snapshot.workoutDate !==
+                  targetDate
+              ),
           });
           return;
         }
@@ -1349,6 +1362,12 @@ export const useMatchStore =
             ),
           workoutReportEvents:
             [],
+          workoutReportSnapshots:
+            get().workoutReportSnapshots.filter(
+              (snapshot) =>
+                snapshot.workoutDate !==
+                targetDate
+            ),
           recommendations: [],
           selectedRecommendation:
             null,

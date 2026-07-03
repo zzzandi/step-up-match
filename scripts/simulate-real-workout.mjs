@@ -5570,6 +5570,147 @@ try {
   );
 
   run(
+    "past date workout cleanup removes only that date report data",
+    () => {
+      resetStore(8, 1);
+      useMatchStore.setState({
+        matchHistory: [
+          {
+            id: "history-2026-07-01",
+            courtId: 1,
+            teamA: [
+              "player-01",
+              "player-02",
+            ],
+            teamB: [
+              "player-03",
+              "player-04",
+            ],
+            playerNames: {},
+            startedAt:
+              new Date(
+                "2026-07-01T11:00:00.000Z"
+              ),
+            endedAt:
+              new Date(
+                "2026-07-01T11:15:00.000Z"
+              ),
+          },
+          {
+            id: "history-2026-07-03",
+            courtId: 1,
+            teamA: [
+              "player-05",
+              "player-06",
+            ],
+            teamB: [
+              "player-07",
+              "player-08",
+            ],
+            playerNames: {},
+            startedAt:
+              new Date(
+                "2026-07-03T11:00:00.000Z"
+              ),
+            endedAt:
+              new Date(
+                "2026-07-03T11:15:00.000Z"
+              ),
+          },
+        ],
+        workoutReportEvents: [
+          {
+            id: "event-2026-07-01",
+            type: "AUTO_MATCH",
+            courtId: 1,
+            target: "GAME",
+            createdAt:
+              "2026-07-01T11:00:00.000Z",
+            playerIds: [
+              "player-01",
+              "player-02",
+              "player-03",
+              "player-04",
+            ],
+            playerNames: {},
+            description:
+              "old report event",
+          },
+          {
+            id: "event-2026-07-03",
+            type: "AUTO_MATCH",
+            courtId: 1,
+            target: "GAME",
+            createdAt:
+              "2026-07-03T11:00:00.000Z",
+            playerIds: [
+              "player-05",
+              "player-06",
+              "player-07",
+              "player-08",
+            ],
+            playerNames: {},
+            description:
+              "current report event",
+          },
+        ],
+        workoutReportSnapshots: [
+          {
+            id: "snapshot-2026-07-01",
+            workoutDate:
+              "2026-07-01",
+            createdAt:
+              "2026-07-01T12:00:00.000Z",
+            players: [],
+            matchHistory: [],
+            workoutReportEvents:
+              [],
+          },
+          {
+            id: "snapshot-2026-07-03",
+            workoutDate:
+              "2026-07-03",
+            createdAt:
+              "2026-07-03T12:00:00.000Z",
+            players: [],
+            matchHistory: [],
+            workoutReportEvents:
+              [],
+          },
+        ],
+      });
+
+      useMatchStore
+        .getState()
+        .resetTodayWorkoutData(
+          "2026-07-01"
+        );
+      const next =
+        useMatchStore.getState();
+
+      assert.deepEqual(
+        next.matchHistory.map(
+          (history) => history.id
+        ),
+        ["history-2026-07-03"]
+      );
+      assert.deepEqual(
+        next.workoutReportEvents.map(
+          (event) => event.id
+        ),
+        ["event-2026-07-03"]
+      );
+      assert.deepEqual(
+        next.workoutReportSnapshots.map(
+          (snapshot) =>
+            snapshot.id
+        ),
+        ["snapshot-2026-07-03"]
+      );
+    }
+  );
+
+  run(
     "운동 개설 직후 지연된 빈 운영진 응답이 도착해도 참가자·코트·설정 유지",
     () => {
       resetStore(12, 3);
