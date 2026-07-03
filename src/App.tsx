@@ -97,6 +97,8 @@ const RecordsManagementPage =
   lazy(() => import("@/pages/RecordsManagementPage"));
 const ParticipantsPage =
   lazy(() => import("@/pages/ParticipantsPage"));
+const WorkoutReportPage =
+  lazy(() => import("@/pages/WorkoutReportPage"));
 
 const DASHBOARD_DATE_KEY =
   "step-up-match-dashboard-date";
@@ -1257,6 +1259,15 @@ function App() {
             <AuthenticatedRoute>
               <RecordsManagementPage />
             </AuthenticatedRoute>
+          }
+        />
+
+        <Route
+          path="/workout-report"
+          element={
+            <ProtectedRoute role="MASTER">
+              <WorkoutReportPage />
+            </ProtectedRoute>
           }
         />
 

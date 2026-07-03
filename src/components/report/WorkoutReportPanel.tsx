@@ -20,6 +20,10 @@ interface MixingRow {
   mixPercent: number;
 }
 
+interface WorkoutReportPanelProps {
+  preferSnapshot?: boolean;
+}
+
 function getDateText() {
   return new Intl.DateTimeFormat(
     "ko-KR",
@@ -96,7 +100,9 @@ function formatTeam(
     .join(" + ");
 }
 
-export default function WorkoutReportPanel() {
+export default function WorkoutReportPanel({
+  preferSnapshot = false,
+}: WorkoutReportPanelProps) {
   const players =
     useMatchStore(
       (state) => state.players
@@ -120,10 +126,14 @@ export default function WorkoutReportPanel() {
     copied,
     setCopied,
   ] = useState(false);
+  const [
+    selectedSnapshotId,
+    setSelectedSnapshotId,
+  ] = useState("");
 
-  const report =
-    useMemo(() => {
-      const latestSnapshot =
+  const sortedSnapshots =
+    useMemo(
+      () =>
         [...workoutReportSnapshots].sort(
           (a, b) =>
             new Date(
@@ -132,22 +142,45 @@ export default function WorkoutReportPanel() {
             new Date(
               a.createdAt
             ).getTime()
-        )[0];
+        ),
+      [workoutReportSnapshots]
+    );
+  const latestSnapshot =
+    sortedSnapshots[0];
+  const effectiveSelectedSnapshotId =
+    selectedSnapshotId ||
+    (preferSnapshot
+      ? latestSnapshot?.id ?? ""
+      : "");
+  const selectedSnapshot =
+    sortedSnapshots.find(
+      (snapshot) =>
+        snapshot.id ===
+        effectiveSelectedSnapshotId
+    ) ?? null;
+
+  const report =
+    useMemo(() => {
+      const snapshotToUse =
+        selectedSnapshot ??
+        latestSnapshot;
       const shouldUseSnapshot =
-        matchHistory.length === 0 &&
-        workoutReportEvents.length === 0 &&
-        Boolean(latestSnapshot);
+        Boolean(selectedSnapshot) ||
+        (matchHistory.length === 0 &&
+          workoutReportEvents.length ===
+            0 &&
+          Boolean(snapshotToUse));
       const reportPlayers =
         shouldUseSnapshot
-          ? latestSnapshot!.players
+          ? snapshotToUse!.players
           : players;
       const reportMatchHistory =
         shouldUseSnapshot
-          ? latestSnapshot!.matchHistory
+          ? snapshotToUse!.matchHistory
           : matchHistory;
       const reportEvents =
         shouldUseSnapshot
-          ? latestSnapshot!.workoutReportEvents
+          ? snapshotToUse!.workoutReportEvents
           : workoutReportEvents;
       const histories =
         [...reportMatchHistory].sort(
@@ -554,15 +587,16 @@ export default function WorkoutReportPanel() {
         isSnapshotReport:
           shouldUseSnapshot,
         snapshotCreatedAt:
-          latestSnapshot?.createdAt,
+          snapshotToUse?.createdAt,
         snapshotWorkoutDate:
-          latestSnapshot?.workoutDate,
+          snapshotToUse?.workoutDate,
       };
     }, [
+      latestSnapshot,
       matchHistory,
       players,
+      selectedSnapshot,
       workoutReportEvents,
-      workoutReportSnapshots,
     ]);
 
   async function copyReport() {
@@ -606,6 +640,44 @@ export default function WorkoutReportPanel() {
             : "문안 복사"}
         </button>
       </div>
+
+      {sortedSnapshots.length > 0 && (
+        <div className="mt-4 rounded-xl border border-slate-700 bg-slate-950/50 p-3">
+          <label className="block text-sm font-bold text-slate-200">
+            저장된 운동 리포트
+          </label>
+          <p className="mt-1 text-xs leading-5 text-slate-400">
+            오늘 운동 전체 종료 시점에 저장된 리포트입니다. 마스터만 이 화면에서 다시 확인할 수 있습니다.
+          </p>
+          <select
+            value={
+              effectiveSelectedSnapshotId
+            }
+            onChange={(event) =>
+              setSelectedSnapshotId(
+                event.target.value
+              )
+            }
+            className="mt-3 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm font-bold text-white"
+          >
+            {!preferSnapshot && (
+              <option value="">
+                현재 진행 중인 리포트 보기
+              </option>
+            )}
+            {sortedSnapshots.map(
+              (snapshot) => (
+                <option
+                  key={snapshot.id}
+                  value={snapshot.id}
+                >
+                  {snapshot.workoutDate} 저장 리포트 · {formatKstTime(snapshot.createdAt)}
+                </option>
+              )
+            )}
+          </select>
+        </div>
+      )}
 
       {report.isSnapshotReport && (
         <div className="mt-4 rounded-xl border border-amber-300/30 bg-amber-300/10 p-3 text-sm leading-6 text-amber-100">
