@@ -158,6 +158,40 @@ function formatTeam(
     .join(" + ");
 }
 
+function samePlayerSet(
+  playerIdsA: string[],
+  playerIdsB: string[]
+) {
+  if (
+    playerIdsA.length !==
+    playerIdsB.length
+  ) {
+    return false;
+  }
+
+  return (
+    [...playerIdsA].sort().join("|") ===
+    [...playerIdsB].sort().join("|")
+  );
+}
+
+function formatEventPlayers(
+  playerIds: string[],
+  playerNames: Record<string, string>
+) {
+  const names = playerIds.map(
+    (playerId) =>
+      playerNames[playerId] ??
+      playerId
+  );
+
+  if (names.length >= 4) {
+    return `${names[0]} + ${names[1]} vs ${names[2]} + ${names[3]}`;
+  }
+
+  return names.join(" + ");
+}
+
 export default function WorkoutReportPanel({
   preferSnapshot = false,
 }: WorkoutReportPanelProps) {
@@ -566,6 +600,60 @@ export default function WorkoutReportPanel({
             typeof history.teamBScore ===
               "number"
         ).length;
+      const gameAssignmentEvents =
+        reportEvents
+          .filter(
+            (event) =>
+              (event.type ===
+                "AUTO_MATCH" &&
+                event.target ===
+                  "GAME") ||
+              (event.type ===
+                "MANUAL_MATCH" &&
+                event.target ===
+                  "GAME") ||
+              event.type ===
+                "QUEUED_PROMOTED"
+          )
+          .sort(
+            (a, b) =>
+              new Date(
+                a.createdAt
+              ).getTime() -
+              new Date(
+                b.createdAt
+              ).getTime()
+          );
+      const uncompletedGameEvents =
+        gameAssignmentEvents.filter(
+          (event) =>
+            !histories.some(
+              (history) => {
+                const startedDiffMs =
+                  Math.abs(
+                    new Date(
+                      history.startedAt
+                    ).getTime() -
+                      new Date(
+                        event.createdAt
+                      ).getTime()
+                  );
+
+                return (
+                  history.courtId ===
+                    event.courtId &&
+                  samePlayerSet(
+                    getHistoryPlayerIds(
+                      history
+                    ),
+                    event.playerIds
+                  ) &&
+                  startedDiffMs <=
+                    5 * 60 * 1000
+                );
+              }
+            )
+        );
 
       const participantLine =
         participantRows
@@ -610,6 +698,20 @@ export default function WorkoutReportPanel({
             return `${index + 1}. Court ${history.courtId} ${formatKstTime(history.startedAt)}~${formatKstTime(history.endedAt)} ${formatTeam(history.teamA, histories, currentNames)} vs ${formatTeam(history.teamB, histories, currentNames)}${scoreText}`;
           })
           .join("\n");
+      const uncompletedMatchLines =
+        uncompletedGameEvents
+          .map(
+            (event, index) =>
+              `${histories.length + index + 1}. Court ${event.courtId} ${formatKstTime(event.createdAt)}~종료 기록 없음 ${formatEventPlayers(event.playerIds, event.playerNames)}`
+          )
+          .join("\n");
+      const allMatchLines =
+        [
+          matchLines,
+          uncompletedMatchLines,
+        ]
+          .filter(Boolean)
+          .join("\n");
 
       const copyText = [
         `🏸 STEP UP MATCH 오늘 운동 리포트 (${getDateText()})`,
@@ -640,7 +742,7 @@ export default function WorkoutReportPanel({
         participantLine || "기록 없음",
         "",
         "오늘 전체 경기",
-        matchLines || "기록 없음",
+        allMatchLines || "기록 없음",
       ].join("\n");
 
       return {
@@ -665,6 +767,7 @@ export default function WorkoutReportPanel({
         replacementEvents,
         swapEvents,
         histories,
+        uncompletedGameEvents,
         currentNames,
         copyText,
         isSnapshotReport:
@@ -965,6 +1068,41 @@ export default function WorkoutReportPanel({
           )}
         </div>
       </div>
+
+      {report.uncompletedGameEvents.length >
+        0 && (
+        <div className="mt-4 rounded-xl border border-amber-300/30 bg-amber-300/10 p-3">
+          <div className="font-bold text-amber-100">
+            종료 기록 없는 대진
+          </div>
+          <p className="mt-1 text-xs leading-5 text-amber-100/80">
+            대진은 게임코트에 올라갔지만 경기 종료 기록이 없어 오늘 전체 경기 목록에는 시간 종료가 남지 않은 대진입니다.
+          </p>
+          <div className="mt-2 space-y-2 text-sm text-amber-100">
+            {report.uncompletedGameEvents.map(
+              (event, index) => (
+                <div
+                  key={event.id}
+                  className="rounded-xl bg-slate-950/60 px-3 py-2"
+                >
+                  {report.histories.length +
+                    index +
+                    1}
+                  . Court {event.courtId}{" "}
+                  {formatKstTime(
+                    event.createdAt
+                  )}
+                  ~종료 기록 없음{" "}
+                  {formatEventPlayers(
+                    event.playerIds,
+                    event.playerNames
+                  )}
+                </div>
+              )
+            )}
+          </div>
+        </div>
+      )}
 
       <textarea
         readOnly
