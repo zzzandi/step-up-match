@@ -6773,6 +6773,82 @@ try {
   );
 
   run(
+    "two waiting women prefer mixed doubles instead of one woman with three men",
+    () => {
+      resetStore(10, 1);
+      const now =
+        Date.now();
+
+      useMatchStore.setState(
+        (state) => ({
+          players:
+            state.players.map(
+              (player, index) => ({
+                ...player,
+                gender:
+                  index < 2
+                    ? "F"
+                    : "M",
+                grade:
+                  index < 2
+                    ? "E"
+                    : index < 6
+                      ? "F"
+                      : "E",
+                hiddenSkill:
+                  index < 2
+                    ? 45
+                    : index < 6
+                      ? 35
+                      : 45,
+                waitingStartedAt:
+                  new Date(
+                    now -
+                      (30 - index) *
+                        60 *
+                        1000
+                  ),
+                matchCount:
+                  index === 1
+                    ? 1
+                    : 0,
+                status:
+                  "WAITING",
+                isPresent: true,
+              })
+            ),
+        })
+      );
+
+      useMatchStore
+        .getState()
+        .rerollRecommendations(1);
+      const recommendation =
+        useMatchStore.getState()
+          .selectedRecommendation;
+      const selectedPlayers = [
+        ...recommendation.teamA,
+        ...recommendation.teamB,
+      ];
+
+      assert.equal(
+        selectedPlayers.filter(
+          (player) =>
+            player.gender === "F"
+        ).length,
+        2
+      );
+      assert.equal(
+        isCompatibleGenderMatch(
+          recommendation.teamA,
+          recommendation.teamB
+        ),
+        true
+      );
+    }
+  );
+
+  run(
     "fixed partner does not force a just-finished partner back in",
     () => {
       resetStore(12, 1);

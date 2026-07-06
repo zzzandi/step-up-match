@@ -28,6 +28,7 @@ const BALANCE_PENALTY_PER_POINT = 2.5;
 const BALANCE_HEAVY_PENALTY_PER_POINT = 3;
 const PARTNER_REPEAT_PENALTY = 18;
 const OPPONENT_REPEAT_PENALTY = 8;
+const SINGLE_WOMAN_MIXED_PENALTY = 60;
 
 function isFixedPartnerPair(
   playerA: TeamMatch["teamA"][number],
@@ -117,10 +118,16 @@ export interface RecommendationScore {
   genderBonus: number;
   fixedPartnerBonus: number;
   fixedPartnerBalancePenalty: number;
+  singleWomanMixedPenalty: number;
 }
 
 export function scoreMatch(
-  match: TeamMatch
+  match: TeamMatch,
+  {
+    discourageSingleWomanMixed = false,
+  }: {
+    discourageSingleWomanMixed?: boolean;
+  } = {}
 ): RecommendationScore {
   const {
     teamA,
@@ -240,6 +247,16 @@ export function scoreMatch(
     )
       ? weights.genderBalance
       : 0;
+  const femaleCount =
+    allPlayers.filter(
+      (player) =>
+        player.gender === "F"
+    ).length;
+  const singleWomanMixedPenalty =
+    discourageSingleWomanMixed &&
+    femaleCount === 1
+      ? SINGLE_WOMAN_MIXED_PENALTY
+      : 0;
   let fixedPartnerBonus = 0;
   let fixedPartnerBalancePenalty = 0;
 
@@ -314,7 +331,8 @@ export function scoreMatch(
     fixedPartnerBonus *
       FIXED_PARTNER_TEAM_BONUS -
     balanceGapPenalty -
-    fixedPartnerBalancePenalty;
+    fixedPartnerBalancePenalty -
+    singleWomanMixedPenalty;
 
   return {
     total,
@@ -329,5 +347,6 @@ export function scoreMatch(
     genderBonus,
     fixedPartnerBonus,
     fixedPartnerBalancePenalty,
+    singleWomanMixedPenalty,
   };
 }

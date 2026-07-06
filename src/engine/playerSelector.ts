@@ -72,6 +72,36 @@ function containsRecentHardRepeat(
   return false;
 }
 
+function getGenderSelectionAdjustment(
+  players: Player[],
+  waitingWomenCount: number
+) {
+  const femaleCount =
+    players.filter(
+      (player) =>
+        player.gender === "F"
+    ).length;
+
+  if (waitingWomenCount >= 2) {
+    if (femaleCount === 2) {
+      return 45;
+    }
+
+    if (femaleCount === 1) {
+      return -80;
+    }
+  }
+
+  if (
+    waitingWomenCount === 1 &&
+    femaleCount === 1
+  ) {
+    return 15;
+  }
+
+  return 0;
+}
+
 export function selectCandidates(
   players: Player[],
   courtCount: number,
@@ -88,6 +118,11 @@ export function selectCandidates(
           "WAITING" &&
         player.isPresent
     );
+  const waitingWomenCount =
+    waitingPlayers.filter(
+      (player) =>
+        player.gender === "F"
+    ).length;
   if (womenDoublesPriority) {
     const waitingOrder =
       [...waitingPlayers].sort(
@@ -344,7 +379,11 @@ export function selectCandidates(
           const score =
             scorePlayerSelection(
               group
-            ).total;
+            ).total +
+            getGenderSelectionAdjustment(
+              group,
+              waitingWomenCount
+            );
 
           if (
             score > fallbackScore

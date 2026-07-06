@@ -65,6 +65,14 @@ export function generateRecommendations(
     return [];
   }
 
+  const waitingWomenCount =
+    players.filter(
+      (player) =>
+        player.status ===
+          "WAITING" &&
+        player.isPresent &&
+        player.gender === "F"
+    ).length;
   const allRecommendations: MatchRecommendation[] =
     [];
 
@@ -143,7 +151,11 @@ export function generateRecommendations(
               }
 
               const score =
-                scoreMatch(match);
+                scoreMatch(match, {
+                  discourageSingleWomanMixed:
+                    waitingWomenCount >=
+                    2,
+                });
 
               if (
                 (score.fixedPartnerBalancePenalty ?? 0) >
