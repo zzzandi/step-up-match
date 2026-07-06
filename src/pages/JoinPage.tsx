@@ -187,19 +187,10 @@ export default function JoinPage() {
 
       return allowedNames
         .map((name) => {
-          const sourceNames =
-            name === "김영진"
-              ? [
-                  "김영진",
-                  "큰영진",
-                ]
-              : [name];
           const user =
             users.find(
               (item) =>
-                sourceNames.includes(
-                  item.name
-                )
+                item.name === name
             );
 
           return user

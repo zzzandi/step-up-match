@@ -221,10 +221,7 @@ export default function AppNavigation() {
           currentUserId &&
           player.status !== "LEFT" &&
           !adminNames.includes(
-            player.name ===
-              "큰영진"
-              ? "김영진"
-              : player.name
+            player.name
           )
       )
       .forEach((player) => {
