@@ -687,7 +687,7 @@ export default function WorkoutReportPanel({
         mixingRows
           .map(
             (row) =>
-              `${row.name} ${row.mixPercent}% - 전체 ${row.possibleCount}명 중 쳐본 ${row.metCount}명 / 못쳐본 ${row.missedCount}명`
+              `${row.name} ${row.mixPercent}% - 교류 ${row.metCount}명 / 미교류 ${row.missedCount}명 (대상 ${row.possibleCount}명)`
           )
           .join(", ");
       const leastMixedLine =
@@ -1001,9 +1001,9 @@ export default function WorkoutReportPanel({
                 <span
                   key={row.id}
                   className="rounded-full bg-slate-800 px-3 py-1 text-slate-200"
-                  title={`${row.metCount}/${row.possibleCount}명과 같은 경기, 미경험 ${row.missedCount}명`}
+                  title={`오늘 같은 경기 교류 ${row.metCount}명, 미교류 ${row.missedCount}명, 대상 ${row.possibleCount}명`}
                 >
-                  {row.name} {row.mixPercent}% · 전체 {row.possibleCount}명 중 쳐본 {row.metCount}명 / 못쳐본 {row.missedCount}명
+                  {row.name} {row.mixPercent}% · 교류 {row.metCount}명 / 미교류 {row.missedCount}명 · 대상 {row.possibleCount}명
                 </span>
               )
             )
