@@ -1311,7 +1311,7 @@ function mergeBootstrapSnapshots(
 
   return {
     ...current,
-    players: mergeById(
+    players: mergePlayersById(
       current.players,
       incoming.players
     ),
@@ -1429,6 +1429,161 @@ function dedupeMatchHistory(
   return Array.from(
     seen.values()
   );
+}
+
+function getDateTime(value: unknown) {
+  if (!value) {
+    return null;
+  }
+
+  const time = new Date(
+    value as string | number | Date
+  ).getTime();
+
+  return Number.isFinite(time)
+    ? time
+    : null;
+}
+
+function shouldPreserveCurrentPlayerTiming(
+  current:
+    | LiveStateSnapshot["players"][number]
+    | undefined,
+  incoming:
+    | LiveStateSnapshot["players"][number]
+    | undefined
+) {
+  const currentLastMatchAt =
+    getDateTime(current?.lastMatchAt);
+  const incomingLastMatchAt =
+    getDateTime(incoming?.lastMatchAt);
+
+  return (
+    currentLastMatchAt !== null &&
+    (incomingLastMatchAt === null ||
+      currentLastMatchAt >
+        incomingLastMatchAt)
+  );
+}
+
+function mergePlayerState(
+  current:
+    | LiveStateSnapshot["players"][number]
+    | undefined,
+  incoming:
+    | LiveStateSnapshot["players"][number]
+    | undefined
+) {
+  if (!current) {
+    return incoming;
+  }
+
+  if (!incoming) {
+    return current;
+  }
+
+  if (
+    shouldPreserveCurrentPlayerTiming(
+      current,
+      incoming
+    )
+  ) {
+    return {
+      ...incoming,
+      ...current,
+      fixedPartner:
+        incoming.fixedPartner ??
+        current.fixedPartner,
+    };
+  }
+
+  return {
+    ...current,
+    ...incoming,
+    fixedPartner:
+      incoming.fixedPartner ??
+      current.fixedPartner,
+  };
+}
+
+function mergePlayersById(
+  current: LiveStateSnapshot["players"],
+  incoming: LiveStateSnapshot["players"]
+) {
+  const merged = new Map<
+    string,
+    LiveStateSnapshot["players"][number]
+  >(
+    current.map((player) => [
+      player.id,
+      player,
+    ])
+  );
+
+  incoming.forEach((player) => {
+    const mergedPlayer =
+      mergePlayerState(
+        merged.get(player.id),
+        player
+      );
+
+    if (mergedPlayer) {
+      merged.set(
+        player.id,
+        mergedPlayer
+      );
+    }
+  });
+
+  return Array.from(
+    merged.values()
+  );
+}
+
+function normalizeWaitingTimesAfterMatches(
+  snapshot: LiveStateSnapshot
+): LiveStateSnapshot {
+  let changed = false;
+  const players =
+    snapshot.players.map((player) => {
+      if (
+        player.status !== "WAITING"
+      ) {
+        return player;
+      }
+
+      const lastMatchAt =
+        getDateTime(player.lastMatchAt);
+      const waitingStartedAt =
+        getDateTime(
+          player.waitingStartedAt
+        );
+
+      if (
+        lastMatchAt === null ||
+        (waitingStartedAt !== null &&
+          waitingStartedAt >=
+            lastMatchAt)
+      ) {
+        return player;
+      }
+
+      changed = true;
+      return {
+        ...player,
+        waitingStartedAt:
+          new Date(lastMatchAt),
+        playingStartedAt:
+          undefined,
+      };
+    });
+
+  return changed
+    ? {
+        ...snapshot,
+        players,
+      }
+    : snapshot;
 }
 
 function reconcilePlayingPlayers(
@@ -1601,12 +1756,14 @@ export function mergeLiveStateSnapshot(
     sourceRole === "MASTER"
   ) {
     if (!patch) {
-      return filterResolvedPartnerRequests(
-        applyFixedPartners(
-          reconcilePlayingPlayers(
-            mergeBootstrapSnapshots(
-              current,
-              incoming
+      return normalizeWaitingTimesAfterMatches(
+        filterResolvedPartnerRequests(
+          applyFixedPartners(
+            reconcilePlayingPlayers(
+              mergeBootstrapSnapshots(
+                current,
+                incoming
+              )
             )
           )
         )
@@ -1622,15 +1779,68 @@ export function mergeLiveStateSnapshot(
     };
 
     if (changed.has("players")) {
-      next.players =
-        mergeChangedEntities(
-          current.players,
-          incoming.players,
+      const changedPlayerIds =
+        new Set(
           patch.changedEntityIds
-            ?.players,
-          patch.removedEntityIds
-            ?.players
+            ?.players ?? []
         );
+      const removedPlayerIds =
+        new Set(
+          patch.removedEntityIds
+            ?.players ?? []
+        );
+      const incomingPlayerById =
+        new Map(
+          incoming.players.map(
+            (player) => [
+              player.id,
+              player,
+            ]
+          )
+        );
+
+      next.players =
+        current.players
+          .filter(
+            (player) =>
+              !removedPlayerIds.has(
+                player.id
+              )
+          )
+          .map((player) => {
+            if (
+              !changedPlayerIds.has(
+                player.id
+              )
+            ) {
+              return player;
+            }
+
+            return (
+              mergePlayerState(
+                player,
+                incomingPlayerById.get(
+                  player.id
+                )
+              ) ?? player
+            );
+          });
+
+      incoming.players.forEach(
+        (player) => {
+          if (
+            changedPlayerIds.has(
+              player.id
+            ) &&
+            !next.players.some(
+              (item) =>
+                item.id === player.id
+            )
+          ) {
+            next.players.push(player);
+          }
+        }
+      );
     }
 
     if (changed.has("courts")) {
@@ -1898,7 +2108,7 @@ export function mergeLiveStateSnapshot(
           )
         : withReconciledQueuedCourts;
 
-    return (
+    const resolvedSnapshot = (
       changed.has(
         "fixedPartnerAssignments"
       ) ||
@@ -1910,6 +2120,10 @@ export function mergeLiveStateSnapshot(
           withStaleFinishPromotion
         )
       : withStaleFinishPromotion;
+
+    return normalizeWaitingTimesAfterMatches(
+      resolvedSnapshot
+    );
   }
 
   const players =
@@ -1941,11 +2155,17 @@ export function mergeLiveStateSnapshot(
           "PLAYING" &&
         sourcePlayer.status !==
           "LEFT";
+      const preserveCurrentTiming =
+        shouldPreserveCurrentPlayerTiming(
+          existing,
+          sourcePlayer
+        );
 
       players[index] = {
         ...existing,
         ...sourcePlayer,
-        ...(preserveActiveMatch
+        ...(preserveActiveMatch ||
+        preserveCurrentTiming
           ? {
               status:
                 existing.status,
@@ -1957,6 +2177,12 @@ export function mergeLiveStateSnapshot(
                 existing.matchCount,
               consecutiveMatches:
                 existing.consecutiveMatches,
+              lastMatchAt:
+                existing.lastMatchAt,
+              lastPartners:
+                existing.lastPartners,
+              lastOpponents:
+                existing.lastOpponents,
             }
           : {}),
         fixedPartner:
@@ -2052,68 +2278,70 @@ export function mergeLiveStateSnapshot(
         })
       : players;
 
-  return filterResolvedPartnerRequests(
-    applyFixedPartners({
-    ...current,
-    players:
-      normalizedPlayers,
-    courts,
-    queuedCourts:
-      current.queuedCourts,
-    fixedPartnerRequests:
-      dedupeFixedPartnerRequests(
-        mergeById(
-          current.fixedPartnerRequests,
-          incoming.fixedPartnerRequests
-        )
-      ),
-    fixedPartnerAssignments:
-      current.fixedPartnerAssignments,
-    fixedPartnerRequestResolutions:
-      mergeById(
-        current.fixedPartnerRequestResolutions,
-        incoming.fixedPartnerRequestResolutions
-      ),
-    dismissedNotificationIds:
-      Array.from(
-        new Set([
-          ...current.dismissedNotificationIds,
-          ...incoming.dismissedNotificationIds,
-        ])
-      ),
-    notifications:
-      filterDismissedNotifications(
-        dedupeNotifications(
+  return normalizeWaitingTimesAfterMatches(
+    filterResolvedPartnerRequests(
+      applyFixedPartners({
+      ...current,
+      players:
+        normalizedPlayers,
+      courts,
+      queuedCourts:
+        current.queuedCourts,
+      fixedPartnerRequests:
+        dedupeFixedPartnerRequests(
           mergeById(
-            current.notifications,
-            incoming.notifications
+            current.fixedPartnerRequests,
+            incoming.fixedPartnerRequests
           )
         ),
-        [
-          ...current.dismissedNotificationIds,
-          ...incoming.dismissedNotificationIds,
-        ]
-      ),
-    matchHistory:
-      dedupeMatchHistory(
+      fixedPartnerAssignments:
+        current.fixedPartnerAssignments,
+      fixedPartnerRequestResolutions:
         mergeById(
-          current.matchHistory,
-          incoming.matchHistory,
+          current.fixedPartnerRequestResolutions,
+          incoming.fixedPartnerRequestResolutions
+        ),
+      dismissedNotificationIds:
+        Array.from(
+          new Set([
+            ...current.dismissedNotificationIds,
+            ...incoming.dismissedNotificationIds,
+          ])
+        ),
+      notifications:
+        filterDismissedNotifications(
+          dedupeNotifications(
+            mergeById(
+              current.notifications,
+              incoming.notifications
+            )
+          ),
+          [
+            ...current.dismissedNotificationIds,
+            ...incoming.dismissedNotificationIds,
+          ]
+        ),
+      matchHistory:
+        dedupeMatchHistory(
+          mergeById(
+            current.matchHistory,
+            incoming.matchHistory,
+            true
+          )
+        ),
+      workoutReportEvents:
+        mergeById(
+          current.workoutReportEvents,
+          incoming.workoutReportEvents,
+          true
+        ),
+      workoutReportSnapshots:
+        mergeById(
+          current.workoutReportSnapshots,
+          incoming.workoutReportSnapshots,
           true
         )
-      ),
-    workoutReportEvents:
-      mergeById(
-        current.workoutReportEvents,
-        incoming.workoutReportEvents,
-        true
-      ),
-    workoutReportSnapshots:
-      mergeById(
-        current.workoutReportSnapshots,
-        incoming.workoutReportSnapshots,
-        true
-      ),
-    })
+      })
+    )
   );
 }

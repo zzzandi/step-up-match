@@ -192,6 +192,16 @@ function formatEventPlayers(
   return names.join(" + ");
 }
 
+function getSnapshotActivityCount(snapshot: {
+  matchHistory: MatchHistory[];
+  workoutReportEvents: unknown[];
+}) {
+  return (
+    snapshot.matchHistory.length +
+    snapshot.workoutReportEvents.length
+  );
+}
+
 export default function WorkoutReportPanel({
   preferSnapshot = false,
 }: WorkoutReportPanelProps) {
@@ -227,13 +237,24 @@ export default function WorkoutReportPanel({
     useMemo(
       () =>
         [...workoutReportSnapshots].sort(
-          (a, b) =>
-            new Date(
-              b.createdAt
-            ).getTime() -
-            new Date(
-              a.createdAt
-            ).getTime()
+          (a, b) => {
+            const activityDiff =
+              getSnapshotActivityCount(b) -
+              getSnapshotActivityCount(a);
+
+            if (activityDiff !== 0) {
+              return activityDiff;
+            }
+
+            return (
+              new Date(
+                b.createdAt
+              ).getTime() -
+              new Date(
+                a.createdAt
+              ).getTime()
+            );
+          }
         ),
       [workoutReportSnapshots]
     );

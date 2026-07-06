@@ -161,7 +161,6 @@ function createWorkoutReportSnapshot({
     );
 
   if (
-    players.length === 0 &&
     filteredMatchHistory.length === 0 &&
     filteredWorkoutReportEvents.length === 0
   ) {
@@ -187,6 +186,35 @@ function appendWorkoutReportSnapshot(
 ) {
   if (!snapshot) {
     return snapshots;
+  }
+
+  const activityCount = (
+    item: WorkoutReportSnapshot
+  ) =>
+    item.matchHistory.length +
+    item.workoutReportEvents.length;
+  const sameDateSnapshot =
+    snapshots.find(
+      (item) =>
+        item.workoutDate ===
+        snapshot.workoutDate
+    );
+
+  if (
+    sameDateSnapshot &&
+    activityCount(sameDateSnapshot) >
+      activityCount(snapshot)
+  ) {
+    return [
+      sameDateSnapshot,
+      ...snapshots.filter(
+        (item) =>
+          item.id !==
+            sameDateSnapshot.id &&
+          item.workoutDate !==
+            snapshot.workoutDate
+      ),
+    ].slice(0, 30);
   }
 
   return [

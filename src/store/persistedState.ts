@@ -66,6 +66,19 @@ function revivePlayer(value: unknown) {
     );
   player.lastMatchAt =
     reviveDate(player.lastMatchAt);
+  if (
+    player.status === "WAITING" &&
+    player.lastMatchAt instanceof Date &&
+    (!player.waitingStartedAt ||
+      (player.waitingStartedAt instanceof
+        Date &&
+        player.waitingStartedAt.getTime() <
+          player.lastMatchAt.getTime()))
+  ) {
+    player.waitingStartedAt =
+      player.lastMatchAt;
+    delete player.playingStartedAt;
+  }
   player.lastPartners =
     Array.isArray(
       player.lastPartners

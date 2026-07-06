@@ -7193,6 +7193,142 @@ try {
     }
   );
 
+  run(
+    "empty end-of-day snapshot cannot replace a richer saved workout report",
+    () => {
+      resetStore(8, 1);
+      useMatchStore.setState({
+        workoutReportSnapshots: [
+          {
+            id: "rich-2026-07-03",
+            workoutDate:
+              "2026-07-03",
+            createdAt:
+              "2026-07-03T13:30:00.000Z",
+            players: [],
+            matchHistory: [
+              {
+                id: "late-history",
+                courtId: 1,
+                teamA: [
+                  "player-01",
+                  "player-02",
+                ],
+                teamB: [
+                  "player-03",
+                  "player-04",
+                ],
+                playerNames: {},
+                startedAt:
+                  new Date(
+                    "2026-07-03T22:15:00+09:00"
+                  ),
+                endedAt:
+                  new Date(
+                    "2026-07-03T22:30:00+09:00"
+                  ),
+              },
+            ],
+            workoutReportEvents: [
+              {
+                id: "late-event",
+                type: "AUTO_MATCH",
+                courtId: 1,
+                target: "GAME",
+                createdAt:
+                  "2026-07-03T22:15:00+09:00",
+                playerIds: [
+                  "player-01",
+                  "player-02",
+                  "player-03",
+                  "player-04",
+                ],
+                playerNames: {},
+                description:
+                  "late game",
+              },
+            ],
+          },
+        ],
+        matchHistory: [],
+        workoutReportEvents: [],
+      });
+
+      useMatchStore
+        .getState()
+        .endTodaySession();
+      const snapshots =
+        useMatchStore.getState()
+          .workoutReportSnapshots;
+
+      assert.equal(
+        snapshots[0].id,
+        "rich-2026-07-03"
+      );
+      assert.equal(
+        snapshots[0].matchHistory[0]
+          .id,
+        "late-history"
+      );
+    }
+  );
+
+  run(
+    "stale full snapshot cannot rewind a just-finished player's rest timer",
+    () => {
+      resetStore(8, 1);
+      const staleBeforeGame =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-02"],
+          ["player-03", "player-04"]
+        );
+      useMatchStore
+        .getState()
+        .finishCourtMatch(1);
+
+      const finished =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const finishedPlayer =
+        finished.players.find(
+          (player) =>
+            player.id === "player-01"
+        );
+      const merged =
+        mergeLiveStateSnapshot(
+          finished,
+          staleBeforeGame,
+          "ADMIN"
+        );
+      const mergedPlayer =
+        merged.players.find(
+          (player) =>
+            player.id === "player-01"
+        );
+
+      assert.equal(
+        mergedPlayer.matchCount,
+        finishedPlayer.matchCount
+      );
+      assert.equal(
+        mergedPlayer.lastMatchAt.getTime(),
+        finishedPlayer.lastMatchAt.getTime()
+      );
+      assert.equal(
+        mergedPlayer.waitingStartedAt.getTime(),
+        finishedPlayer.waitingStartedAt.getTime()
+      );
+    }
+  );
+
   console.log(
     `real-workout simulation: PASS (${results.length} scenarios)`
   );
