@@ -14,6 +14,7 @@ import type {
   WorkoutReportEvent,
 } from "@/types/workoutReport";
 import {
+  deleteWorkoutReportSnapshotFromServer,
   getWorkoutReportSnapshotsFromServer,
   saveWorkoutReportSnapshotToServer,
 } from "@/services/workoutReportSnapshotService";
@@ -271,9 +272,16 @@ function findRelatedEvent(
   types: WorkoutReportEvent["type"][]
 ) {
   return events.find((event) => {
+    const isQueueAssignment =
+      (event.type === "AUTO_MATCH" ||
+        event.type ===
+          "MANUAL_MATCH") &&
+      event.target === "QUEUE";
+
     if (
-      event.courtId !==
-        history.courtId ||
+      (!isQueueAssignment &&
+        event.courtId !==
+          history.courtId) ||
       !types.includes(event.type)
     ) {
       return false;
@@ -293,6 +301,18 @@ function findRelatedEvent(
             event.createdAt
           ).getTime()
       );
+    const eventAt =
+      new Date(
+        event.createdAt
+      ).getTime();
+    const startedAt =
+      new Date(
+        history.startedAt
+      ).getTime();
+    const allowedDiffMs =
+      isQueueAssignment
+        ? 90 * 60 * 1000
+        : 10 * 60 * 1000;
 
     return (
       samePlayerSet(
@@ -301,9 +321,75 @@ function findRelatedEvent(
         ),
         event.playerIds
       ) &&
-      diffMs <= 10 * 60 * 1000
+      diffMs <= allowedDiffMs &&
+      (!isQueueAssignment ||
+        eventAt <=
+          startedAt + 60 * 1000)
     );
   });
+}
+
+function findMatchOperationEvents(
+  history: MatchHistory,
+  events: WorkoutReportEvent[]
+) {
+  const startedAt =
+    new Date(history.startedAt).getTime();
+  const endedAt =
+    new Date(history.endedAt).getTime();
+  const assignmentEvent =
+    findRelatedEvent(history, events, [
+      "AUTO_MATCH",
+      "MANUAL_MATCH",
+      "QUEUED_PROMOTED",
+    ]);
+  const assignmentAt =
+    assignmentEvent
+      ? new Date(
+          assignmentEvent.createdAt
+        ).getTime()
+      : startedAt;
+  const lowerBound =
+    Math.min(startedAt, assignmentAt) -
+    5 * 60 * 1000;
+  const upperBound =
+    endedAt + 60 * 1000;
+  const replacements =
+    events
+      .filter((event) => {
+        if (
+          event.type !==
+            "PLAYER_REPLACED" ||
+          event.courtId !==
+            history.courtId
+        ) {
+          return false;
+        }
+
+        const eventAt =
+          new Date(
+            event.createdAt
+          ).getTime();
+
+        return (
+          eventAt >= lowerBound &&
+          eventAt <= upperBound
+        );
+      })
+      .sort(
+        (a, b) =>
+          new Date(
+            a.createdAt
+          ).getTime() -
+          new Date(
+            b.createdAt
+          ).getTime()
+      );
+
+  return {
+    assignmentEvent,
+    replacements,
+  };
 }
 
 function getSnapshotActivityCount(snapshot: {
@@ -348,6 +434,11 @@ export default function WorkoutReportPanel({
       (state) =>
         state.mergeWorkoutReportSnapshots
     );
+  const deleteWorkoutReportSnapshot =
+    useMatchStore(
+      (state) =>
+        state.deleteWorkoutReportSnapshot
+    );
   const [
     copied,
     setCopied,
@@ -360,6 +451,10 @@ export default function WorkoutReportPanel({
     serverMessage,
     setServerMessage,
   ] = useState("");
+  const [
+    deleting,
+    setDeleting,
+  ] = useState(false);
   const [
     selectedSnapshotId,
     setSelectedSnapshotId,
@@ -934,30 +1029,23 @@ export default function WorkoutReportPanel({
                 "number"
                 ? ` ${history.teamAScore}:${history.teamBScore}`
                 : "";
-            const assignmentEvent =
-              findRelatedEvent(
+            const {
+              assignmentEvent,
+              replacements,
+            } =
+              findMatchOperationEvents(
                 history,
-                reportEvents,
-                [
-                  "AUTO_MATCH",
-                  "MANUAL_MATCH",
-                  "QUEUED_PROMOTED",
-                ]
-              );
-            const finishedEvent =
-              findRelatedEvent(
-                history,
-                reportEvents,
-                ["MATCH_FINISHED"]
+                reportEvents
               );
             const operationText =
               [
                 assignmentEvent
                   ? `${getOperationLabel(assignmentEvent)}: ${formatOperator(assignmentEvent)}`
                   : "",
-                finishedEvent
-                  ? `경기 종료: ${formatOperator(finishedEvent)}`
-                  : "",
+                ...replacements.map(
+                  (event) =>
+                    `${getOperationLabel(event)}: ${formatOperator(event)} / ${event.description}`
+                ),
               ]
                 .filter(Boolean)
                 .join(" / ");
@@ -979,14 +1067,6 @@ export default function WorkoutReportPanel({
         ]
           .filter(Boolean)
           .join("\n");
-      const operationLines =
-        operationEvents
-          .map(
-            (event, index) =>
-              `${index + 1}. ${formatKstTime(event.createdAt)} Court ${event.courtId} ${getOperationLabel(event)} / ${formatOperator(event)} / ${formatEventPlayers(event.playerIds, event.playerNames)}`
-          )
-          .join("\n");
-
       const copyText = [
         `🏸 STEP UP MATCH 오늘 운동 리포트 (${getDateText()})`,
         "",
@@ -1017,9 +1097,6 @@ export default function WorkoutReportPanel({
         "",
         "오늘 전체 경기",
         allMatchLines || "기록 없음",
-        "",
-        "운영 상세 로그",
-        operationLines || "기록 없음",
       ].join("\n");
 
       return {
@@ -1118,6 +1195,49 @@ export default function WorkoutReportPanel({
       () => setSaved(false),
       2000
     );
+  }
+
+  async function deleteSelectedReport() {
+    const snapshot =
+      selectedSnapshot ??
+      latestSelectedDateSnapshot;
+
+    if (!snapshot) {
+      setServerMessage(
+        "삭제할 저장 리포트가 없습니다."
+      );
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `${snapshot.workoutDate} 운동 리포트를 삭제하시겠습니까?`
+      )
+    ) {
+      return;
+    }
+
+    setDeleting(true);
+
+    try {
+      await deleteWorkoutReportSnapshotFromServer(
+        snapshot.id
+      );
+      deleteWorkoutReportSnapshot(
+        snapshot.id
+      );
+      setSelectedSnapshotId("");
+      setServerMessage(
+        "운동 리포트를 삭제했습니다."
+      );
+    } catch (error) {
+      console.error(error);
+      setServerMessage(
+        "서버 리포트 삭제에 실패했습니다. Supabase 삭제 정책이 적용되어 있는지 확인해 주세요."
+      );
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -1225,6 +1345,21 @@ export default function WorkoutReportPanel({
             ))}
           </select>
         )}
+        {(selectedSnapshot ||
+          latestSelectedDateSnapshot) && (
+          <button
+            type="button"
+            onClick={() =>
+              void deleteSelectedReport()
+            }
+            disabled={deleting}
+            className="mt-3 w-full rounded-xl border border-red-300/40 bg-red-500/15 px-4 py-3 text-sm font-bold text-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {deleting
+              ? "삭제 중..."
+              : "선택한 리포트 삭제"}
+          </button>
+        )}
       </div>
 
       {report.isSnapshotReport && (
@@ -1325,60 +1460,6 @@ export default function WorkoutReportPanel({
 
       <div className="mt-4 rounded-xl bg-slate-950/60 p-3">
         <div className="font-bold text-slate-200">
-          개인별 섞임률
-        </div>
-        <p className="mt-1 text-xs leading-5 text-slate-500">
-          섞임률은 오늘 참가자 중 같은 경기에 한 번 이상 같이 배치된 사람의 비율입니다.
-        </p>
-        <div className="mt-2 flex flex-wrap gap-2 text-sm">
-          {report.mixingRows.length ===
-          0 ? (
-            <span className="text-slate-500">
-              아직 집계할 경기 기록이 없습니다.
-            </span>
-          ) : (
-            report.mixingRows.map(
-              (row) => (
-                <span
-                  key={row.id}
-                  className="rounded-full bg-slate-800 px-3 py-1 text-slate-200"
-                  title={`오늘 같은 경기 교류 ${row.metCount}명, 미교류 ${row.missedCount}명, 대상 ${row.possibleCount}명`}
-                >
-                  {row.name} {row.mixPercent}% · 교류 {row.metCount}명 / 미교류 {row.missedCount}명 · 대상 {row.possibleCount}명
-                </span>
-              )
-            )
-          )}
-        </div>
-      </div>
-
-      <div className="mt-4 rounded-xl bg-slate-950/60 p-3">
-        <div className="font-bold text-slate-200">
-          인원별 경기 수
-        </div>
-        <div className="mt-2 flex flex-wrap gap-2 text-sm">
-          {report.participantRows.length ===
-          0 ? (
-            <span className="text-slate-500">
-              아직 집계할 경기 기록이 없습니다.
-            </span>
-          ) : (
-            report.participantRows.map(
-              (row) => (
-                <span
-                  key={row.id}
-                  className="rounded-full bg-slate-800 px-3 py-1 text-slate-200"
-                >
-                  {row.name} {row.matchCount}경기
-                </span>
-              )
-            )
-          )}
-        </div>
-      </div>
-
-      <div className="mt-4 rounded-xl bg-slate-950/60 p-3">
-        <div className="font-bold text-slate-200">
           오늘 전체 경기
         </div>
         <div className="mt-2 space-y-2 text-sm text-slate-300">
@@ -1397,21 +1478,13 @@ export default function WorkoutReportPanel({
                     "number"
                     ? ` · ${history.teamAScore}:${history.teamBScore}`
                     : "";
-                const assignmentEvent =
-                  findRelatedEvent(
+                const {
+                  assignmentEvent,
+                  replacements,
+                } =
+                  findMatchOperationEvents(
                     history,
-                    report.operationEvents,
-                    [
-                      "AUTO_MATCH",
-                      "MANUAL_MATCH",
-                      "QUEUED_PROMOTED",
-                    ]
-                  );
-                const finishedEvent =
-                  findRelatedEvent(
-                    history,
-                    report.operationEvents,
-                    ["MATCH_FINISHED"]
+                    report.operationEvents
                   );
 
                 return (
@@ -1419,50 +1492,58 @@ export default function WorkoutReportPanel({
                     key={history.id}
                     className="rounded-xl bg-slate-900 px-3 py-2"
                   >
-                    {index + 1}. Court {history.courtId}{" "}
-                    {formatKstTime(
-                      history.startedAt
-                    )}
-                    ~
-                    {formatKstTime(
-                      history.endedAt
-                    )}{" "}
-                    {formatTeam(
-                      history.teamA,
-                      report.histories,
-                      report.currentNames
-                    )}{" "}
-                    vs{" "}
-                    {formatTeam(
-                      history.teamB,
-                      report.histories,
-                      report.currentNames
-                    )}
-                    {scoreText}
+                    <div className="font-semibold text-slate-100">
+                      {index + 1}. Court {history.courtId}{" "}
+                      {formatKstTime(
+                        history.startedAt
+                      )}
+                      ~
+                      {formatKstTime(
+                        history.endedAt
+                      )}
+                      {scoreText}
+                    </div>
+                    <div className="mt-1 text-slate-200">
+                      {formatTeam(
+                        history.teamA,
+                        report.histories,
+                        report.currentNames
+                      )}{" "}
+                      vs{" "}
+                      {formatTeam(
+                        history.teamB,
+                        report.histories,
+                        report.currentNames
+                      )}
+                    </div>
                     {(assignmentEvent ||
-                      finishedEvent) && (
-                      <div className="mt-1 text-xs leading-5 text-slate-400">
+                      replacements.length >
+                        0) && (
+                      <div className="mt-2 space-y-1 text-xs leading-5 text-slate-400">
                         {assignmentEvent && (
-                          <span>
+                          <div>
                             {getOperationLabel(
                               assignmentEvent
                             )}
-                            :{" "}
-                            {formatOperator(
+                            : {formatOperator(
                               assignmentEvent
                             )}
-                          </span>
+                          </div>
                         )}
-                        {assignmentEvent &&
-                          finishedEvent &&
-                          " / "}
-                        {finishedEvent && (
-                          <span>
-                            경기 종료:{" "}
-                            {formatOperator(
-                              finishedEvent
-                            )}
-                          </span>
+                        {replacements.map(
+                          (event) => (
+                            <div key={event.id}>
+                              {getOperationLabel(
+                                event
+                              )}
+                              : {formatOperator(
+                                event
+                              )}
+                              {event.description
+                                ? ` / ${event.description}`
+                                : ""}
+                            </div>
+                          )
                         )}
                       </div>
                     )}
@@ -1481,7 +1562,7 @@ export default function WorkoutReportPanel({
             종료 기록 없는 대진
           </div>
           <p className="mt-1 text-xs leading-5 text-amber-100/80">
-            대진은 게임코트에 올라갔지만 경기 종료 기록이 없어 오늘 전체 경기 목록에는 시간 종료가 남지 않은 대진입니다.
+            대진은 게임코트에 올라갔지만 경기 종료 기록이 없어 오늘 전체 경기 목록에는 종료 시각이 남지 않은 대진입니다.
           </p>
           <div className="mt-2 space-y-2 text-sm text-amber-100">
             {report.uncompletedGameEvents.map(
@@ -1508,59 +1589,6 @@ export default function WorkoutReportPanel({
           </div>
         </div>
       )}
-
-      <div className="mt-4 rounded-xl bg-slate-950/60 p-3">
-        <div className="font-bold text-slate-200">
-          운영 상세 로그
-        </div>
-        <p className="mt-1 text-xs leading-5 text-slate-500">
-          자동/수동 대진 확정, 대기코트 승격, 선수 교체, 코트 내 위치 교환, 경기 종료를 누가 조작했는지 기록합니다.
-        </p>
-        <div className="mt-2 space-y-2 text-sm text-slate-300">
-          {report.operationEvents.length ===
-          0 ? (
-            <p className="text-slate-500">
-              아직 운영 로그가 없습니다.
-            </p>
-          ) : (
-            report.operationEvents.map(
-              (event, index) => (
-                <div
-                  key={event.id}
-                  className="rounded-xl bg-slate-900 px-3 py-2"
-                >
-                  <div className="font-semibold text-slate-100">
-                    {index + 1}.{" "}
-                    {formatKstTime(
-                      event.createdAt
-                    )}{" "}
-                    Court {event.courtId} ·{" "}
-                    {getOperationLabel(
-                      event
-                    )}
-                  </div>
-                  <div className="mt-1 text-xs leading-5 text-slate-400">
-                    조작자:{" "}
-                    {formatOperator(event)}
-                  </div>
-                  <div className="mt-1 text-xs leading-5 text-slate-400">
-                    대상:{" "}
-                    {formatEventPlayers(
-                      event.playerIds,
-                      event.playerNames
-                    )}
-                  </div>
-                  {event.description && (
-                    <div className="mt-1 text-xs leading-5 text-slate-500">
-                      {event.description}
-                    </div>
-                  )}
-                </div>
-              )
-            )
-          )}
-        </div>
-      </div>
 
       <textarea
         readOnly

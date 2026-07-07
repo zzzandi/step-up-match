@@ -645,6 +645,10 @@ export interface MatchStore {
     snapshots: WorkoutReportSnapshot[]
   ) => void;
 
+  deleteWorkoutReportSnapshot: (
+    snapshotId: string
+  ) => void;
+
   resetTodayWorkoutData: (
     workoutDate?: string
   ) => void;
@@ -1357,6 +1361,17 @@ export const useMatchStore =
                   ),
                 get()
                   .workoutReportSnapshots
+              ),
+          });
+        },
+
+      deleteWorkoutReportSnapshot:
+        (snapshotId) => {
+          set({
+            workoutReportSnapshots:
+              get().workoutReportSnapshots.filter(
+                (snapshot) =>
+                  snapshot.id !== snapshotId
               ),
           });
         },
@@ -2229,6 +2244,22 @@ export const useMatchStore =
               item.id === courtId
           );
 
+        const originalTeamAText =
+          court.teamA
+            ?.map(
+              (player) =>
+                player.name
+            )
+            .join(" + ") ?? "";
+
+        const originalTeamBText =
+          court.teamB
+            ?.map(
+              (player) =>
+                player.name
+            )
+            .join(" + ") ?? "";
+
         const teamAText =
           updatedCourt?.teamA
             ?.map(
@@ -2261,7 +2292,7 @@ export const useMatchStore =
               replacementStartedAt,
             operator,
             description:
-              `${target === "QUEUE" ? "대기 코트" : "Court"} ${courtId} 선수 교체: ${outgoingPlayer.name} → ${incomingPlayer.name}`,
+              `${target === "QUEUE" ? "대기 코트" : "Court"} ${courtId} 선수 교체: 기존 ${originalTeamAText} vs ${originalTeamBText} / ${outgoingPlayer.name} → ${incomingPlayer.name} / 변경 후 ${teamAText} vs ${teamBText}`,
           });
 
         set({

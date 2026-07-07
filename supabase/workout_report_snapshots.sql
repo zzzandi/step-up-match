@@ -28,3 +28,9 @@ create policy "workout_report_snapshots_update_all"
   for update
   using (true)
   with check (true);
+
+drop policy if exists "workout_report_snapshots_delete_all" on public.workout_report_snapshots;
+create policy "workout_report_snapshots_delete_all"
+  on public.workout_report_snapshots
+  for delete
+  using (true);

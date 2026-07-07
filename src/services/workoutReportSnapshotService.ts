@@ -105,3 +105,18 @@ export async function getWorkoutReportSnapshotsFromServer(
     )
   );
 }
+
+export async function deleteWorkoutReportSnapshotFromServer(
+  snapshotId: string
+) {
+  ensureConfigured();
+
+  const { error } = await supabase
+    .from(TABLE)
+    .delete()
+    .eq("id", snapshotId);
+
+  if (error) {
+    throw error;
+  }
+}
