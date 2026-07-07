@@ -1,6 +1,9 @@
 import {
   useMatchStore,
 } from "@/store/useMatchStore";
+import {
+  useAccessSession,
+} from "@/auth/access";
 
 const text = {
   title: "\uCD94\uCC9C \uB300\uC9C4",
@@ -34,6 +37,16 @@ const text = {
 };
 
 export default function MatchRecommendModal() {
+  const session =
+    useAccessSession();
+  const operator =
+    session
+      ? {
+          id: session.userId,
+          name: session.userName,
+          role: session.role,
+        }
+      : undefined;
   const recommendations =
     useMatchStore(
       (state) =>
@@ -251,7 +264,10 @@ export default function MatchRecommendModal() {
           <button
             type="button"
             onClick={() =>
-              approveRecommendation()
+              approveRecommendation(
+                undefined,
+                operator
+              )
             }
             disabled={
               !selectedRecommendation

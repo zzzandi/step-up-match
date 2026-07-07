@@ -10,6 +10,7 @@ import type {
 import type {
   WorkoutReportEvent,
   WorkoutReportEventType,
+  WorkoutReportOperator,
   WorkoutReportSnapshot,
 } from "@/types/workoutReport";
 
@@ -233,6 +234,7 @@ function createWorkoutReportEvent({
   target,
   players,
   description,
+  operator,
   createdAt = new Date(),
 }: {
   type: WorkoutReportEventType;
@@ -240,6 +242,7 @@ function createWorkoutReportEvent({
   target?: "GAME" | "QUEUE";
   players: Player[];
   description: string;
+  operator?: WorkoutReportOperator;
   createdAt?: Date;
 }): WorkoutReportEvent {
   return {
@@ -249,6 +252,7 @@ function createWorkoutReportEvent({
     target,
     createdAt:
       createdAt.toISOString(),
+    operator,
     playerIds:
       players.map(
         (player) => player.id
@@ -612,6 +616,9 @@ export interface MatchStore {
 
   endTodaySession: () => void;
 
+  saveWorkoutReportSnapshot:
+    () => boolean;
+
   resetTodayWorkoutData: (
     workoutDate?: string
   ) => void;
@@ -635,14 +642,16 @@ export interface MatchStore {
   ) => void;
 
   finishCourtMatch: (
-    courtId: number
+    courtId: number,
+    operator?: WorkoutReportOperator
   ) => void;
 
   replaceCourtPlayer: (
     courtId: number,
     outgoingPlayerId: string,
     incomingPlayerId: string,
-    target?: "GAME" | "QUEUE"
+    target?: "GAME" | "QUEUE",
+    operator?: WorkoutReportOperator
   ) => void;
 
   assignManualMatch: (
@@ -655,14 +664,16 @@ export interface MatchStore {
       string,
       string,
     ],
-    target?: "GAME" | "QUEUE"
+    target?: "GAME" | "QUEUE",
+    operator?: WorkoutReportOperator
   ) => boolean;
 
   swapCourtPlayers: (
     courtId: number,
     firstPlayerId: string,
     secondPlayerId: string,
-    target?: "GAME" | "QUEUE"
+    target?: "GAME" | "QUEUE",
+    operator?: WorkoutReportOperator
   ) => boolean;
 
   selectRecommendation: (
@@ -675,7 +686,8 @@ export interface MatchStore {
   ) => void;
 
   approveRecommendation: (
-    target?: "GAME" | "QUEUE"
+    target?: "GAME" | "QUEUE",
+    operator?: WorkoutReportOperator
   ) => void;
 
   clearRecommendation: () => void;
@@ -1328,6 +1340,36 @@ export const useMatchStore =
         });
       },
 
+      saveWorkoutReportSnapshot:
+        () => {
+          const {
+            players,
+            matchHistory,
+            workoutReportEvents,
+            workoutReportSnapshots,
+          } = get();
+          const snapshot =
+            createWorkoutReportSnapshot({
+              players,
+              matchHistory,
+              workoutReportEvents,
+            });
+
+          if (!snapshot) {
+            return false;
+          }
+
+          set({
+            workoutReportSnapshots:
+              appendWorkoutReportSnapshot(
+                workoutReportSnapshots,
+                snapshot
+              ),
+          });
+
+          return true;
+        },
+
       removeFixedPartner: (
         playerAId,
         playerBId
@@ -1623,7 +1665,8 @@ export const useMatchStore =
           }),
 
       finishCourtMatch: (
-        courtId
+        courtId,
+        operator
       ) => {
         const {
           players,
@@ -1890,8 +1933,37 @@ export const useMatchStore =
                     promotedPlayers,
                   createdAt:
                     promotedAt,
+                  operator,
                   description:
                     `대기 코트 ${nextQueuedCourt.id} 대진이 Court ${courtId}로 승격`,
+                })
+              : null;
+          const finishReportEvent =
+            history
+              ? createWorkoutReportEvent({
+                  type:
+                    "MATCH_FINISHED",
+                  courtId,
+                  target: "GAME",
+                  players: [
+                    ...teamA,
+                    ...teamB,
+                  ],
+                  createdAt:
+                    finishedAt,
+                  operator,
+                  description:
+                    `Court ${courtId} 경기 종료: ${teamA
+                      .map(
+                        (player) =>
+                          player.name
+                      )
+                      .join(" + ")} vs ${teamB
+                      .map(
+                        (player) =>
+                          player.name
+                      )
+                      .join(" + ")}`,
                 })
               : null;
 
@@ -1912,9 +1984,15 @@ export const useMatchStore =
                   ]
                 : matchHistory,
             workoutReportEvents:
+              finishReportEvent ||
               promoteReportEvent
                 ? [
-                    promoteReportEvent,
+                    ...[
+                      finishReportEvent,
+                      promoteReportEvent,
+                    ].filter(
+                      Boolean
+                    ) as WorkoutReportEvent[],
                     ...workoutReportEvents,
                   ]
                 : workoutReportEvents,
@@ -1960,7 +2038,8 @@ export const useMatchStore =
         courtId,
         outgoingPlayerId,
         incomingPlayerId,
-        target = "GAME"
+        target = "GAME",
+        operator
       ) => {
         const {
           courts,
@@ -2193,6 +2272,7 @@ export const useMatchStore =
             ],
             createdAt:
               replacementStartedAt,
+            operator,
             description:
               `${target === "QUEUE" ? "대기 코트" : "Court"} ${courtId} 선수 교체: ${outgoingPlayer.name} → ${incomingPlayer.name}`,
           });
@@ -2347,7 +2427,7 @@ export const useMatchStore =
         },
 
         approveRecommendation:
-        (target) => {
+        (target, operator) => {
           const {
             selectedRecommendation,
             recommendationTarget,
@@ -2552,6 +2632,7 @@ export const useMatchStore =
                 ],
               createdAt:
                 startedAt,
+              operator,
               description:
                 displayAssignmentMessage,
             });
@@ -2641,7 +2722,8 @@ export const useMatchStore =
         courtId,
         teamAPlayerIds,
         teamBPlayerIds,
-        target = "GAME"
+        target = "GAME",
+        operator
       ) => {
         const {
           courts,
@@ -2778,6 +2860,7 @@ export const useMatchStore =
             ],
             createdAt:
               startedAt,
+            operator,
             description:
               assignmentMessage,
           });
@@ -2888,7 +2971,8 @@ export const useMatchStore =
         courtId,
         firstPlayerId,
         secondPlayerId,
-        target = "GAME"
+        target = "GAME",
+        operator
       ) => {
         if (
           !firstPlayerId ||
@@ -3009,6 +3093,7 @@ export const useMatchStore =
             ],
             createdAt:
               eventAt,
+            operator,
             description:
               `${target === "QUEUE" ? "대기 코트" : "Court"} ${courtId} 코트 내 선수 위치 교체: ${firstPlayer.name} ↔ ${secondPlayer.name}`,
           });

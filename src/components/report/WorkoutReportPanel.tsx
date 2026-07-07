@@ -9,6 +9,9 @@ import {
 import type {
   MatchHistory,
 } from "@/types/matchHistory";
+import type {
+  WorkoutReportEvent,
+} from "@/types/workoutReport";
 
 interface MixingRow {
   id: string;
@@ -192,6 +195,112 @@ function formatEventPlayers(
   return names.join(" + ");
 }
 
+function formatOperator(
+  event: Pick<
+    WorkoutReportEvent,
+    "operator"
+  >
+) {
+  if (!event.operator?.name) {
+    return "조작자 기록 없음";
+  }
+
+  const roleText =
+    event.operator.role ===
+    "MASTER"
+      ? "Master"
+      : event.operator.role ===
+          "ADMIN"
+        ? "운영진"
+        : "Player";
+
+  return `${event.operator.name}(${roleText})`;
+}
+
+function getOperationLabel(
+  event: WorkoutReportEvent
+) {
+  if (event.type === "AUTO_MATCH") {
+    return event.target === "QUEUE"
+      ? "대기코트 자동 대진 확정"
+      : "게임코트 자동 대진 확정";
+  }
+
+  if (event.type === "MANUAL_MATCH") {
+    return event.target === "QUEUE"
+      ? "대기코트 수동 대진 확정"
+      : "게임코트 수동 대진 확정";
+  }
+
+  if (
+    event.type === "QUEUED_PROMOTED"
+  ) {
+    return "대기 대진 게임코트 승격";
+  }
+
+  if (
+    event.type === "MATCH_FINISHED"
+  ) {
+    return "경기 종료";
+  }
+
+  if (
+    event.type === "PLAYER_REPLACED"
+  ) {
+    return "선수 교체";
+  }
+
+  if (
+    event.type ===
+    "COURT_PLAYERS_SWAPPED"
+  ) {
+    return "코트 내 선수 위치 교환";
+  }
+
+  return event.type;
+}
+
+function findRelatedEvent(
+  history: MatchHistory,
+  events: WorkoutReportEvent[],
+  types: WorkoutReportEvent["type"][]
+) {
+  return events.find((event) => {
+    if (
+      event.courtId !==
+        history.courtId ||
+      !types.includes(event.type)
+    ) {
+      return false;
+    }
+
+    const targetTime =
+      event.type ===
+      "MATCH_FINISHED"
+        ? history.endedAt
+        : history.startedAt;
+    const diffMs =
+      Math.abs(
+        new Date(
+          targetTime
+        ).getTime() -
+          new Date(
+            event.createdAt
+          ).getTime()
+      );
+
+    return (
+      samePlayerSet(
+        getHistoryPlayerIds(
+          history
+        ),
+        event.playerIds
+      ) &&
+      diffMs <= 10 * 60 * 1000
+    );
+  });
+}
+
 function getSnapshotActivityCount(snapshot: {
   matchHistory: MatchHistory[];
   workoutReportEvents: unknown[];
@@ -224,9 +333,18 @@ export default function WorkoutReportPanel({
       (state) =>
         state.workoutReportSnapshots
     );
+  const saveWorkoutReportSnapshot =
+    useMatchStore(
+      (state) =>
+        state.saveWorkoutReportSnapshot
+    );
   const [
     copied,
     setCopied,
+  ] = useState(false);
+  const [
+    saved,
+    setSaved,
   ] = useState(false);
   const [
     selectedSnapshotId,
@@ -238,6 +356,15 @@ export default function WorkoutReportPanel({
       () =>
         [...workoutReportSnapshots].sort(
           (a, b) => {
+            const dateDiff =
+              b.workoutDate.localeCompare(
+                a.workoutDate
+              );
+
+            if (dateDiff !== 0) {
+              return dateDiff;
+            }
+
             const activityDiff =
               getSnapshotActivityCount(b) -
               getSnapshotActivityCount(a);
@@ -621,6 +748,16 @@ export default function WorkoutReportPanel({
             typeof history.teamBScore ===
               "number"
         ).length;
+      const operationEvents =
+        [...reportEvents].sort(
+          (a, b) =>
+            new Date(
+              a.createdAt
+            ).getTime() -
+            new Date(
+              b.createdAt
+            ).getTime()
+        );
       const gameAssignmentEvents =
         reportEvents
           .filter(
@@ -715,8 +852,35 @@ export default function WorkoutReportPanel({
                 "number"
                 ? ` ${history.teamAScore}:${history.teamBScore}`
                 : "";
+            const assignmentEvent =
+              findRelatedEvent(
+                history,
+                reportEvents,
+                [
+                  "AUTO_MATCH",
+                  "MANUAL_MATCH",
+                  "QUEUED_PROMOTED",
+                ]
+              );
+            const finishedEvent =
+              findRelatedEvent(
+                history,
+                reportEvents,
+                ["MATCH_FINISHED"]
+              );
+            const operationText =
+              [
+                assignmentEvent
+                  ? `${getOperationLabel(assignmentEvent)}: ${formatOperator(assignmentEvent)}`
+                  : "",
+                finishedEvent
+                  ? `경기 종료: ${formatOperator(finishedEvent)}`
+                  : "",
+              ]
+                .filter(Boolean)
+                .join(" / ");
 
-            return `${index + 1}. Court ${history.courtId} ${formatKstTime(history.startedAt)}~${formatKstTime(history.endedAt)} ${formatTeam(history.teamA, histories, currentNames)} vs ${formatTeam(history.teamB, histories, currentNames)}${scoreText}`;
+            return `${index + 1}. Court ${history.courtId} ${formatKstTime(history.startedAt)}~${formatKstTime(history.endedAt)} ${formatTeam(history.teamA, histories, currentNames)} vs ${formatTeam(history.teamB, histories, currentNames)}${scoreText}${operationText ? ` / ${operationText}` : ""}`;
           })
           .join("\n");
       const uncompletedMatchLines =
@@ -732,6 +896,13 @@ export default function WorkoutReportPanel({
           uncompletedMatchLines,
         ]
           .filter(Boolean)
+          .join("\n");
+      const operationLines =
+        operationEvents
+          .map(
+            (event, index) =>
+              `${index + 1}. ${formatKstTime(event.createdAt)} Court ${event.courtId} ${getOperationLabel(event)} / ${formatOperator(event)} / ${formatEventPlayers(event.playerIds, event.playerNames)}`
+          )
           .join("\n");
 
       const copyText = [
@@ -764,6 +935,9 @@ export default function WorkoutReportPanel({
         "",
         "오늘 전체 경기",
         allMatchLines || "기록 없음",
+        "",
+        "운영 상세 로그",
+        operationLines || "기록 없음",
       ].join("\n");
 
       return {
@@ -787,6 +961,7 @@ export default function WorkoutReportPanel({
         promotedEvents,
         replacementEvents,
         swapEvents,
+        operationEvents,
         histories,
         uncompletedGameEvents,
         currentNames,
@@ -824,6 +999,25 @@ export default function WorkoutReportPanel({
     }
   }
 
+  function saveReport() {
+    const ok =
+      saveWorkoutReportSnapshot();
+
+    if (!ok) {
+      window.alert(
+        "저장할 운동 리포트 데이터가 없습니다."
+      );
+      return;
+    }
+
+    setSelectedSnapshotId("");
+    setSaved(true);
+    window.setTimeout(
+      () => setSaved(false),
+      2000
+    );
+  }
+
   return (
     <div className="rounded-2xl border border-cyan-400/30 bg-cyan-400/5 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -835,6 +1029,16 @@ export default function WorkoutReportPanel({
             오늘 생성된 경기, 종료 기록, 개인별 섞임률을 기준으로 단톡방에 공유할 객관 수치를 정리합니다.
           </p>
         </div>
+        <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={saveReport}
+          className="rounded-xl bg-emerald-400 px-4 py-2 font-bold text-slate-950"
+        >
+          {saved
+            ? "저장 완료"
+            : "현재 리포트 저장"}
+        </button>
         <button
           type="button"
           onClick={() =>
@@ -846,6 +1050,7 @@ export default function WorkoutReportPanel({
             ? "복사 완료"
             : "문안 복사"}
         </button>
+      </div>
       </div>
 
       {sortedSnapshots.length > 0 && (
@@ -1056,6 +1261,22 @@ export default function WorkoutReportPanel({
                     "number"
                     ? ` · ${history.teamAScore}:${history.teamBScore}`
                     : "";
+                const assignmentEvent =
+                  findRelatedEvent(
+                    history,
+                    report.operationEvents,
+                    [
+                      "AUTO_MATCH",
+                      "MANUAL_MATCH",
+                      "QUEUED_PROMOTED",
+                    ]
+                  );
+                const finishedEvent =
+                  findRelatedEvent(
+                    history,
+                    report.operationEvents,
+                    ["MATCH_FINISHED"]
+                  );
 
                 return (
                   <div
@@ -1082,6 +1303,33 @@ export default function WorkoutReportPanel({
                       report.currentNames
                     )}
                     {scoreText}
+                    {(assignmentEvent ||
+                      finishedEvent) && (
+                      <div className="mt-1 text-xs leading-5 text-slate-400">
+                        {assignmentEvent && (
+                          <span>
+                            {getOperationLabel(
+                              assignmentEvent
+                            )}
+                            :{" "}
+                            {formatOperator(
+                              assignmentEvent
+                            )}
+                          </span>
+                        )}
+                        {assignmentEvent &&
+                          finishedEvent &&
+                          " / "}
+                        {finishedEvent && (
+                          <span>
+                            경기 종료:{" "}
+                            {formatOperator(
+                              finishedEvent
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               }
@@ -1124,6 +1372,59 @@ export default function WorkoutReportPanel({
           </div>
         </div>
       )}
+
+      <div className="mt-4 rounded-xl bg-slate-950/60 p-3">
+        <div className="font-bold text-slate-200">
+          운영 상세 로그
+        </div>
+        <p className="mt-1 text-xs leading-5 text-slate-500">
+          자동/수동 대진 확정, 대기코트 승격, 선수 교체, 코트 내 위치 교환, 경기 종료를 누가 조작했는지 기록합니다.
+        </p>
+        <div className="mt-2 space-y-2 text-sm text-slate-300">
+          {report.operationEvents.length ===
+          0 ? (
+            <p className="text-slate-500">
+              아직 운영 로그가 없습니다.
+            </p>
+          ) : (
+            report.operationEvents.map(
+              (event, index) => (
+                <div
+                  key={event.id}
+                  className="rounded-xl bg-slate-900 px-3 py-2"
+                >
+                  <div className="font-semibold text-slate-100">
+                    {index + 1}.{" "}
+                    {formatKstTime(
+                      event.createdAt
+                    )}{" "}
+                    Court {event.courtId} ·{" "}
+                    {getOperationLabel(
+                      event
+                    )}
+                  </div>
+                  <div className="mt-1 text-xs leading-5 text-slate-400">
+                    조작자:{" "}
+                    {formatOperator(event)}
+                  </div>
+                  <div className="mt-1 text-xs leading-5 text-slate-400">
+                    대상:{" "}
+                    {formatEventPlayers(
+                      event.playerIds,
+                      event.playerNames
+                    )}
+                  </div>
+                  {event.description && (
+                    <div className="mt-1 text-xs leading-5 text-slate-500">
+                      {event.description}
+                    </div>
+                  )}
+                </div>
+              )
+            )
+          )}
+        </div>
+      </div>
 
       <textarea
         readOnly

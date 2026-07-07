@@ -8,6 +8,9 @@ import type { Court } from "@/types/court";
 import {
   useMatchStore,
 } from "@/store/useMatchStore";
+import {
+  useAccessSession,
+} from "@/auth/access";
 
 const text = {
   queueCourt: "\uB300\uAE30 \uCF54\uD2B8",
@@ -104,6 +107,16 @@ export default function CourtCard({
   readOnly = false,
   matchTarget = "GAME",
 }: CourtCardProps) {
+  const session =
+    useAccessSession();
+  const operator =
+    session
+      ? {
+          id: session.userId,
+          name: session.userName,
+          role: session.role,
+        }
+      : undefined;
   const isQueueCourt =
     matchTarget === "QUEUE";
   const courtLabel =
@@ -287,7 +300,8 @@ export default function CourtCard({
           manualPlayerIds[2],
           manualPlayerIds[3],
         ],
-        matchTarget
+        matchTarget,
+        operator
       );
 
     if (!assigned) {
@@ -333,7 +347,8 @@ export default function CourtCard({
       court.id,
       outgoingPlayerId,
       incomingPlayerId,
-      matchTarget
+      matchTarget,
+      operator
     );
     setOutgoingPlayerId("");
     setIncomingPlayerId("");
@@ -660,7 +675,8 @@ export default function CourtCard({
                         court.id,
                         firstSwapPlayerId,
                         secondSwapPlayerId,
-                        matchTarget
+                        matchTarget,
+                        operator
                       )
                     ) {
                       window.alert(
@@ -701,7 +717,8 @@ export default function CourtCard({
                   )
                 ) {
                   finishCourtMatch(
-                    court.id
+                    court.id,
+                    operator
                   );
                 }
               }}

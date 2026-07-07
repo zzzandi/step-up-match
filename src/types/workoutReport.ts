@@ -9,8 +9,15 @@ export type WorkoutReportEventType =
   | "AUTO_MATCH"
   | "MANUAL_MATCH"
   | "QUEUED_PROMOTED"
+  | "MATCH_FINISHED"
   | "PLAYER_REPLACED"
   | "COURT_PLAYERS_SWAPPED";
+
+export interface WorkoutReportOperator {
+  id?: string;
+  name?: string;
+  role?: "ADMIN" | "MASTER" | "PLAYER";
+}
 
 export interface WorkoutReportEvent {
   id: string;
@@ -18,6 +25,7 @@ export interface WorkoutReportEvent {
   courtId: number;
   target?: "GAME" | "QUEUE";
   createdAt: string;
+  operator?: WorkoutReportOperator;
   playerIds: string[];
   playerNames: Record<
     string,
