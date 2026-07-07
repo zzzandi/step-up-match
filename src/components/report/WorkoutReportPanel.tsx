@@ -1389,6 +1389,348 @@ export default function WorkoutReportPanel({
     `;
   }
 
+  async function downloadCanvasAsPng(
+    canvas: HTMLCanvasElement,
+    filename: string
+  ) {
+    const blob =
+      await new Promise<Blob | null>(
+        (resolve) =>
+          canvas.toBlob(
+            resolve,
+            "image/png",
+            0.95
+          )
+      );
+
+    if (!blob) {
+      throw new Error(
+        "PNG export failed."
+      );
+    }
+
+    const url = URL.createObjectURL(blob);
+    const link =
+      document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function getReportFallbackSections() {
+    const operationLines = [
+      `게임코트 자동/수동: ${report.autoGameEvents}/${report.manualGameEvents}회`,
+      `대기코트 자동/수동: ${report.autoQueuedEvents}/${report.manualQueuedEvents}회`,
+      `대기코트 승격: ${report.promotedEvents}회`,
+      `선수 교체/코트 내 교체: ${report.replacementEvents}/${report.swapEvents}회`,
+      `종료/점수 입력: ${report.completedMatches}/${report.scoredMatches}경기`,
+    ];
+    const mixingLines =
+      report.mixingRows.map(
+        (row) =>
+          `${row.name} ${row.mixPercent}% · 교류 ${row.metCount}명 / 미교류 ${row.missedCount}명`
+      );
+    const participantLines =
+      report.participantRows.map(
+        (row) =>
+          `${row.name} · 참가 ${row.arrivalTimeText} · ${row.matchCount}경기`
+      );
+    const matchLines =
+      report.histories.map(
+        (history, index) => {
+          const scoreText =
+            typeof history.teamAScore ===
+              "number" &&
+            typeof history.teamBScore ===
+              "number"
+              ? ` · ${history.teamAScore}:${history.teamBScore}`
+              : "";
+          const {
+            assignmentEvent,
+            replacements,
+          } =
+            findMatchOperationEvents(
+              history,
+              report.operationEvents
+            );
+          const operationText = [
+            assignmentEvent
+              ? `${getOperationLabel(assignmentEvent)}: ${formatOperator(assignmentEvent)}`
+              : "",
+            ...replacements.map(
+              (event) =>
+                `${getOperationLabel(event)}: ${formatOperator(event)}${event.description ? ` / ${event.description}` : ""}`
+            ),
+          ]
+            .filter(Boolean)
+            .join(" / ");
+
+          return `${index + 1}. Court ${history.courtId} ${formatKstTime(history.startedAt)}~${formatKstTime(history.endedAt)}${scoreText} · ${formatTeam(history.teamA, report.histories, report.currentNames)} vs ${formatTeam(history.teamB, report.histories, report.currentNames)}${operationText ? ` · ${operationText}` : ""}`;
+        }
+      );
+    const uncompletedLines =
+      report.uncompletedGameEvents.map(
+        (event, index) =>
+          `${report.histories.length + index + 1}. Court ${event.courtId} ${formatKstTime(event.createdAt)}~종료 기록 없음 · ${formatEventPlayers(event.playerIds, event.playerNames)}`
+      );
+
+    return [
+      {
+        title: "요약",
+        lines: [
+          `참여 인원: ${report.participantCount}명`,
+          `오늘 총 경기: ${report.totalMatches}경기`,
+          `평균 경기: ${report.averageMatches}`,
+          `평균 섞임률: ${report.averageMixPercent}%`,
+        ],
+      },
+      {
+        title: "대진 운영 기록",
+        lines: operationLines,
+      },
+      {
+        title: "개인별 섞임률",
+        lines: mixingLines.length
+          ? mixingLines
+          : ["기록 없음"],
+      },
+      {
+        title: "인원별 경기 수",
+        lines: participantLines.length
+          ? participantLines
+          : ["기록 없음"],
+      },
+      {
+        title: "오늘 전체 경기",
+        lines:
+          matchLines.length ||
+          uncompletedLines.length
+            ? [
+                ...matchLines,
+                ...uncompletedLines,
+              ]
+            : ["기록 없음"],
+      },
+    ];
+  }
+
+  function wrapCanvasText(
+    ctx: CanvasRenderingContext2D,
+    text: string,
+    maxWidth: number
+  ) {
+    const words = text.split(" ");
+    const lines: string[] = [];
+    let current = "";
+
+    words.forEach((word) => {
+      const next = current
+        ? `${current} ${word}`
+        : word;
+
+      if (
+        ctx.measureText(next).width <=
+          maxWidth ||
+        !current
+      ) {
+        current = next;
+      } else {
+        lines.push(current);
+        current = word;
+      }
+    });
+
+    if (current) {
+      lines.push(current);
+    }
+
+    return lines;
+  }
+
+  async function exportFallbackReportImages() {
+    const width = 900;
+    const pageHeight = 2200;
+    const padding = 32;
+    const contentWidth =
+      width - padding * 2;
+    const sections =
+      getReportFallbackSections();
+    const pages: HTMLCanvasElement[] = [];
+    let canvas =
+      document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = pageHeight;
+    let ctx = canvas.getContext("2d");
+
+    if (!ctx) {
+      throw new Error(
+        "Canvas context is unavailable."
+      );
+    }
+
+    const paintBackground = () => {
+      const gradient =
+        ctx!.createLinearGradient(
+          0,
+          0,
+          0,
+          pageHeight
+        );
+      gradient.addColorStop(
+        0,
+        "#020617"
+      );
+      gradient.addColorStop(
+        0.55,
+        "#0f172a"
+      );
+      gradient.addColorStop(
+        1,
+        "#020617"
+      );
+      ctx!.fillStyle = gradient;
+      ctx!.fillRect(
+        0,
+        0,
+        width,
+        pageHeight
+      );
+    };
+    const startNewPage = () => {
+      pages.push(canvas);
+      canvas =
+        document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = pageHeight;
+      ctx = canvas.getContext("2d");
+
+      if (!ctx) {
+        throw new Error(
+          "Canvas context is unavailable."
+        );
+      }
+
+      paintBackground();
+      return padding;
+    };
+
+    paintBackground();
+    let y = padding;
+    ctx.fillStyle = "#67e8f9";
+    ctx.font =
+      "800 22px system-ui, sans-serif";
+    ctx.fillText(
+      "STEP UP MATCH",
+      padding,
+      y
+    );
+    y += 44;
+    ctx.fillStyle = "#ffffff";
+    ctx.font =
+      "900 32px system-ui, sans-serif";
+    wrapCanvasText(
+      ctx,
+      getReportTitle(),
+      contentWidth
+    ).forEach((line) => {
+      ctx!.fillText(line, padding, y);
+      y += 40;
+    });
+    y += 12;
+
+    sections.forEach((section) => {
+      const sectionTitleHeight = 34;
+      const lineHeight = 27;
+      ctx!.font =
+        "600 19px system-ui, sans-serif";
+      const wrappedLines =
+        section.lines.flatMap((line) =>
+          wrapCanvasText(
+            ctx!,
+            line,
+            contentWidth - 28
+          )
+        );
+      const sectionHeight =
+        sectionTitleHeight +
+        wrappedLines.length * lineHeight +
+        34;
+
+      if (
+        y + sectionHeight >
+        pageHeight - padding
+      ) {
+        y = startNewPage();
+      }
+
+      ctx!.fillStyle =
+        "rgba(15, 23, 42, 0.86)";
+      ctx!.strokeStyle =
+        "rgba(34, 211, 238, 0.22)";
+      ctx!.lineWidth = 1;
+      ctx!.beginPath();
+      ctx!.roundRect(
+        padding,
+        y,
+        contentWidth,
+        Math.min(
+          sectionHeight,
+          pageHeight - padding - y
+        ),
+        22
+      );
+      ctx!.fill();
+      ctx!.stroke();
+      y += 34;
+      ctx!.fillStyle = "#67e8f9";
+      ctx!.font =
+        "800 22px system-ui, sans-serif";
+      ctx!.fillText(
+        section.title,
+        padding + 16,
+        y
+      );
+      y += 30;
+      ctx!.fillStyle = "#dbeafe";
+      ctx!.font =
+        "600 19px system-ui, sans-serif";
+
+      wrappedLines.forEach((line) => {
+        if (
+          y + lineHeight >
+          pageHeight - padding
+        ) {
+          y = startNewPage();
+          ctx!.fillStyle = "#dbeafe";
+          ctx!.font =
+            "600 19px system-ui, sans-serif";
+        }
+
+        ctx!.fillText(
+          line,
+          padding + 16,
+          y
+        );
+        y += lineHeight;
+      });
+      y += 26;
+    });
+
+    pages.push(canvas);
+
+    for (
+      let index = 0;
+      index < pages.length;
+      index += 1
+    ) {
+      await downloadCanvasAsPng(
+        pages[index],
+        `step-up-match-report-${report.snapshotWorkoutDate ?? selectedReportDate}-${index + 1}.png`
+      );
+    }
+  }
+
   async function exportReportImage() {
     setExportingImage(true);
 
@@ -1493,9 +1835,17 @@ export default function WorkoutReportPanel({
       }
     } catch (error) {
       console.error(error);
-      window.alert(
-        "이미지 파일 생성에 실패했습니다. PDF 저장을 이용하거나 리포트 화면을 캡처해 주세요."
-      );
+      try {
+        await exportFallbackReportImages();
+        window.alert(
+          "기본 이미지 저장이 실패해 안전 모드로 리포트 이미지를 저장했습니다. 여러 장으로 나뉘어 저장될 수 있습니다."
+        );
+      } catch (fallbackError) {
+        console.error(fallbackError);
+        window.alert(
+          "이미지 파일 생성에 실패했습니다. PDF 저장을 이용하거나 리포트 화면을 캡처해 주세요."
+        );
+      }
     } finally {
       setExportingImage(false);
     }
