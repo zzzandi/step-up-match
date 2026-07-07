@@ -402,6 +402,15 @@ function getSnapshotActivityCount(snapshot: {
   );
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 export default function WorkoutReportPanel({
   preferSnapshot = false,
 }: WorkoutReportPanelProps) {
@@ -454,6 +463,10 @@ export default function WorkoutReportPanel({
   const [
     deleting,
     setDeleting,
+  ] = useState(false);
+  const [
+    exportingImage,
+    setExportingImage,
   ] = useState(false);
   const [
     selectedSnapshotId,
@@ -1159,6 +1172,274 @@ export default function WorkoutReportPanel({
     }
   }
 
+  function getReportTitle() {
+    return `STEP UP MATCH 운동 리포트 · ${report.snapshotWorkoutDate ?? selectedReportDate}`;
+  }
+
+  async function exportReportImage() {
+    setExportingImage(true);
+
+    try {
+      const width = 1200;
+      const padding = 56;
+      const lineHeight = 34;
+      const rows =
+        report.mixingRows.length +
+        report.participantRows.length +
+        report.histories.length;
+      const height = Math.max(
+        1200,
+        920 + rows * 34
+      );
+      const canvas =
+        document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx =
+        canvas.getContext("2d");
+
+      if (!ctx) {
+        throw new Error(
+          "Canvas context is unavailable."
+        );
+      }
+
+      ctx.fillStyle = "#020617";
+      ctx.fillRect(
+        0,
+        0,
+        width,
+        height
+      );
+      ctx.fillStyle = "#0f172a";
+      ctx.fillRect(
+        32,
+        32,
+        width - 64,
+        height - 64
+      );
+
+      let y = padding;
+      ctx.fillStyle = "#67e8f9";
+      ctx.font =
+        "700 28px system-ui, sans-serif";
+      ctx.fillText(
+        "STEP UP MATCH",
+        padding,
+        y
+      );
+      y += 54;
+      ctx.fillStyle = "#ffffff";
+      ctx.font =
+        "800 46px system-ui, sans-serif";
+      ctx.fillText(
+        getReportTitle(),
+        padding,
+        y
+      );
+      y += 58;
+
+      const summaryItems = [
+        `참여 인원 ${report.participantCount}명`,
+        `오늘 총 경기 ${report.totalMatches}경기`,
+        `평균 경기 ${report.averageMatches}`,
+        `평균 섞임률 ${report.averageMixPercent}%`,
+      ];
+      ctx.font =
+        "700 28px system-ui, sans-serif";
+      summaryItems.forEach(
+        (item, index) => {
+          const x =
+            padding +
+            (index % 2) * 540;
+          const boxY =
+            y + Math.floor(index / 2) * 86;
+          ctx.fillStyle = "#111827";
+          ctx.fillRect(
+            x,
+            boxY,
+            500,
+            62
+          );
+          ctx.fillStyle = "#e5e7eb";
+          ctx.fillText(
+            item,
+            x + 22,
+            boxY + 40
+          );
+        }
+      );
+      y += 190;
+
+      const drawSection = (
+        title: string,
+        lines: string[]
+      ) => {
+        ctx.fillStyle = "#67e8f9";
+        ctx.font =
+          "800 30px system-ui, sans-serif";
+        ctx.fillText(
+          title,
+          padding,
+          y
+        );
+        y += 44;
+        ctx.fillStyle = "#cbd5e1";
+        ctx.font =
+          "500 24px system-ui, sans-serif";
+        lines.forEach((line) => {
+          ctx.fillText(
+            line,
+            padding,
+            y
+          );
+          y += lineHeight;
+        });
+        y += 26;
+      };
+
+      drawSection("대진 운영 기록", [
+        `게임코트 자동/수동 ${report.autoGameEvents}/${report.manualGameEvents}회`,
+        `대기코트 자동/수동 ${report.autoQueuedEvents}/${report.manualQueuedEvents}회`,
+        `선수 교체/코트 내 교체 ${report.replacementEvents}/${report.swapEvents}회`,
+        `종료/점수 입력 ${report.completedMatches}/${report.scoredMatches}경기`,
+      ]);
+
+      drawSection("개인별 섞임률", [
+        ...report.mixingRows.map(
+          (row) =>
+            `${row.name} ${row.mixPercent}% · 교류 ${row.metCount}명 / 미교류 ${row.missedCount}명`
+        ),
+      ]);
+
+      drawSection("인원별 경기 수", [
+        ...report.participantRows.map(
+          (row) =>
+            `${row.name} ${row.matchCount}경기`
+        ),
+      ]);
+
+      drawSection("오늘 전체 경기", [
+        ...report.histories.map(
+          (history, index) =>
+            `${index + 1}. Court ${history.courtId} ${formatKstTime(history.startedAt)}~${formatKstTime(history.endedAt)} ${formatTeam(history.teamA, report.histories, report.currentNames)} vs ${formatTeam(history.teamB, report.histories, report.currentNames)}`
+        ),
+      ]);
+
+      const blob =
+        await new Promise<Blob | null>(
+          (resolve) =>
+            canvas.toBlob(
+              resolve,
+              "image/png",
+              0.95
+            )
+        );
+
+      if (!blob) {
+        throw new Error(
+          "PNG export failed."
+        );
+      }
+
+      const url =
+        URL.createObjectURL(blob);
+      const link =
+        document.createElement("a");
+      link.href = url;
+      link.download = `step-up-match-report-${report.snapshotWorkoutDate ?? selectedReportDate}.png`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(error);
+      window.alert(
+        "이미지 파일 생성에 실패했습니다."
+      );
+    } finally {
+      setExportingImage(false);
+    }
+  }
+
+  function openReportPrintView() {
+    const printWindow =
+      window.open("", "_blank");
+
+    if (!printWindow) {
+      window.alert(
+        "팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요."
+      );
+      return;
+    }
+
+    const mixingRows =
+      report.mixingRows
+        .map(
+          (row) =>
+            `<tr><td>${escapeHtml(row.name)}</td><td>${row.mixPercent}%</td><td>${row.metCount}명</td><td>${row.missedCount}명</td></tr>`
+        )
+        .join("");
+    const matchRows =
+      report.participantRows
+        .map(
+          (row) =>
+            `<tr><td>${escapeHtml(row.name)}</td><td>${row.matchCount}경기</td></tr>`
+        )
+        .join("");
+    const historyRows =
+      report.histories
+        .map(
+          (history, index) =>
+            `<tr><td>${index + 1}</td><td>Court ${history.courtId}</td><td>${formatKstTime(history.startedAt)}~${formatKstTime(history.endedAt)}</td><td>${escapeHtml(formatTeam(history.teamA, report.histories, report.currentNames))}</td><td>${escapeHtml(formatTeam(history.teamB, report.histories, report.currentNames))}</td></tr>`
+        )
+        .join("");
+
+    printWindow.document.write(`
+      <!doctype html>
+      <html lang="ko">
+        <head>
+          <meta charset="utf-8" />
+          <title>${escapeHtml(getReportTitle())}</title>
+          <style>
+            body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #111827; margin: 32px; }
+            h1 { margin: 0 0 8px; }
+            h2 { margin-top: 28px; border-bottom: 2px solid #111827; padding-bottom: 8px; }
+            .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 24px; }
+            .card { border: 1px solid #d1d5db; border-radius: 12px; padding: 16px; }
+            .value { font-size: 28px; font-weight: 800; }
+            table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+            th, td { border: 1px solid #d1d5db; padding: 8px 10px; text-align: left; }
+            th { background: #f3f4f6; }
+            @media print { button { display: none; } body { margin: 18mm; } }
+          </style>
+        </head>
+        <body>
+          <button onclick="window.print()">PDF로 저장 / 인쇄</button>
+          <h1>${escapeHtml(getReportTitle())}</h1>
+          <p>카카오톡 공유와 보관을 위한 운동 리포트입니다.</p>
+          <div class="summary">
+            <div class="card">참여 인원<div class="value">${report.participantCount}명</div></div>
+            <div class="card">오늘 총 경기<div class="value">${report.totalMatches}경기</div></div>
+            <div class="card">평균 경기<div class="value">${report.averageMatches}</div></div>
+            <div class="card">평균 섞임률<div class="value">${report.averageMixPercent}%</div></div>
+          </div>
+          <h2>대진 운영 기록</h2>
+          <p>게임코트 자동/수동: ${report.autoGameEvents}/${report.manualGameEvents}회</p>
+          <p>대기코트 자동/수동: ${report.autoQueuedEvents}/${report.manualQueuedEvents}회</p>
+          <p>선수 교체/코트 내 교체: ${report.replacementEvents}/${report.swapEvents}회</p>
+          <p>종료/점수 입력: ${report.completedMatches}/${report.scoredMatches}경기</p>
+          <h2>개인별 섞임률</h2>
+          <table><thead><tr><th>이름</th><th>섞임률</th><th>같이 쳐본 사람</th><th>못 쳐본 사람</th></tr></thead><tbody>${mixingRows}</tbody></table>
+          <h2>인원별 경기 수</h2>
+          <table><thead><tr><th>이름</th><th>경기 수</th></tr></thead><tbody>${matchRows}</tbody></table>
+          <h2>오늘 전체 경기</h2>
+          <table><thead><tr><th>#</th><th>코트</th><th>시간</th><th>Team A</th><th>Team B</th></tr></thead><tbody>${historyRows}</tbody></table>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+  }
+
   async function saveReport() {
     const snapshot =
       saveWorkoutReportSnapshot();
@@ -1270,6 +1551,25 @@ export default function WorkoutReportPanel({
           {copied
             ? "복사 완료"
             : "문안 복사"}
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            void exportReportImage()
+          }
+          disabled={exportingImage}
+          className="rounded-xl bg-violet-400 px-4 py-2 font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {exportingImage
+            ? "이미지 생성 중"
+            : "이미지 저장"}
+        </button>
+        <button
+          type="button"
+          onClick={openReportPrintView}
+          className="rounded-xl bg-white px-4 py-2 font-bold text-slate-950"
+        >
+          PDF 저장
         </button>
       </div>
       </div>
@@ -1450,6 +1750,114 @@ export default function WorkoutReportPanel({
                 .map((row) => row.name)
                 .join(", ") || "없음"}
             </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <div className="rounded-xl bg-slate-950/60 p-3">
+          <div className="font-bold text-slate-200">
+            개인별 섞임률
+          </div>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            오늘 참가자 중 같은 경기에 한 번 이상 같이 배치된 사람의 비율입니다.
+          </p>
+          <div className="mt-3 max-h-80 overflow-auto rounded-xl border border-slate-800">
+            {report.mixingRows.length ===
+            0 ? (
+              <div className="p-3 text-sm text-slate-500">
+                아직 집계할 경기 기록이 없습니다.
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs text-slate-300">
+                <thead className="sticky top-0 bg-slate-950 text-slate-400">
+                  <tr>
+                    <th className="px-3 py-2">
+                      이름
+                    </th>
+                    <th className="px-3 py-2">
+                      섞임률
+                    </th>
+                    <th className="px-3 py-2">
+                      교류
+                    </th>
+                    <th className="px-3 py-2">
+                      미교류
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.mixingRows.map(
+                    (row) => (
+                      <tr
+                        key={row.id}
+                        className="border-t border-slate-800"
+                      >
+                        <td className="px-3 py-2 font-bold text-slate-100">
+                          {row.name}
+                        </td>
+                        <td className="px-3 py-2 text-cyan-200">
+                          {row.mixPercent}%
+                        </td>
+                        <td className="px-3 py-2">
+                          {row.metCount}명
+                        </td>
+                        <td className="px-3 py-2">
+                          {row.missedCount}명
+                        </td>
+                      </tr>
+                    )
+                  )}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-slate-950/60 p-3">
+          <div className="font-bold text-slate-200">
+            인원별 경기 수
+          </div>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            오늘 리포트 기준 각 참가자의 총 경기 수입니다.
+          </p>
+          <div className="mt-3 max-h-80 overflow-auto rounded-xl border border-slate-800">
+            {report.participantRows.length ===
+            0 ? (
+              <div className="p-3 text-sm text-slate-500">
+                아직 집계할 경기 기록이 없습니다.
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs text-slate-300">
+                <thead className="sticky top-0 bg-slate-950 text-slate-400">
+                  <tr>
+                    <th className="px-3 py-2">
+                      이름
+                    </th>
+                    <th className="px-3 py-2">
+                      경기 수
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.participantRows.map(
+                    (row) => (
+                      <tr
+                        key={row.id}
+                        className="border-t border-slate-800"
+                      >
+                        <td className="px-3 py-2 font-bold text-slate-100">
+                          {row.name}
+                        </td>
+                        <td className="px-3 py-2 text-emerald-200">
+                          {row.matchCount}경기
+                        </td>
+                      </tr>
+                    )
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </div>
