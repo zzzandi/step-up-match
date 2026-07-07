@@ -1393,16 +1393,6 @@ export default function WorkoutReportPanel({
     setExportingImage(true);
 
     try {
-      const width = 1200;
-      const height = Math.max(
-        1800,
-        980 +
-          report.mixingRows.length * 38 +
-          report.participantRows.length * 38 +
-          (report.histories.length +
-            report.uncompletedGameEvents.length) *
-            112
-      );
       const html = createReportExportHtml({
         includeToolbar: false,
         imageMode: true,
@@ -1419,81 +1409,91 @@ export default function WorkoutReportPanel({
         styleMatch?.[1] ?? "";
       const exportBody =
         bodyMatch?.[1] ?? html;
-      const svg = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
-          <foreignObject width="100%" height="100%">
-            <div xmlns="http://www.w3.org/1999/xhtml" style="width:${width}px;min-height:${height}px;background:#020617;">
-              <style>${exportStyle}</style>
-              ${exportBody}
-            </div>
-          </foreignObject>
-        </svg>
-      `;
-      const image = new Image();
-      const svgBlob = new Blob(
-        [svg],
-        {
-          type: "image/svg+xml;charset=utf-8",
-        }
+      const { default: html2canvas } =
+        await import("html2canvas");
+      const exportContainer =
+        document.createElement("div");
+
+      exportContainer.style.position =
+        "fixed";
+      exportContainer.style.left =
+        "-10000px";
+      exportContainer.style.top = "0";
+      exportContainer.style.width =
+        "1200px";
+      exportContainer.style.pointerEvents =
+        "none";
+      exportContainer.style.opacity = "1";
+      exportContainer.style.zIndex = "-1";
+      exportContainer.innerHTML = `<style>${exportStyle}</style>${exportBody}`;
+      document.body.appendChild(
+        exportContainer
       );
-      const svgUrl =
-        URL.createObjectURL(svgBlob);
-      const canvas =
-        document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx =
-        canvas.getContext("2d");
 
-      if (!ctx) {
-        throw new Error(
-          "Canvas context is unavailable."
-        );
-      }
+      try {
+        if (document.fonts?.ready) {
+          await document.fonts.ready;
+        }
 
-      await new Promise<void>(
-        (resolve, reject) => {
-          image.onload = () => resolve();
-          image.onerror = () =>
-            reject(
-              new Error(
-                "Report image render failed."
+        const target =
+          exportContainer.querySelector(
+            ".export-root"
+          ) as HTMLElement | null;
+
+        if (!target) {
+          throw new Error(
+            "Report export target is missing."
+          );
+        }
+
+        const canvas =
+          await html2canvas(target, {
+            backgroundColor: "#020617",
+            scale: Math.min(
+              2,
+              window.devicePixelRatio || 1
+            ),
+            useCORS: true,
+            logging: false,
+            width: target.scrollWidth,
+            height: target.scrollHeight,
+            windowWidth:
+              target.scrollWidth,
+            windowHeight:
+              target.scrollHeight,
+          });
+
+        const blob =
+          await new Promise<Blob | null>(
+            (resolve) =>
+              canvas.toBlob(
+                resolve,
+                "image/png",
+                0.95
               )
-            );
-          image.src = svgUrl;
+          );
+
+        if (!blob) {
+          throw new Error(
+            "PNG export failed."
+          );
         }
-      );
-      ctx.drawImage(image, 0, 0);
-      URL.revokeObjectURL(svgUrl);
 
-      const blob =
-        await new Promise<Blob | null>(
-          (resolve) =>
-            canvas.toBlob(
-              resolve,
-              "image/png",
-              0.95
-            )
-        );
-
-      if (!blob) {
-        throw new Error(
-          "PNG export failed."
-        );
+        const url =
+          URL.createObjectURL(blob);
+        const link =
+          document.createElement("a");
+        link.href = url;
+        link.download = `step-up-match-report-${report.snapshotWorkoutDate ?? selectedReportDate}.png`;
+        link.click();
+        URL.revokeObjectURL(url);
+      } finally {
+        exportContainer.remove();
       }
-
-      const url =
-        URL.createObjectURL(blob);
-      const link =
-        document.createElement("a");
-      link.href = url;
-      link.download = `step-up-match-report-${report.snapshotWorkoutDate ?? selectedReportDate}.png`;
-      link.click();
-      URL.revokeObjectURL(url);
     } catch (error) {
       console.error(error);
       window.alert(
-        "이미지 파일 생성에 실패했습니다. PDF 저장을 이용하거나 화면 캡처를 사용해 주세요."
+        "이미지 파일 생성에 실패했습니다. PDF 저장을 이용하거나 리포트 화면을 캡처해 주세요."
       );
     } finally {
       setExportingImage(false);
