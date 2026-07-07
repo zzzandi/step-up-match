@@ -617,7 +617,7 @@ export interface MatchStore {
   endTodaySession: () => void;
 
   saveWorkoutReportSnapshot:
-    () => boolean;
+    () => WorkoutReportSnapshot | null;
 
   resetTodayWorkoutData: (
     workoutDate?: string
@@ -1356,7 +1356,7 @@ export const useMatchStore =
             });
 
           if (!snapshot) {
-            return false;
+            return null;
           }
 
           set({
@@ -1367,7 +1367,7 @@ export const useMatchStore =
               ),
           });
 
-          return true;
+          return snapshot;
         },
 
       removeFixedPartner: (
