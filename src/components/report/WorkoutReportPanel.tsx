@@ -22,6 +22,7 @@ import {
 interface MixingRow {
   id: string;
   name: string;
+  arrivalTimeText: string;
   matchCount: number;
   metCount: number;
   possibleCount: number;
@@ -663,6 +664,19 @@ export default function WorkoutReportPanel({
             ]
           )
         );
+      const arrivalTimeByPlayer =
+        new Map(
+          reportPlayers.map(
+            (player) => [
+              player.id,
+              player.arrivalTime
+                ? formatKstTime(
+                    player.arrivalTime
+                  )
+                : "-",
+            ]
+          )
+        );
       const participantIds =
         new Set<string>();
 
@@ -767,6 +781,10 @@ export default function WorkoutReportPanel({
                   histories,
                   currentNames
                 ),
+              arrivalTimeText:
+                arrivalTimeByPlayer.get(
+                  playerId
+                ) ?? "-",
               matchCount:
                 matchCountByPlayer.get(
                   playerId
@@ -1014,7 +1032,7 @@ export default function WorkoutReportPanel({
         participantRows
           .map(
             (row) =>
-              `${row.name} ${row.matchCount}경기`
+              `${row.name} 참가 ${row.arrivalTimeText} / ${row.matchCount}경기`
           )
           .join(", ");
       const mixingLine =
@@ -1189,7 +1207,7 @@ export default function WorkoutReportPanel({
         report.histories.length;
       const height = Math.max(
         1200,
-        920 + rows * 34
+        1040 + rows * 38
       );
       const canvas =
         document.createElement("canvas");
@@ -1204,19 +1222,93 @@ export default function WorkoutReportPanel({
         );
       }
 
-      ctx.fillStyle = "#020617";
-      ctx.fillRect(
+      const roundRect = (
+        x: number,
+        rectY: number,
+        rectWidth: number,
+        rectHeight: number,
+        radius: number,
+        fill: string,
+        stroke?: string
+      ) => {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, rectY);
+        ctx.lineTo(
+          x + rectWidth - radius,
+          rectY
+        );
+        ctx.quadraticCurveTo(
+          x + rectWidth,
+          rectY,
+          x + rectWidth,
+          rectY + radius
+        );
+        ctx.lineTo(
+          x + rectWidth,
+          rectY + rectHeight - radius
+        );
+        ctx.quadraticCurveTo(
+          x + rectWidth,
+          rectY + rectHeight,
+          x + rectWidth - radius,
+          rectY + rectHeight
+        );
+        ctx.lineTo(
+          x + radius,
+          rectY + rectHeight
+        );
+        ctx.quadraticCurveTo(
+          x,
+          rectY + rectHeight,
+          x,
+          rectY + rectHeight - radius
+        );
+        ctx.lineTo(x, rectY + radius);
+        ctx.quadraticCurveTo(
+          x,
+          rectY,
+          x + radius,
+          rectY
+        );
+        ctx.closePath();
+        ctx.fillStyle = fill;
+        ctx.fill();
+        if (stroke) {
+          ctx.strokeStyle = stroke;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+      };
+
+      const backgroundGradient =
+        ctx.createLinearGradient(
+          0,
+          0,
+          0,
+          height
+        );
+      backgroundGradient.addColorStop(
         0,
-        0,
-        width,
-        height
+        "#020617"
       );
-      ctx.fillStyle = "#0f172a";
-      ctx.fillRect(
+      backgroundGradient.addColorStop(
+        0.45,
+        "#071427"
+      );
+      backgroundGradient.addColorStop(
+        1,
+        "#020617"
+      );
+      ctx.fillStyle = backgroundGradient;
+      ctx.fillRect(0, 0, width, height);
+      roundRect(
         32,
         32,
         width - 64,
-        height - 64
+        height - 64,
+        34,
+        "rgba(15, 23, 42, 0.92)",
+        "rgba(34, 211, 238, 0.28)"
       );
 
       let y = padding;
@@ -1254,12 +1346,14 @@ export default function WorkoutReportPanel({
             (index % 2) * 540;
           const boxY =
             y + Math.floor(index / 2) * 86;
-          ctx.fillStyle = "#111827";
-          ctx.fillRect(
+          roundRect(
             x,
             boxY,
             500,
-            62
+            66,
+            18,
+            "rgba(2, 6, 23, 0.86)",
+            "rgba(148, 163, 184, 0.22)"
           );
           ctx.fillStyle = "#e5e7eb";
           ctx.fillText(
@@ -1275,6 +1369,20 @@ export default function WorkoutReportPanel({
         title: string,
         lines: string[]
       ) => {
+        const sectionHeight =
+          64 +
+          Math.max(1, lines.length) *
+            lineHeight +
+          28;
+        roundRect(
+          padding - 18,
+          y - 34,
+          width - padding * 2 + 36,
+          sectionHeight,
+          24,
+          "rgba(2, 6, 23, 0.66)",
+          "rgba(30, 41, 59, 0.95)"
+        );
         ctx.fillStyle = "#67e8f9";
         ctx.font =
           "800 30px system-ui, sans-serif";
@@ -1287,7 +1395,10 @@ export default function WorkoutReportPanel({
         ctx.fillStyle = "#cbd5e1";
         ctx.font =
           "500 24px system-ui, sans-serif";
-        lines.forEach((line) => {
+        (lines.length > 0
+          ? lines
+          : ["기록 없음"]
+        ).forEach((line) => {
           ctx.fillText(
             line,
             padding,
@@ -1315,7 +1426,7 @@ export default function WorkoutReportPanel({
       drawSection("인원별 경기 수", [
         ...report.participantRows.map(
           (row) =>
-            `${row.name} ${row.matchCount}경기`
+            `${row.name} · 참가 ${row.arrivalTimeText} · ${row.matchCount}경기`
         ),
       ]);
 
@@ -1382,7 +1493,7 @@ export default function WorkoutReportPanel({
       report.participantRows
         .map(
           (row) =>
-            `<tr><td>${escapeHtml(row.name)}</td><td>${row.matchCount}경기</td></tr>`
+            `<tr><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.arrivalTimeText)}</td><td>${row.matchCount}경기</td></tr>`
         )
         .join("");
     const historyRows =
@@ -1400,39 +1511,56 @@ export default function WorkoutReportPanel({
           <meta charset="utf-8" />
           <title>${escapeHtml(getReportTitle())}</title>
           <style>
-            body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #111827; margin: 32px; }
-            h1 { margin: 0 0 8px; }
-            h2 { margin-top: 28px; border-bottom: 2px solid #111827; padding-bottom: 8px; }
+            * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #e5e7eb; margin: 0; background: #020617; }
+            .page { max-width: 1120px; margin: 24px auto; padding: 30px; border: 1px solid rgba(34, 211, 238, 0.35); border-radius: 28px; background: linear-gradient(180deg, #0f172a 0%, #020617 100%); }
+            .toolbar { display: flex; justify-content: flex-end; margin-bottom: 18px; }
+            button { border: 0; border-radius: 14px; background: #22d3ee; color: #020617; font-weight: 900; padding: 12px 18px; cursor: pointer; }
+            .eyebrow { color: #67e8f9; font-weight: 900; letter-spacing: 0.08em; margin: 0 0 10px; }
+            h1 { margin: 0 0 8px; font-size: 36px; letter-spacing: -0.04em; color: #ffffff; }
+            p { color: #94a3b8; line-height: 1.7; }
+            h2 { margin: 30px 0 12px; color: #ffffff; font-size: 22px; }
             .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 24px; }
-            .card { border: 1px solid #d1d5db; border-radius: 12px; padding: 16px; }
-            .value { font-size: 28px; font-weight: 800; }
-            table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-            th, td { border: 1px solid #d1d5db; padding: 8px 10px; text-align: left; }
-            th { background: #f3f4f6; }
-            @media print { button { display: none; } body { margin: 18mm; } }
+            .card { border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 18px; padding: 16px; background: rgba(2, 6, 23, 0.72); color: #94a3b8; }
+            .value { margin-top: 6px; font-size: 30px; font-weight: 950; color: #ffffff; }
+            .metric { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+            .metric .card { line-height: 1.8; }
+            table { width: 100%; border-collapse: separate; border-spacing: 0; overflow: hidden; border: 1px solid rgba(148, 163, 184, 0.22); border-radius: 18px; background: rgba(2, 6, 23, 0.7); }
+            th, td { border-bottom: 1px solid rgba(148, 163, 184, 0.16); padding: 10px 12px; text-align: left; vertical-align: top; }
+            th { background: rgba(15, 23, 42, 0.95); color: #93c5fd; font-size: 13px; }
+            td { color: #dbeafe; font-size: 13px; }
+            tr:last-child td { border-bottom: 0; }
+            @media print {
+              body { background: #020617; }
+              button { display: none; }
+              .page { margin: 0; max-width: none; min-height: 100vh; border-radius: 0; border: 0; }
+            }
           </style>
         </head>
         <body>
-          <button onclick="window.print()">PDF로 저장 / 인쇄</button>
-          <h1>${escapeHtml(getReportTitle())}</h1>
-          <p>카카오톡 공유와 보관을 위한 운동 리포트입니다.</p>
-          <div class="summary">
-            <div class="card">참여 인원<div class="value">${report.participantCount}명</div></div>
-            <div class="card">오늘 총 경기<div class="value">${report.totalMatches}경기</div></div>
-            <div class="card">평균 경기<div class="value">${report.averageMatches}</div></div>
-            <div class="card">평균 섞임률<div class="value">${report.averageMixPercent}%</div></div>
-          </div>
-          <h2>대진 운영 기록</h2>
-          <p>게임코트 자동/수동: ${report.autoGameEvents}/${report.manualGameEvents}회</p>
-          <p>대기코트 자동/수동: ${report.autoQueuedEvents}/${report.manualQueuedEvents}회</p>
-          <p>선수 교체/코트 내 교체: ${report.replacementEvents}/${report.swapEvents}회</p>
-          <p>종료/점수 입력: ${report.completedMatches}/${report.scoredMatches}경기</p>
-          <h2>개인별 섞임률</h2>
-          <table><thead><tr><th>이름</th><th>섞임률</th><th>같이 쳐본 사람</th><th>못 쳐본 사람</th></tr></thead><tbody>${mixingRows}</tbody></table>
-          <h2>인원별 경기 수</h2>
-          <table><thead><tr><th>이름</th><th>경기 수</th></tr></thead><tbody>${matchRows}</tbody></table>
-          <h2>오늘 전체 경기</h2>
-          <table><thead><tr><th>#</th><th>코트</th><th>시간</th><th>Team A</th><th>Team B</th></tr></thead><tbody>${historyRows}</tbody></table>
+          <main class="page">
+            <div class="toolbar"><button onclick="window.print()">PDF로 저장 / 인쇄</button></div>
+            <p class="eyebrow">STEP UP MATCH</p>
+            <h1>${escapeHtml(getReportTitle())}</h1>
+            <p>카카오톡 공유와 보관을 위한 운동 리포트입니다. 앱 화면과 같은 다크 스타일로 핵심 지표를 정리했습니다.</p>
+            <div class="summary">
+              <div class="card">참여 인원<div class="value">${report.participantCount}명</div></div>
+              <div class="card">오늘 총 경기<div class="value">${report.totalMatches}경기</div></div>
+              <div class="card">평균 경기<div class="value">${report.averageMatches}</div></div>
+              <div class="card">평균 섞임률<div class="value">${report.averageMixPercent}%</div></div>
+            </div>
+            <h2>대진 운영 기록</h2>
+            <div class="metric">
+              <div class="card">게임코트 자동/수동: ${report.autoGameEvents}/${report.manualGameEvents}회<br />대기코트 자동/수동: ${report.autoQueuedEvents}/${report.manualQueuedEvents}회</div>
+              <div class="card">선수 교체/코트 내 교체: ${report.replacementEvents}/${report.swapEvents}회<br />종료/점수 입력: ${report.completedMatches}/${report.scoredMatches}경기</div>
+            </div>
+            <h2>개인별 섞임률</h2>
+            <table><thead><tr><th>이름</th><th>섞임률</th><th>같이 쳐본 사람</th><th>못 쳐본 사람</th></tr></thead><tbody>${mixingRows}</tbody></table>
+            <h2>인원별 경기 수</h2>
+            <table><thead><tr><th>이름</th><th>참가 시간</th><th>경기 수</th></tr></thead><tbody>${matchRows}</tbody></table>
+            <h2>오늘 전체 경기</h2>
+            <table><thead><tr><th>#</th><th>코트</th><th>시간</th><th>Team A</th><th>Team B</th></tr></thead><tbody>${historyRows}</tbody></table>
+          </main>
         </body>
       </html>
     `);
@@ -1835,6 +1963,9 @@ export default function WorkoutReportPanel({
                       이름
                     </th>
                     <th className="px-3 py-2">
+                      참가 시간
+                    </th>
+                    <th className="px-3 py-2">
                       경기 수
                     </th>
                   </tr>
@@ -1848,6 +1979,9 @@ export default function WorkoutReportPanel({
                       >
                         <td className="px-3 py-2 font-bold text-slate-100">
                           {row.name}
+                        </td>
+                        <td className="px-3 py-2 text-slate-400">
+                          {row.arrivalTimeText}
                         </td>
                         <td className="px-3 py-2 text-emerald-200">
                           {row.matchCount}경기
