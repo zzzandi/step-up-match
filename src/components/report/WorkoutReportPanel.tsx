@@ -1194,21 +1194,250 @@ export default function WorkoutReportPanel({
     return `STEP UP MATCH 운동 리포트 · ${report.snapshotWorkoutDate ?? selectedReportDate}`;
   }
 
+  function getMatchOperationHtml(
+    history: MatchHistory
+  ) {
+    const {
+      assignmentEvent,
+      replacements,
+    } = findMatchOperationEvents(
+      history,
+      report.operationEvents
+    );
+    const items = [
+      assignmentEvent
+        ? `${getOperationLabel(assignmentEvent)}: ${formatOperator(assignmentEvent)}`
+        : "",
+      ...replacements.map(
+        (event) =>
+          `${getOperationLabel(event)}: ${formatOperator(event)}${event.description ? ` / ${event.description}` : ""}`
+      ),
+    ].filter(Boolean);
+
+    if (items.length === 0) {
+      return "";
+    }
+
+    return `<div class="match-ops">${items
+      .map(
+        (item) =>
+          `<div>${escapeHtml(item)}</div>`
+      )
+      .join("")}</div>`;
+  }
+
+  function createReportExportHtml({
+    includeToolbar,
+    imageMode = false,
+  }: {
+    includeToolbar: boolean;
+    imageMode?: boolean;
+  }) {
+    const mixingRows =
+      report.mixingRows
+        .map(
+          (row) =>
+            `<tr><td>${escapeHtml(row.name)}</td><td>${row.mixPercent}%</td><td>${row.metCount}명</td><td>${row.missedCount}명</td></tr>`
+        )
+        .join("");
+    const matchRows =
+      report.participantRows
+        .map(
+          (row) =>
+            `<tr><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.arrivalTimeText)}</td><td>${row.matchCount}경기</td></tr>`
+        )
+        .join("");
+    const historyCards =
+      report.histories
+        .map(
+          (history, index) => {
+            const scoreText =
+              typeof history.teamAScore ===
+                "number" &&
+              typeof history.teamBScore ===
+                "number"
+                ? ` · ${history.teamAScore}:${history.teamBScore}`
+                : "";
+            return `
+              <article class="match-card">
+                <div class="match-head">
+                  <span>${index + 1}. Court ${history.courtId}</span>
+                  <span>${formatKstTime(history.startedAt)}~${formatKstTime(history.endedAt)}${scoreText}</span>
+                </div>
+                <div class="match-teams">
+                  ${escapeHtml(formatTeam(history.teamA, report.histories, report.currentNames))}
+                  <span>vs</span>
+                  ${escapeHtml(formatTeam(history.teamB, report.histories, report.currentNames))}
+                </div>
+                ${getMatchOperationHtml(history)}
+              </article>
+            `;
+          }
+        )
+        .join("");
+    const uncompletedCards =
+      report.uncompletedGameEvents
+        .map(
+          (event, index) => `
+            <article class="match-card warning-card">
+              <div class="match-head">
+                <span>${report.histories.length + index + 1}. Court ${event.courtId}</span>
+                <span>${formatKstTime(event.createdAt)}~종료 기록 없음</span>
+              </div>
+              <div class="match-teams">${escapeHtml(formatEventPlayers(event.playerIds, event.playerNames))}</div>
+            </article>
+          `
+        )
+        .join("");
+    const toolbar = includeToolbar
+      ? `<div class="toolbar"><button onclick="window.print()">PDF로 저장 / 인쇄</button></div>`
+      : "";
+
+    return `
+      <!doctype html>
+      <html lang="ko">
+        <head>
+          <meta charset="utf-8" />
+          <title>${escapeHtml(getReportTitle())}</title>
+          <style>
+            * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            html, body { margin: 0; min-height: 100%; background: #020617; }
+            body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #e5e7eb; }
+            .export-root { width: ${imageMode ? "1200px" : "100%"}; min-height: 100%; padding: ${imageMode ? "36px" : "24px"}; background: radial-gradient(circle at top left, rgba(34, 211, 238, 0.16), transparent 34%), linear-gradient(180deg, #020617 0%, #0f172a 52%, #020617 100%); }
+            .page { max-width: 1120px; margin: 0 auto; padding: 30px; border: 1px solid rgba(34, 211, 238, 0.35); border-radius: 30px; background: rgba(15, 23, 42, 0.88); box-shadow: 0 28px 90px rgba(0, 0, 0, 0.35); }
+            .toolbar { display: flex; justify-content: flex-end; margin-bottom: 18px; }
+            button { border: 0; border-radius: 14px; background: #22d3ee; color: #020617; font-weight: 900; padding: 12px 18px; cursor: pointer; }
+            .eyebrow { color: #67e8f9; font-weight: 900; letter-spacing: 0.08em; margin: 0 0 10px; }
+            h1 { margin: 0 0 8px; font-size: 36px; letter-spacing: -0.04em; color: #ffffff; }
+            p { color: #94a3b8; line-height: 1.7; }
+            h2 { margin: 30px 0 12px; color: #ffffff; font-size: 22px; }
+            .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 24px; }
+            .card { border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 18px; padding: 16px; background: rgba(2, 6, 23, 0.72); color: #94a3b8; }
+            .value { margin-top: 6px; font-size: 30px; font-weight: 950; color: #ffffff; }
+            .metric { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+            .metric .card { line-height: 1.8; }
+            .section-card { margin-top: 18px; border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 22px; padding: 18px; background: rgba(2, 6, 23, 0.55); }
+            table { width: 100%; border-collapse: separate; border-spacing: 0; overflow: hidden; border: 1px solid rgba(148, 163, 184, 0.22); border-radius: 18px; background: rgba(2, 6, 23, 0.7); }
+            th, td { border-bottom: 1px solid rgba(148, 163, 184, 0.16); padding: 10px 12px; text-align: left; vertical-align: top; }
+            th { background: rgba(15, 23, 42, 0.95); color: #93c5fd; font-size: 13px; }
+            td { color: #dbeafe; font-size: 13px; }
+            tr:last-child td { border-bottom: 0; }
+            .match-list { display: grid; gap: 10px; }
+            .match-card { border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 18px; padding: 13px 14px; background: rgba(15, 23, 42, 0.72); }
+            .warning-card { border-color: rgba(252, 211, 77, 0.36); background: rgba(120, 53, 15, 0.18); }
+            .match-head { display: flex; justify-content: space-between; gap: 12px; color: #f8fafc; font-weight: 850; }
+            .match-teams { margin-top: 8px; color: #dbeafe; font-size: 14px; line-height: 1.6; }
+            .match-teams span { color: #94a3b8; margin: 0 8px; font-weight: 800; }
+            .match-ops { margin-top: 9px; border-radius: 14px; padding: 8px 10px; background: rgba(34, 211, 238, 0.08); color: #a5f3fc; font-size: 12px; line-height: 1.55; }
+            .two-columns { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+            @media print {
+              body { background: #020617; }
+              button { display: none; }
+              .export-root { padding: 0; }
+              .page { margin: 0; max-width: none; min-height: 100vh; border-radius: 0; border: 0; box-shadow: none; }
+            }
+            @media (max-width: 760px) {
+              .summary, .metric, .two-columns { grid-template-columns: 1fr; }
+              .match-head { flex-direction: column; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="export-root">
+          <main class="page" id="report-export-page">
+            ${toolbar}
+            <p class="eyebrow">STEP UP MATCH</p>
+            <h1>${escapeHtml(getReportTitle())}</h1>
+            <p>카카오톡 공유와 보관을 위한 운동 리포트입니다. 앱 화면과 같은 다크 스타일로 핵심 지표를 정리했습니다.</p>
+            <div class="summary">
+              <div class="card">참여 인원<div class="value">${report.participantCount}명</div></div>
+              <div class="card">오늘 총 경기<div class="value">${report.totalMatches}경기</div></div>
+              <div class="card">평균 경기<div class="value">${report.averageMatches}</div></div>
+              <div class="card">평균 섞임률<div class="value">${report.averageMixPercent}%</div></div>
+            </div>
+            <div class="two-columns">
+              <section class="section-card">
+                <h2>대진 운영 기록</h2>
+                <div class="metric">
+                  <div class="card">게임코트 자동/수동<br /><strong>${report.autoGameEvents}/${report.manualGameEvents}회</strong></div>
+                  <div class="card">대기코트 자동/수동<br /><strong>${report.autoQueuedEvents}/${report.manualQueuedEvents}회</strong></div>
+                  <div class="card">대기코트 승격<br /><strong>${report.promotedEvents}회</strong></div>
+                  <div class="card">선수 교체/코트 내 교체<br /><strong>${report.replacementEvents}/${report.swapEvents}회</strong></div>
+                </div>
+              </section>
+              <section class="section-card">
+                <h2>섞임 지표</h2>
+                <div class="card">평균 섞임률: <strong>${report.averageMixPercent}%</strong><br />가장 덜 섞인 인원: ${escapeHtml(report.leastMixedRows.map((row) => `${row.name} ${row.mixPercent}%`).join(", ") || "기록 없음")}<br />전체 참가자와 한 번 이상 만난 인원: ${escapeHtml(report.noMissRows.map((row) => row.name).join(", ") || "없음")}</div>
+              </section>
+            </div>
+            <section class="section-card">
+              <h2>개인별 섞임률</h2>
+              <table><thead><tr><th>이름</th><th>섞임률</th><th>같이 쳐본 사람</th><th>못 쳐본 사람</th></tr></thead><tbody>${mixingRows}</tbody></table>
+            </section>
+            <section class="section-card">
+              <h2>인원별 경기 수</h2>
+              <table><thead><tr><th>이름</th><th>참가 시간</th><th>경기 수</th></tr></thead><tbody>${matchRows}</tbody></table>
+            </section>
+            <section class="section-card">
+              <h2>오늘 전체 경기</h2>
+              <div class="match-list">${historyCards || `<div class="card">기록 없음</div>`}${uncompletedCards}</div>
+            </section>
+          </main>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
   async function exportReportImage() {
     setExportingImage(true);
 
     try {
       const width = 1200;
-      const padding = 56;
-      const lineHeight = 34;
-      const rows =
-        report.mixingRows.length +
-        report.participantRows.length +
-        report.histories.length;
       const height = Math.max(
-        1200,
-        1040 + rows * 38
+        1800,
+        980 +
+          report.mixingRows.length * 38 +
+          report.participantRows.length * 38 +
+          (report.histories.length +
+            report.uncompletedGameEvents.length) *
+            112
       );
+      const html = createReportExportHtml({
+        includeToolbar: false,
+        imageMode: true,
+      });
+      const styleMatch =
+        html.match(
+          /<style>([\s\S]*?)<\/style>/
+        );
+      const bodyMatch =
+        html.match(
+          /<body>([\s\S]*?)<\/body>/
+        );
+      const exportStyle =
+        styleMatch?.[1] ?? "";
+      const exportBody =
+        bodyMatch?.[1] ?? html;
+      const svg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+          <foreignObject width="100%" height="100%">
+            <div xmlns="http://www.w3.org/1999/xhtml" style="width:${width}px;min-height:${height}px;background:#020617;">
+              <style>${exportStyle}</style>
+              ${exportBody}
+            </div>
+          </foreignObject>
+        </svg>
+      `;
+      const image = new Image();
+      const svgBlob = new Blob(
+        [svg],
+        {
+          type: "image/svg+xml;charset=utf-8",
+        }
+      );
+      const svgUrl =
+        URL.createObjectURL(svgBlob);
       const canvas =
         document.createElement("canvas");
       canvas.width = width;
@@ -1222,220 +1451,20 @@ export default function WorkoutReportPanel({
         );
       }
 
-      const roundRect = (
-        x: number,
-        rectY: number,
-        rectWidth: number,
-        rectHeight: number,
-        radius: number,
-        fill: string,
-        stroke?: string
-      ) => {
-        ctx.beginPath();
-        ctx.moveTo(x + radius, rectY);
-        ctx.lineTo(
-          x + rectWidth - radius,
-          rectY
-        );
-        ctx.quadraticCurveTo(
-          x + rectWidth,
-          rectY,
-          x + rectWidth,
-          rectY + radius
-        );
-        ctx.lineTo(
-          x + rectWidth,
-          rectY + rectHeight - radius
-        );
-        ctx.quadraticCurveTo(
-          x + rectWidth,
-          rectY + rectHeight,
-          x + rectWidth - radius,
-          rectY + rectHeight
-        );
-        ctx.lineTo(
-          x + radius,
-          rectY + rectHeight
-        );
-        ctx.quadraticCurveTo(
-          x,
-          rectY + rectHeight,
-          x,
-          rectY + rectHeight - radius
-        );
-        ctx.lineTo(x, rectY + radius);
-        ctx.quadraticCurveTo(
-          x,
-          rectY,
-          x + radius,
-          rectY
-        );
-        ctx.closePath();
-        ctx.fillStyle = fill;
-        ctx.fill();
-        if (stroke) {
-          ctx.strokeStyle = stroke;
-          ctx.lineWidth = 2;
-          ctx.stroke();
-        }
-      };
-
-      const backgroundGradient =
-        ctx.createLinearGradient(
-          0,
-          0,
-          0,
-          height
-        );
-      backgroundGradient.addColorStop(
-        0,
-        "#020617"
-      );
-      backgroundGradient.addColorStop(
-        0.45,
-        "#071427"
-      );
-      backgroundGradient.addColorStop(
-        1,
-        "#020617"
-      );
-      ctx.fillStyle = backgroundGradient;
-      ctx.fillRect(0, 0, width, height);
-      roundRect(
-        32,
-        32,
-        width - 64,
-        height - 64,
-        34,
-        "rgba(15, 23, 42, 0.92)",
-        "rgba(34, 211, 238, 0.28)"
-      );
-
-      let y = padding;
-      ctx.fillStyle = "#67e8f9";
-      ctx.font =
-        "700 28px system-ui, sans-serif";
-      ctx.fillText(
-        "STEP UP MATCH",
-        padding,
-        y
-      );
-      y += 54;
-      ctx.fillStyle = "#ffffff";
-      ctx.font =
-        "800 46px system-ui, sans-serif";
-      ctx.fillText(
-        getReportTitle(),
-        padding,
-        y
-      );
-      y += 58;
-
-      const summaryItems = [
-        `참여 인원 ${report.participantCount}명`,
-        `오늘 총 경기 ${report.totalMatches}경기`,
-        `평균 경기 ${report.averageMatches}`,
-        `평균 섞임률 ${report.averageMixPercent}%`,
-      ];
-      ctx.font =
-        "700 28px system-ui, sans-serif";
-      summaryItems.forEach(
-        (item, index) => {
-          const x =
-            padding +
-            (index % 2) * 540;
-          const boxY =
-            y + Math.floor(index / 2) * 86;
-          roundRect(
-            x,
-            boxY,
-            500,
-            66,
-            18,
-            "rgba(2, 6, 23, 0.86)",
-            "rgba(148, 163, 184, 0.22)"
-          );
-          ctx.fillStyle = "#e5e7eb";
-          ctx.fillText(
-            item,
-            x + 22,
-            boxY + 40
-          );
+      await new Promise<void>(
+        (resolve, reject) => {
+          image.onload = () => resolve();
+          image.onerror = () =>
+            reject(
+              new Error(
+                "Report image render failed."
+              )
+            );
+          image.src = svgUrl;
         }
       );
-      y += 190;
-
-      const drawSection = (
-        title: string,
-        lines: string[]
-      ) => {
-        const sectionHeight =
-          64 +
-          Math.max(1, lines.length) *
-            lineHeight +
-          28;
-        roundRect(
-          padding - 18,
-          y - 34,
-          width - padding * 2 + 36,
-          sectionHeight,
-          24,
-          "rgba(2, 6, 23, 0.66)",
-          "rgba(30, 41, 59, 0.95)"
-        );
-        ctx.fillStyle = "#67e8f9";
-        ctx.font =
-          "800 30px system-ui, sans-serif";
-        ctx.fillText(
-          title,
-          padding,
-          y
-        );
-        y += 44;
-        ctx.fillStyle = "#cbd5e1";
-        ctx.font =
-          "500 24px system-ui, sans-serif";
-        (lines.length > 0
-          ? lines
-          : ["기록 없음"]
-        ).forEach((line) => {
-          ctx.fillText(
-            line,
-            padding,
-            y
-          );
-          y += lineHeight;
-        });
-        y += 26;
-      };
-
-      drawSection("대진 운영 기록", [
-        `게임코트 자동/수동 ${report.autoGameEvents}/${report.manualGameEvents}회`,
-        `대기코트 자동/수동 ${report.autoQueuedEvents}/${report.manualQueuedEvents}회`,
-        `선수 교체/코트 내 교체 ${report.replacementEvents}/${report.swapEvents}회`,
-        `종료/점수 입력 ${report.completedMatches}/${report.scoredMatches}경기`,
-      ]);
-
-      drawSection("개인별 섞임률", [
-        ...report.mixingRows.map(
-          (row) =>
-            `${row.name} ${row.mixPercent}% · 교류 ${row.metCount}명 / 미교류 ${row.missedCount}명`
-        ),
-      ]);
-
-      drawSection("인원별 경기 수", [
-        ...report.participantRows.map(
-          (row) =>
-            `${row.name} · 참가 ${row.arrivalTimeText} · ${row.matchCount}경기`
-        ),
-      ]);
-
-      drawSection("오늘 전체 경기", [
-        ...report.histories.map(
-          (history, index) =>
-            `${index + 1}. Court ${history.courtId} ${formatKstTime(history.startedAt)}~${formatKstTime(history.endedAt)} ${formatTeam(history.teamA, report.histories, report.currentNames)} vs ${formatTeam(history.teamB, report.histories, report.currentNames)}`
-        ),
-      ]);
+      ctx.drawImage(image, 0, 0);
+      URL.revokeObjectURL(svgUrl);
 
       const blob =
         await new Promise<Blob | null>(
@@ -1464,7 +1493,7 @@ export default function WorkoutReportPanel({
     } catch (error) {
       console.error(error);
       window.alert(
-        "이미지 파일 생성에 실패했습니다."
+        "이미지 파일 생성에 실패했습니다. PDF 저장을 이용하거나 화면 캡처를 사용해 주세요."
       );
     } finally {
       setExportingImage(false);
@@ -1482,88 +1511,11 @@ export default function WorkoutReportPanel({
       return;
     }
 
-    const mixingRows =
-      report.mixingRows
-        .map(
-          (row) =>
-            `<tr><td>${escapeHtml(row.name)}</td><td>${row.mixPercent}%</td><td>${row.metCount}명</td><td>${row.missedCount}명</td></tr>`
-        )
-        .join("");
-    const matchRows =
-      report.participantRows
-        .map(
-          (row) =>
-            `<tr><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.arrivalTimeText)}</td><td>${row.matchCount}경기</td></tr>`
-        )
-        .join("");
-    const historyRows =
-      report.histories
-        .map(
-          (history, index) =>
-            `<tr><td>${index + 1}</td><td>Court ${history.courtId}</td><td>${formatKstTime(history.startedAt)}~${formatKstTime(history.endedAt)}</td><td>${escapeHtml(formatTeam(history.teamA, report.histories, report.currentNames))}</td><td>${escapeHtml(formatTeam(history.teamB, report.histories, report.currentNames))}</td></tr>`
-        )
-        .join("");
-
-    printWindow.document.write(`
-      <!doctype html>
-      <html lang="ko">
-        <head>
-          <meta charset="utf-8" />
-          <title>${escapeHtml(getReportTitle())}</title>
-          <style>
-            * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #e5e7eb; margin: 0; background: #020617; }
-            .page { max-width: 1120px; margin: 24px auto; padding: 30px; border: 1px solid rgba(34, 211, 238, 0.35); border-radius: 28px; background: linear-gradient(180deg, #0f172a 0%, #020617 100%); }
-            .toolbar { display: flex; justify-content: flex-end; margin-bottom: 18px; }
-            button { border: 0; border-radius: 14px; background: #22d3ee; color: #020617; font-weight: 900; padding: 12px 18px; cursor: pointer; }
-            .eyebrow { color: #67e8f9; font-weight: 900; letter-spacing: 0.08em; margin: 0 0 10px; }
-            h1 { margin: 0 0 8px; font-size: 36px; letter-spacing: -0.04em; color: #ffffff; }
-            p { color: #94a3b8; line-height: 1.7; }
-            h2 { margin: 30px 0 12px; color: #ffffff; font-size: 22px; }
-            .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 24px; }
-            .card { border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 18px; padding: 16px; background: rgba(2, 6, 23, 0.72); color: #94a3b8; }
-            .value { margin-top: 6px; font-size: 30px; font-weight: 950; color: #ffffff; }
-            .metric { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-            .metric .card { line-height: 1.8; }
-            table { width: 100%; border-collapse: separate; border-spacing: 0; overflow: hidden; border: 1px solid rgba(148, 163, 184, 0.22); border-radius: 18px; background: rgba(2, 6, 23, 0.7); }
-            th, td { border-bottom: 1px solid rgba(148, 163, 184, 0.16); padding: 10px 12px; text-align: left; vertical-align: top; }
-            th { background: rgba(15, 23, 42, 0.95); color: #93c5fd; font-size: 13px; }
-            td { color: #dbeafe; font-size: 13px; }
-            tr:last-child td { border-bottom: 0; }
-            @media print {
-              body { background: #020617; }
-              button { display: none; }
-              .page { margin: 0; max-width: none; min-height: 100vh; border-radius: 0; border: 0; }
-            }
-          </style>
-        </head>
-        <body>
-          <main class="page">
-            <div class="toolbar"><button onclick="window.print()">PDF로 저장 / 인쇄</button></div>
-            <p class="eyebrow">STEP UP MATCH</p>
-            <h1>${escapeHtml(getReportTitle())}</h1>
-            <p>카카오톡 공유와 보관을 위한 운동 리포트입니다. 앱 화면과 같은 다크 스타일로 핵심 지표를 정리했습니다.</p>
-            <div class="summary">
-              <div class="card">참여 인원<div class="value">${report.participantCount}명</div></div>
-              <div class="card">오늘 총 경기<div class="value">${report.totalMatches}경기</div></div>
-              <div class="card">평균 경기<div class="value">${report.averageMatches}</div></div>
-              <div class="card">평균 섞임률<div class="value">${report.averageMixPercent}%</div></div>
-            </div>
-            <h2>대진 운영 기록</h2>
-            <div class="metric">
-              <div class="card">게임코트 자동/수동: ${report.autoGameEvents}/${report.manualGameEvents}회<br />대기코트 자동/수동: ${report.autoQueuedEvents}/${report.manualQueuedEvents}회</div>
-              <div class="card">선수 교체/코트 내 교체: ${report.replacementEvents}/${report.swapEvents}회<br />종료/점수 입력: ${report.completedMatches}/${report.scoredMatches}경기</div>
-            </div>
-            <h2>개인별 섞임률</h2>
-            <table><thead><tr><th>이름</th><th>섞임률</th><th>같이 쳐본 사람</th><th>못 쳐본 사람</th></tr></thead><tbody>${mixingRows}</tbody></table>
-            <h2>인원별 경기 수</h2>
-            <table><thead><tr><th>이름</th><th>참가 시간</th><th>경기 수</th></tr></thead><tbody>${matchRows}</tbody></table>
-            <h2>오늘 전체 경기</h2>
-            <table><thead><tr><th>#</th><th>코트</th><th>시간</th><th>Team A</th><th>Team B</th></tr></thead><tbody>${historyRows}</tbody></table>
-          </main>
-        </body>
-      </html>
-    `);
+    printWindow.document.write(
+      createReportExportHtml({
+        includeToolbar: true,
+      })
+    );
     printWindow.document.close();
     printWindow.focus();
   }
