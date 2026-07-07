@@ -1303,32 +1303,32 @@ export default function WorkoutReportPanel({
             * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             html, body { margin: 0; min-height: 100%; background: #020617; }
             body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #e5e7eb; }
-            .export-root { width: ${imageMode ? "1200px" : "100%"}; min-height: 100%; padding: ${imageMode ? "36px" : "24px"}; background: radial-gradient(circle at top left, rgba(34, 211, 238, 0.16), transparent 34%), linear-gradient(180deg, #020617 0%, #0f172a 52%, #020617 100%); }
-            .page { max-width: 1120px; margin: 0 auto; padding: 30px; border: 1px solid rgba(34, 211, 238, 0.35); border-radius: 30px; background: rgba(15, 23, 42, 0.88); box-shadow: 0 28px 90px rgba(0, 0, 0, 0.35); }
+            .export-root { width: ${imageMode ? "900px" : "100%"}; min-height: 100%; padding: ${imageMode ? "18px" : "24px"}; background: radial-gradient(circle at top left, rgba(34, 211, 238, 0.16), transparent 34%), linear-gradient(180deg, #020617 0%, #0f172a 52%, #020617 100%); }
+            .page { max-width: ${imageMode ? "864px" : "1120px"}; margin: 0 auto; padding: ${imageMode ? "22px" : "30px"}; border: 1px solid rgba(34, 211, 238, 0.35); border-radius: 30px; background: rgba(15, 23, 42, 0.88); box-shadow: 0 28px 90px rgba(0, 0, 0, 0.35); }
             .toolbar { display: flex; justify-content: flex-end; margin-bottom: 18px; }
             button { border: 0; border-radius: 14px; background: #22d3ee; color: #020617; font-weight: 900; padding: 12px 18px; cursor: pointer; }
             .eyebrow { color: #67e8f9; font-weight: 900; letter-spacing: 0.08em; margin: 0 0 10px; }
-            h1 { margin: 0 0 8px; font-size: 36px; letter-spacing: -0.04em; color: #ffffff; }
-            p { color: #94a3b8; line-height: 1.7; }
-            h2 { margin: 30px 0 12px; color: #ffffff; font-size: 22px; }
-            .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 24px; }
-            .card { border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 18px; padding: 16px; background: rgba(2, 6, 23, 0.72); color: #94a3b8; }
-            .value { margin-top: 6px; font-size: 30px; font-weight: 950; color: #ffffff; }
+            h1 { margin: 0 0 8px; font-size: ${imageMode ? "30px" : "36px"}; letter-spacing: -0.04em; color: #ffffff; }
+            p { color: #94a3b8; line-height: 1.65; }
+            h2 { margin: ${imageMode ? "18px" : "30px"} 0 10px; color: #ffffff; font-size: ${imageMode ? "19px" : "22px"}; }
+            .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: ${imageMode ? "8px" : "12px"}; margin-top: ${imageMode ? "16px" : "24px"}; }
+            .card { border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 18px; padding: ${imageMode ? "10px" : "16px"}; background: rgba(2, 6, 23, 0.72); color: #94a3b8; }
+            .value { margin-top: 4px; font-size: ${imageMode ? "24px" : "30px"}; font-weight: 950; color: #ffffff; }
             .metric { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
             .metric .card { line-height: 1.8; }
-            .section-card { margin-top: 18px; border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 22px; padding: 18px; background: rgba(2, 6, 23, 0.55); }
+            .section-card { margin-top: ${imageMode ? "12px" : "18px"}; border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 22px; padding: ${imageMode ? "12px" : "18px"}; background: rgba(2, 6, 23, 0.55); }
             table { width: 100%; border-collapse: separate; border-spacing: 0; overflow: hidden; border: 1px solid rgba(148, 163, 184, 0.22); border-radius: 18px; background: rgba(2, 6, 23, 0.7); }
-            th, td { border-bottom: 1px solid rgba(148, 163, 184, 0.16); padding: 10px 12px; text-align: left; vertical-align: top; }
+            th, td { border-bottom: 1px solid rgba(148, 163, 184, 0.16); padding: ${imageMode ? "7px 9px" : "10px 12px"}; text-align: left; vertical-align: top; }
             th { background: rgba(15, 23, 42, 0.95); color: #93c5fd; font-size: 13px; }
             td { color: #dbeafe; font-size: 13px; }
             tr:last-child td { border-bottom: 0; }
-            .match-list { display: grid; gap: 10px; }
-            .match-card { border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 18px; padding: 13px 14px; background: rgba(15, 23, 42, 0.72); }
+            .match-list { display: grid; gap: ${imageMode ? "7px" : "10px"}; }
+            .match-card { border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 18px; padding: ${imageMode ? "9px 10px" : "13px 14px"}; background: rgba(15, 23, 42, 0.72); }
             .warning-card { border-color: rgba(252, 211, 77, 0.36); background: rgba(120, 53, 15, 0.18); }
             .match-head { display: flex; justify-content: space-between; gap: 12px; color: #f8fafc; font-weight: 850; }
-            .match-teams { margin-top: 8px; color: #dbeafe; font-size: 14px; line-height: 1.6; }
+            .match-teams { margin-top: 6px; color: #dbeafe; font-size: ${imageMode ? "13px" : "14px"}; line-height: 1.5; }
             .match-teams span { color: #94a3b8; margin: 0 8px; font-weight: 800; }
-            .match-ops { margin-top: 9px; border-radius: 14px; padding: 8px 10px; background: rgba(34, 211, 238, 0.08); color: #a5f3fc; font-size: 12px; line-height: 1.55; }
+            .match-ops { margin-top: 7px; border-radius: 14px; padding: ${imageMode ? "6px 8px" : "8px 10px"}; background: rgba(34, 211, 238, 0.08); color: #a5f3fc; font-size: ${imageMode ? "11px" : "12px"}; line-height: 1.45; }
             .two-columns { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
             @media print {
               body { background: #020617; }
@@ -1415,16 +1415,20 @@ export default function WorkoutReportPanel({
         document.createElement("div");
 
       exportContainer.style.position =
-        "fixed";
-      exportContainer.style.left =
-        "-10000px";
-      exportContainer.style.top = "0";
+        "absolute";
+      exportContainer.style.left = "0";
+      exportContainer.style.top = `${
+        window.scrollY +
+        window.innerHeight +
+        120
+      }px`;
       exportContainer.style.width =
-        "1200px";
+        "900px";
       exportContainer.style.pointerEvents =
         "none";
       exportContainer.style.opacity = "1";
-      exportContainer.style.zIndex = "-1";
+      exportContainer.style.zIndex =
+        "2147483647";
       exportContainer.innerHTML = `<style>${exportStyle}</style>${exportBody}`;
       document.body.appendChild(
         exportContainer
@@ -1449,10 +1453,7 @@ export default function WorkoutReportPanel({
         const canvas =
           await html2canvas(target, {
             backgroundColor: "#020617",
-            scale: Math.min(
-              2,
-              window.devicePixelRatio || 1
-            ),
+            scale: 1,
             useCORS: true,
             logging: false,
             width: target.scrollWidth,
