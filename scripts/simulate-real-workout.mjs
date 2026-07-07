@@ -4302,7 +4302,7 @@ try {
   );
 
   run(
-    "deleted queued court is not restored for a late client",
+    "deleted queued court is compacted for a late client",
     () => {
       resetStore(16, 2);
       useMatchStore.setState({
@@ -4346,7 +4346,117 @@ try {
         merged.queuedCourts.map(
           (court) => court.id
         ),
-        [1]
+        [
+          1,
+          2,
+        ]
+      );
+      assert.equal(
+        merged.queuedCourts.every(
+          (court) =>
+            court.status === "EMPTY" &&
+            court.teamA === null &&
+            court.teamB === null
+        ),
+        true
+      );
+    }
+  );
+
+  run(
+    "deleting queued court 1 compacts queued court 2 before the next add",
+    () => {
+      resetStore(16, 2);
+      useMatchStore.setState({
+        queuedCourts: [
+          {
+            id: 1,
+            status: "QUEUED",
+            teamA: [
+              makePlayer(8),
+              makePlayer(9),
+            ],
+            teamB: [
+              makePlayer(10),
+              makePlayer(11),
+            ],
+            startedAt:
+              new Date(
+                "2026-07-08T11:00:00.000Z"
+              ).toISOString(),
+          },
+          {
+            id: 2,
+            status: "QUEUED",
+            teamA: [
+              makePlayer(12),
+              makePlayer(13),
+            ],
+            teamB: [
+              makePlayer(14),
+              makePlayer(15),
+            ],
+            startedAt:
+              new Date(
+                "2026-07-08T11:05:00.000Z"
+              ).toISOString(),
+          },
+        ],
+      });
+
+      useMatchStore
+        .getState()
+        .removeQueuedCourt(1);
+
+      const afterDelete =
+        useMatchStore.getState();
+      assert.deepEqual(
+        afterDelete.queuedCourts.map(
+          (court) => court.id
+        ),
+        [
+          1,
+          2,
+        ]
+      );
+      assert.equal(
+        afterDelete.queuedCourts[0].status,
+        "QUEUED"
+      );
+      assert.deepEqual(
+        afterDelete.queuedCourts[0].teamA.map(
+          (player) => player.id
+        ),
+        [
+          "player-13",
+          "player-14",
+        ]
+      );
+      assert.equal(
+        afterDelete.queuedCourts[1].status,
+        "EMPTY"
+      );
+
+      useMatchStore.getState().addQueuedCourt();
+      const afterAdd =
+        useMatchStore.getState();
+      assert.deepEqual(
+        afterAdd.queuedCourts.map(
+          (court) => court.id
+        ),
+        [
+          1,
+          2,
+          3,
+        ]
+      );
+      assert.equal(
+        afterAdd.queuedCourts[0].status,
+        "QUEUED"
+      );
+      assert.equal(
+        afterAdd.queuedCourts[2].status,
+        "EMPTY"
       );
     }
   );

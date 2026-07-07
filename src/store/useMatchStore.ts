@@ -394,7 +394,9 @@ function ensureDefaultQueuedCourts(
 }
 
 function normalizeQueuedCourtOrder(
-  courts: Court[]
+  courts: Court[],
+  minimumCourtCount =
+    DEFAULT_QUEUED_COURT_COUNT
 ) {
   const occupiedCourts = courts
     .filter(
@@ -435,7 +437,7 @@ function normalizeQueuedCourtOrder(
 
   const targetLength =
     Math.max(
-      DEFAULT_QUEUED_COURT_COUNT,
+      minimumCourtCount,
       courts.length,
       occupiedCourts.length
     );
@@ -1579,18 +1581,25 @@ export const useMatchStore =
         const {
           queuedCourts,
         } = get();
+        const normalizedQueuedCourts =
+          normalizeQueuedCourtOrder(
+            queuedCourts,
+            queuedCourts.length === 0
+              ? 0
+              : DEFAULT_QUEUED_COURT_COUNT
+          );
 
         const nextId =
           Math.max(
             0,
-            ...queuedCourts.map(
+            ...normalizedQueuedCourts.map(
               (court) => court.id
             )
           ) + 1;
 
         set({
           queuedCourts: [
-            ...queuedCourts,
+            ...normalizedQueuedCourts,
             createEmptyCourt(nextId),
           ],
         });
@@ -1652,9 +1661,14 @@ export const useMatchStore =
 
         set({
           queuedCourts:
-            queuedCourts.filter(
-              (court) =>
-                court.id !== courtId
+            normalizeQueuedCourtOrder(
+              queuedCourts.filter(
+                (court) =>
+                  court.id !== courtId
+              ),
+              queuedCourts.length <= 1
+                ? 0
+                : DEFAULT_QUEUED_COURT_COUNT
             ),
         });
       },
