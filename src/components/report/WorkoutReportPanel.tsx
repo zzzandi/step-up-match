@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -12,6 +13,10 @@ import type {
 import type {
   WorkoutReportEvent,
 } from "@/types/workoutReport";
+import {
+  getWorkoutReportSnapshotsFromServer,
+  saveWorkoutReportSnapshotToServer,
+} from "@/services/workoutReportSnapshotService";
 
 interface MixingRow {
   id: string;
@@ -338,6 +343,11 @@ export default function WorkoutReportPanel({
       (state) =>
         state.saveWorkoutReportSnapshot
     );
+  const mergeWorkoutReportSnapshots =
+    useMatchStore(
+      (state) =>
+        state.mergeWorkoutReportSnapshots
+    );
   const [
     copied,
     setCopied,
@@ -346,6 +356,10 @@ export default function WorkoutReportPanel({
     saved,
     setSaved,
   ] = useState(false);
+  const [
+    serverMessage,
+    setServerMessage,
+  ] = useState("");
   const [
     selectedSnapshotId,
     setSelectedSnapshotId,
@@ -416,6 +430,53 @@ export default function WorkoutReportPanel({
     ) ?? null;
   const selectedReportDateHasSnapshot =
     selectedDateSnapshots.length > 0;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    getWorkoutReportSnapshotsFromServer(
+      selectedReportDate
+    )
+      .then((snapshots) => {
+        if (cancelled) {
+          return;
+        }
+
+        mergeWorkoutReportSnapshots(
+          snapshots
+        );
+        if (snapshots.length > 0) {
+          setServerMessage(
+            "서버 저장 리포트를 불러왔습니다."
+          );
+          setSelectedSnapshotId(
+            (current) =>
+              current ||
+              snapshots[0]?.id ||
+              ""
+          );
+        } else {
+          setServerMessage(
+            "선택한 날짜의 서버 저장 리포트가 없습니다."
+          );
+        }
+      })
+      .catch((error) => {
+        console.error(error);
+        if (!cancelled) {
+          setServerMessage(
+            "서버 리포트 테이블이 아직 없거나 조회할 수 없습니다. Supabase SQL 설정 후 서버 저장이 활성화됩니다."
+          );
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    mergeWorkoutReportSnapshots,
+    selectedReportDate,
+  ]);
 
   const report =
     useMemo(() => {
@@ -1022,7 +1083,7 @@ export default function WorkoutReportPanel({
     }
   }
 
-  function saveReport() {
+  async function saveReport() {
     const snapshot =
       saveWorkoutReportSnapshot();
 
@@ -1039,6 +1100,19 @@ export default function WorkoutReportPanel({
     setSelectedSnapshotId(
       snapshot.id
     );
+    try {
+      await saveWorkoutReportSnapshotToServer(
+        snapshot
+      );
+      setServerMessage(
+        "서버에 운동 리포트를 저장했습니다."
+      );
+    } catch (error) {
+      console.error(error);
+      setServerMessage(
+        "브라우저에는 저장했지만 서버 저장은 실패했습니다. Supabase SQL 테이블 설정을 확인해 주세요."
+      );
+    }
     setSaved(true);
     window.setTimeout(
       () => setSaved(false),
@@ -1083,7 +1157,7 @@ export default function WorkoutReportPanel({
 
       <div className="mt-4 rounded-xl border border-slate-700 bg-slate-950/50 p-3">
         <label className="block text-sm font-bold text-slate-200">
-          ?? ??
+          조회 날짜
         </label>
         <input
           type="date"
@@ -1106,14 +1180,19 @@ export default function WorkoutReportPanel({
         />
 
         <label className="mt-4 block text-sm font-bold text-slate-200">
-          ??? ?? ???
+          저장된 운동 리포트
         </label>
         <p className="mt-1 text-xs leading-5 text-slate-400">
-          ??? ??? ?? ???? ?????. ?? ?? ?? ?? ? ?? ????, ???? ?? ??? ?? ???? ?? ??? ? ????.
+          선택한 날짜의 저장 리포트를 확인합니다. 오늘 운동 전체 종료 시 자동 저장되며, 필요하면 현재 리포트 저장 버튼으로 수동 저장할 수 있습니다.
         </p>
+        {serverMessage && (
+          <p className="mt-2 rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-xs leading-5 text-cyan-100">
+            {serverMessage}
+          </p>
+        )}
         {!selectedReportDateHasSnapshot && (
           <p className="mt-2 rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-xs leading-5 text-amber-100">
-            ??? ??? ??? ?? ???? ????. ?? ?? ?? ???? ?????, ?? ??? ??? ???.
+            선택한 날짜에 저장된 운동 리포트가 없습니다. 현재 진행 중인 리포트를 저장하거나, 다른 날짜를 선택해 주세요.
           </p>
         )}
         {sortedSnapshots.length > 0 && (
@@ -1130,7 +1209,7 @@ export default function WorkoutReportPanel({
           >
             {!preferSnapshot && (
               <option value="">
-                ?? ?? ?? ??? ??
+                현재 진행 중인 리포트 보기
               </option>
             )}
             {(selectedDateSnapshots.length > 0
@@ -1141,7 +1220,7 @@ export default function WorkoutReportPanel({
                 key={snapshot.id}
                 value={snapshot.id}
               >
-                {snapshot.workoutDate} ?? ??? ? {formatKstTime(snapshot.createdAt)}
+                {snapshot.workoutDate} 저장 리포트 · {formatKstTime(snapshot.createdAt)}
               </option>
             ))}
           </select>

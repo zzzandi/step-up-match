@@ -30,6 +30,28 @@ import {
 import {
   syncActiveAttendanceStats,
 } from "@/services/attendanceService";
+import {
+  saveWorkoutReportSnapshotToServer,
+} from "@/services/workoutReportSnapshotService";
+
+function saveWorkoutReportSnapshotToServerQuietly(
+  snapshot: WorkoutReportSnapshot
+) {
+  void saveWorkoutReportSnapshotToServer(
+    snapshot
+  ).catch((error) => {
+    if (
+      error instanceof Error &&
+      error.message.includes(
+        "Supabase environment variables are missing"
+      )
+    ) {
+      return;
+    }
+
+    console.error(error);
+  });
+}
 
 export interface FixedPartnerRequest {
   id: string;
@@ -619,6 +641,10 @@ export interface MatchStore {
   saveWorkoutReportSnapshot:
     () => WorkoutReportSnapshot | null;
 
+  mergeWorkoutReportSnapshots: (
+    snapshots: WorkoutReportSnapshot[]
+  ) => void;
+
   resetTodayWorkoutData: (
     workoutDate?: string
   ) => void;
@@ -1019,26 +1045,6 @@ export const useMatchStore =
                 new Date().toISOString(),
             },
           ],
-          notifications: [
-            ...get().notifications,
-            {
-              id:
-                crypto.randomUUID(),
-              audience: "ADMIN",
-              message: `${resolvedRequesterName}????癰궽블뀮??${resolvedPartnerName}???꿔꺂?????沅????????????????댄뱼???? ??????읐?????????????놁졄.`,
-              createdAt:
-                new Date().toISOString(),
-            },
-            {
-              id:
-                crypto.randomUUID(),
-              audience: "PLAYER",
-              recipientId: partnerId,
-              message: `${resolvedRequesterName}????癰궽블뀮????????????????댄뱼???? ??????읐?????????????놁졄.`,
-              createdAt:
-                new Date().toISOString(),
-            },
-          ],
         });
         get().addNotification({
           audience: "ADMIN",
@@ -1094,29 +1100,6 @@ export const useMatchStore =
                     "APPROVED" as const,
                 },
               ],
-            notifications: [
-              ...get().notifications,
-              {
-                id:
-                  crypto.randomUUID(),
-                audience: "PLAYER",
-                recipientId:
-                  request.requesterId,
-                message: `${request.partnerName}?????嚥▲꺆?????????????????댄뱼?????????읐??????????????????`,
-                createdAt:
-                  new Date().toISOString(),
-              },
-              {
-                id:
-                  crypto.randomUUID(),
-                audience: "PLAYER",
-                recipientId:
-                  request.partnerId,
-                message: `${request.requesterName}?????嚥▲꺆?????????????????댄뱼?????????읐??????????????????`,
-                createdAt:
-                  new Date().toISOString(),
-              },
-            ],
           });
           get().addNotification({
             audience: "PLAYER",
@@ -1167,31 +1150,6 @@ export const useMatchStore =
                     },
                   ]
                 : fixedPartnerRequestResolutions,
-            notifications: request
-              ? [
-                  ...get().notifications,
-                  {
-                    id:
-                      crypto.randomUUID(),
-                    audience: "PLAYER",
-                    recipientId:
-                      request.requesterId,
-                    message: `${request.partnerName}?????嚥▲꺆?????????????????댄뱼?????????읐????饔낅챷維??????????????`,
-                    createdAt:
-                      new Date().toISOString(),
-                  },
-                  {
-                    id:
-                      crypto.randomUUID(),
-                    audience: "PLAYER",
-                    recipientId:
-                      request.partnerId,
-                    message: `${request.requesterName}?????嚥▲꺆?????????????????댄뱼?????????읐????饔낅챷維??????????????`,
-                    createdAt:
-                      new Date().toISOString(),
-                  },
-                ]
-              : get().notifications,
           });
           if (request) {
             get().addNotification({
@@ -1309,6 +1267,12 @@ export const useMatchStore =
             workoutReportEvents,
           });
 
+        if (snapshot) {
+          saveWorkoutReportSnapshotToServerQuietly(
+            snapshot
+          );
+        }
+
         set({
           players: [],
           courts: [],
@@ -1367,7 +1331,34 @@ export const useMatchStore =
               ),
           });
 
+          saveWorkoutReportSnapshotToServerQuietly(
+            snapshot
+          );
+
           return snapshot;
+        },
+
+      mergeWorkoutReportSnapshots:
+        (snapshots) => {
+          if (snapshots.length === 0) {
+            return;
+          }
+
+          set({
+            workoutReportSnapshots:
+              snapshots.reduce(
+                (
+                  current,
+                  snapshot
+                ) =>
+                  appendWorkoutReportSnapshot(
+                    current,
+                    snapshot
+                  ),
+                get()
+                  .workoutReportSnapshots
+              ),
+          });
         },
 
       removeFixedPartner: (
@@ -1621,12 +1612,12 @@ export const useMatchStore =
           "PLAYING"
         ) {
           alert(
-            "??棺堉?뤃????????關???꾨き??熬곥룊??????????????????????깅즽????????놁졄."
+            "진행 중인 경기가 있는 코트는 삭제할 수 없습니다."
           );
-      
+
           return;
         }
-      
+
         set({
           courts:
             courts.filter(
@@ -2140,11 +2131,7 @@ export const useMatchStore =
           violatesExcludedPair
         ) {
           window.alert(
-            "\uAC19\uC740 \uACBD\uAE30 \uBC30\uCE58 \uC81C\uC678\uB85C \uC124\uC815\uB41C \uC120\uC218\uB294 \uAD50\uCCB4\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4."
-          );
-          return;
-          window.alert(
-            "???꿔꺂??틝??轅멸눼 ????ル늉??? ??棺堉?뤃????????????썹땟戮녹?????? ??????紐껊쑋?????嚥싲갭큔????????????嶺뚮슣??쮼?????쎛 ?????????얠? ???????????????깅즽????????놁졄."
+            "같은 경기 배치 제외로 설정된 선수는 교체할 수 없습니다."
           );
           return;
         }
@@ -2515,15 +2502,7 @@ export const useMatchStore =
                 null,
             });
             window.alert(
-              "\uC120\uC218 \uC0C1\uD0DC\uAC00 \uBCC0\uACBD\uB418\uC5C8\uAC70\uB098 \uB300\uC0C1 \uCF54\uD2B8\uAC00 \uC774\uBBF8 \uC0AC\uC6A9 \uC911\uC785\uB2C8\uB2E4. \uD604\uC7AC \uB300\uAE30\uC5F4\uACFC \uCF54\uD2B8 \uC0C1\uD0DC\uB97C \uB2E4\uC2DC \uD655\uC778\uD574 \uC8FC\uC138\uC694."
-            );
-            return;
-            window.alert(
               "선수 상태가 변경되었거나 대상 코트가 이미 사용 중입니다. 현재 대기열과 코트 상태를 다시 확인해 주세요."
-            );
-            return;
-            window.alert(
-              "???饔낅떽????????棺堉?뤃??????影?력??????????낇룇 ???????????????????????됰Ŧ鍮???戮?걫癲?????쎛 ????쇰뮛????棺堉?뤃???삳ħ??????????????놁졄. ??????살퓢?????熬곣뫖利??????鰲????轅붽틓?????"
             );
             return;
           }
