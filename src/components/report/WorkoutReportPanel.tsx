@@ -500,8 +500,6 @@ export default function WorkoutReportPanel({
         ),
       [workoutReportSnapshots]
     );
-  const latestSnapshot =
-    sortedSnapshots[0];
   const selectedDateSnapshots =
     sortedSnapshots.filter(
       (snapshot) =>
@@ -512,13 +510,19 @@ export default function WorkoutReportPanel({
     selectedDateSnapshots[0] ??
     null;
   const effectiveSelectedSnapshotId =
-    selectedSnapshotId ||
+    selectedDateSnapshots.some(
+      (snapshot) =>
+        snapshot.id ===
+        selectedSnapshotId
+    )
+      ? selectedSnapshotId
+      :
     (preferSnapshot
       ? latestSelectedDateSnapshot?.id ??
         ""
       : "");
   const selectedSnapshot =
-    sortedSnapshots.find(
+    selectedDateSnapshots.find(
       (snapshot) =>
         snapshot.id ===
         effectiveSelectedSnapshotId
@@ -546,11 +550,18 @@ export default function WorkoutReportPanel({
           );
           setSelectedSnapshotId(
             (current) =>
-              current ||
+              snapshots.some(
+                (snapshot) =>
+                  snapshot.id ===
+                  current
+              )
+                ? current
+                :
               snapshots[0]?.id ||
               ""
           );
         } else {
+          setSelectedSnapshotId("");
           setServerMessage(
             "선택한 날짜의 서버 저장 리포트가 없습니다."
           );
@@ -574,19 +585,14 @@ export default function WorkoutReportPanel({
   ]);
 
   const report =
-    useMemo(() => {
+    (() => {
       const snapshotToUse =
         selectedSnapshot ??
         (preferSnapshot
           ? latestSelectedDateSnapshot
-          : null) ??
-        latestSnapshot;
+          : null);
       const shouldUseSnapshot =
-        Boolean(selectedSnapshot) ||
-        (matchHistory.length === 0 &&
-          workoutReportEvents.length ===
-            0 &&
-          Boolean(snapshotToUse));
+        Boolean(snapshotToUse);
       const reportDate =
         shouldUseSnapshot
           ? getLatestWorkoutDateFromReportData(
@@ -599,7 +605,8 @@ export default function WorkoutReportPanel({
                   snapshotToUse!.workoutDate,
               }
             )
-          : getKstDateKey();
+          : selectedReportDate ||
+            getKstDateKey();
       const reportPlayers =
         shouldUseSnapshot
           ? snapshotToUse!.players
@@ -1132,15 +1139,7 @@ export default function WorkoutReportPanel({
         snapshotWorkoutDate:
           snapshotToUse?.workoutDate,
       };
-    }, [
-      latestSnapshot,
-      latestSelectedDateSnapshot,
-      matchHistory,
-      players,
-      preferSnapshot,
-      selectedSnapshot,
-      workoutReportEvents,
-    ]);
+    })();
 
   async function copyReport() {
     try {
@@ -1315,7 +1314,8 @@ export default function WorkoutReportPanel({
             선택한 날짜에 저장된 운동 리포트가 없습니다. 현재 진행 중인 리포트를 저장하거나, 다른 날짜를 선택해 주세요.
           </p>
         )}
-        {sortedSnapshots.length > 0 && (
+        {selectedDateSnapshots.length >
+          0 && (
           <select
             value={
               effectiveSelectedSnapshotId
@@ -1332,10 +1332,7 @@ export default function WorkoutReportPanel({
                 현재 진행 중인 리포트 보기
               </option>
             )}
-            {(selectedDateSnapshots.length > 0
-              ? selectedDateSnapshots
-              : sortedSnapshots
-            ).map((snapshot) => (
+            {selectedDateSnapshots.map((snapshot) => (
               <option
                 key={snapshot.id}
                 value={snapshot.id}
@@ -1345,8 +1342,7 @@ export default function WorkoutReportPanel({
             ))}
           </select>
         )}
-        {(selectedSnapshot ||
-          latestSelectedDateSnapshot) && (
+        {selectedReportDateHasSnapshot && (
           <button
             type="button"
             onClick={() =>
