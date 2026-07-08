@@ -351,3 +351,62 @@ export async function deleteFeedback({
     data as FeedbackRow
   );
 }
+
+export async function deleteFeedbackRevision({
+  session,
+  feedbackId,
+  revisionId,
+}: {
+  session: AccessSession;
+  feedbackId: string;
+  revisionId: string;
+}) {
+  if (session.role !== "MASTER") {
+    throw new Error(
+      "마스터만 피드백 수정·삭제 이력을 삭제할 수 있습니다."
+    );
+  }
+
+  const feedback =
+    await getFeedbackById(feedbackId);
+
+  if (!feedback) {
+    throw new Error(
+      "피드백을 찾을 수 없습니다."
+    );
+  }
+
+  const revisions =
+    feedback.revisions.filter(
+      (revision) =>
+        revision.id !== revisionId
+    );
+
+  if (
+    revisions.length ===
+    feedback.revisions.length
+  ) {
+    throw new Error(
+      "삭제할 이력을 찾을 수 없습니다."
+    );
+  }
+
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({
+      revisions,
+    })
+    .eq("id", feedbackId)
+    .select(
+      "id, author_id, author_name, author_role, is_guest, content, created_at, updated_at, deleted_at, revisions"
+    )
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return normalizeFeedbackRow(
+    data as FeedbackRow
+  );
+}

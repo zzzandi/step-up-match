@@ -10,6 +10,7 @@ import {
 import {
   createFeedback,
   deleteFeedback,
+  deleteFeedbackRevision,
   getFeedbackList,
   updateFeedback,
 } from "@/services/feedbackService";
@@ -229,6 +230,54 @@ export default function FeedbackPage() {
         error instanceof Error
           ? error.message
           : "피드백 삭제에 실패했습니다."
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleDeleteRevision({
+    feedbackId,
+    revisionId,
+  }: {
+    feedbackId: string;
+    revisionId: string;
+  }) {
+    if (
+      !session ||
+      session.role !== "MASTER"
+    ) {
+      return;
+    }
+
+    if (
+      !window.confirm(
+        "이 수정·삭제 이력을 삭제하시겠습니까? 피드백 본문은 유지됩니다."
+      )
+    ) {
+      return;
+    }
+
+    setIsSaving(true);
+    setMessage("");
+    setErrorMessage("");
+
+    try {
+      await deleteFeedbackRevision({
+        session,
+        feedbackId,
+        revisionId,
+      });
+      setMessage(
+        "피드백 이력을 삭제했습니다."
+      );
+      await loadFeedback();
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "피드백 이력 삭제에 실패했습니다."
       );
     } finally {
       setIsSaving(false);
@@ -506,18 +555,39 @@ export default function FeedbackPage() {
                                     }
                                     className="rounded-lg border border-slate-800 bg-slate-950 p-2"
                                   >
-                                    <div className="font-bold text-slate-100">
-                                      {getRevisionLabel(
-                                        revision
-                                      )}{" "}
-                                      ·{" "}
-                                      {formatKstDateTime(
-                                        revision.changedAt
-                                      )}{" "}
-                                      ·{" "}
-                                      {
-                                        revision.editorName
-                                      }
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                      <div className="font-bold text-slate-100">
+                                        {getRevisionLabel(
+                                          revision
+                                        )}{" "}
+                                        ·{" "}
+                                        {formatKstDateTime(
+                                          revision.changedAt
+                                        )}{" "}
+                                        ·{" "}
+                                        {
+                                          revision.editorName
+                                        }
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          void handleDeleteRevision(
+                                            {
+                                              feedbackId:
+                                                feedback.id,
+                                              revisionId:
+                                                revision.id,
+                                            }
+                                          )
+                                        }
+                                        disabled={
+                                          isSaving
+                                        }
+                                        className="self-start rounded-lg border border-red-300/40 bg-red-500/10 px-2 py-1 text-[11px] font-bold text-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                      >
+                                        이력 삭제
+                                      </button>
                                     </div>
                                     {revision.previousContent && (
                                       <div className="mt-2 text-slate-500">
