@@ -1956,22 +1956,66 @@ export default function WorkoutReportPanel({
 
     pages.push(canvas);
 
-    for (
-      let index = 0;
-      index < pages.length;
-      index += 1
-    ) {
-      await downloadCanvasAsPng(
-          pages[index],
-          `step-up-match-report-${report.snapshotWorkoutDate ?? selectedReportDate}-${index + 1}.png`
-        );
-      }
+    const sourceWidth =
+      pages[0]?.width ?? width * pixelRatio;
+    const sourceHeight =
+      pages.reduce(
+        (sum, page) =>
+          sum + page.height,
+        0
+      );
+    const maxCanvasHeight = 32760;
+    const outputScale =
+      sourceHeight > maxCanvasHeight
+        ? maxCanvasHeight / sourceHeight
+        : 1;
+    const outputCanvas =
+      document.createElement("canvas");
+    outputCanvas.width = Math.max(
+      1,
+      Math.floor(
+        sourceWidth * outputScale
+      )
+    );
+    outputCanvas.height = Math.max(
+      1,
+      Math.floor(
+        sourceHeight * outputScale
+      )
+    );
 
-    if (pages.length > 1) {
-      window.alert(
-        `리포트가 길어 ${pages.length}장의 이미지로 저장했습니다.`
+    const outputContext =
+      outputCanvas.getContext("2d");
+
+    if (!outputContext) {
+      throw new Error(
+        "Canvas context is unavailable."
       );
     }
+
+    outputContext.imageSmoothingEnabled =
+      true;
+    outputContext.imageSmoothingQuality =
+      "high";
+
+    let outputY = 0;
+    pages.forEach((page) => {
+      const targetHeight =
+        page.height * outputScale;
+      outputContext.drawImage(
+        page,
+        0,
+        outputY,
+        outputCanvas.width,
+        targetHeight
+      );
+      outputY += targetHeight;
+    });
+
+    await downloadCanvasAsPng(
+      outputCanvas,
+      `step-up-match-report-${report.snapshotWorkoutDate ?? selectedReportDate}.png`
+    );
   }
 
   async function exportReportImage() {
