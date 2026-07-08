@@ -352,6 +352,29 @@ export async function deleteFeedback({
   );
 }
 
+export async function permanentlyDeleteFeedback({
+  session,
+  id,
+}: {
+  session: AccessSession;
+  id: string;
+}) {
+  if (session.role !== "MASTER") {
+    throw new Error(
+      "마스터만 피드백을 완전히 삭제할 수 있습니다."
+    );
+  }
+
+  const { error } = await supabase
+    .from(TABLE)
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    throw error;
+  }
+}
+
 export async function deleteFeedbackRevision({
   session,
   feedbackId,

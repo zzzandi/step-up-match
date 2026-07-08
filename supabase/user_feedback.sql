@@ -37,3 +37,9 @@ create policy "user_feedback_update_all"
   for update
   using (true)
   with check (true);
+
+drop policy if exists "user_feedback_delete_all" on public.user_feedback;
+create policy "user_feedback_delete_all"
+  on public.user_feedback
+  for delete
+  using (true);

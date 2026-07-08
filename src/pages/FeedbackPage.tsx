@@ -12,6 +12,7 @@ import {
   deleteFeedback,
   deleteFeedbackRevision,
   getFeedbackList,
+  permanentlyDeleteFeedback,
   updateFeedback,
 } from "@/services/feedbackService";
 import type {
@@ -284,6 +285,49 @@ export default function FeedbackPage() {
     }
   }
 
+  async function handlePermanentDelete(
+    feedbackId: string
+  ) {
+    if (
+      !session ||
+      session.role !== "MASTER"
+    ) {
+      return;
+    }
+
+    if (
+      !window.confirm(
+        "이 피드백을 완전히 삭제하시겠습니까? 삭제하면 본문과 수정·삭제 이력이 모두 사라집니다."
+      )
+    ) {
+      return;
+    }
+
+    setIsSaving(true);
+    setMessage("");
+    setErrorMessage("");
+
+    try {
+      await permanentlyDeleteFeedback({
+        session,
+        id: feedbackId,
+      });
+      setMessage(
+        "피드백을 완전히 삭제했습니다."
+      );
+      await loadFeedback();
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "피드백 완전 삭제에 실패했습니다."
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   if (!session) {
     return null;
   }
@@ -525,6 +569,23 @@ export default function FeedbackPage() {
                             </button>
                           </div>
                         )}
+
+                      {isMaster && (
+                        <div className="mt-3 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void handlePermanentDelete(
+                                feedback.id
+                              )
+                            }
+                            disabled={isSaving}
+                            className="rounded-xl bg-red-500 px-3 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            피드백 완전 삭제
+                          </button>
+                        </div>
+                      )}
 
                       {isMaster && (
                         <details className="mt-3 rounded-xl bg-slate-900 p-3 text-xs text-slate-300">
