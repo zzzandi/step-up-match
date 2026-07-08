@@ -1095,7 +1095,7 @@ export default function WorkoutReportPanel({
         uncompletedGameEvents
           .map(
             (event, index) =>
-              `${histories.length + index + 1}. Court ${event.courtId} ${formatKstTime(event.createdAt)}~종료 기록 없음 ${formatEventPlayers(event.playerIds, event.playerNames)}`
+              `${histories.length + index + 1}. Court ${event.courtId} ${formatKstTime(event.createdAt)}~종료 미기록 ${formatEventPlayers(event.playerIds, event.playerNames)}`
           )
           .join("\n");
       const allMatchLines =
@@ -1282,7 +1282,7 @@ export default function WorkoutReportPanel({
             <article class="match-card warning-card">
               <div class="match-head">
                 <span>${report.histories.length + index + 1}. Court ${event.courtId}</span>
-                <span>${formatKstTime(event.createdAt)}~종료 기록 없음</span>
+                <span>${formatKstTime(event.createdAt)}~종료 미기록</span>
               </div>
               <div class="match-teams">${escapeHtml(formatEventPlayers(event.playerIds, event.playerNames))}</div>
             </article>
@@ -1348,7 +1348,6 @@ export default function WorkoutReportPanel({
             ${toolbar}
             <p class="eyebrow">STEP UP MATCH</p>
             <h1>${escapeHtml(getReportTitle())}</h1>
-            <p>카카오톡 공유와 보관을 위한 운동 리포트입니다. 앱 화면과 같은 다크 스타일로 핵심 지표를 정리했습니다.</p>
             <div class="summary">
               <div class="card">참여 인원<div class="value">${report.participantCount}명</div></div>
               <div class="card">오늘 총 경기<div class="value">${report.totalMatches}경기</div></div>
@@ -1418,25 +1417,8 @@ export default function WorkoutReportPanel({
     URL.revokeObjectURL(url);
   }
 
-  function getReportFallbackSections() {
-    const operationLines = [
-      `게임코트 자동/수동: ${report.autoGameEvents}/${report.manualGameEvents}회`,
-      `대기코트 자동/수동: ${report.autoQueuedEvents}/${report.manualQueuedEvents}회`,
-      `대기코트 승격: ${report.promotedEvents}회`,
-      `선수 교체/코트 내 교체: ${report.replacementEvents}/${report.swapEvents}회`,
-      `종료/점수 입력: ${report.completedMatches}/${report.scoredMatches}경기`,
-    ];
-    const mixingLines =
-      report.mixingRows.map(
-        (row) =>
-          `${row.name} ${row.mixPercent}% · 교류 ${row.metCount}명 / 미교류 ${row.missedCount}명`
-      );
-    const participantLines =
-      report.participantRows.map(
-        (row) =>
-          `${row.name} · 참가 ${row.arrivalTimeText} · ${row.matchCount}경기`
-      );
-    const matchLines =
+  function getImageReportRows() {
+    const matchRows =
       report.histories.map(
         (history, index) => {
           const scoreText =
@@ -1454,7 +1436,7 @@ export default function WorkoutReportPanel({
               history,
               report.operationEvents
             );
-          const operationText = [
+          const operationLines = [
             assignmentEvent
               ? `${getOperationLabel(assignmentEvent)}: ${formatOperator(assignmentEvent)}`
               : "",
@@ -1462,57 +1444,85 @@ export default function WorkoutReportPanel({
               (event) =>
                 `${getOperationLabel(event)}: ${formatOperator(event)}${event.description ? ` / ${event.description}` : ""}`
             ),
-          ]
-            .filter(Boolean)
-            .join(" / ");
+          ].filter(Boolean);
 
-          return `${index + 1}. Court ${history.courtId} ${formatKstTime(history.startedAt)}~${formatKstTime(history.endedAt)}${scoreText} · ${formatTeam(history.teamA, report.histories, report.currentNames)} vs ${formatTeam(history.teamB, report.histories, report.currentNames)}${operationText ? ` · ${operationText}` : ""}`;
+          return {
+            title: `${index + 1}. Court ${history.courtId} · ${formatKstTime(history.startedAt)}~${formatKstTime(history.endedAt)}${scoreText}`,
+            lines: [
+              `${formatTeam(history.teamA, report.histories, report.currentNames)} vs ${formatTeam(history.teamB, report.histories, report.currentNames)}`,
+              ...operationLines,
+            ],
+          };
         }
       );
-    const uncompletedLines =
+    const uncompletedRows =
       report.uncompletedGameEvents.map(
-        (event, index) =>
-          `${report.histories.length + index + 1}. Court ${event.courtId} ${formatKstTime(event.createdAt)}~종료 기록 없음 · ${formatEventPlayers(event.playerIds, event.playerNames)}`
+        (event, index) => ({
+          title: `${report.histories.length + index + 1}. Court ${event.courtId} · ${formatKstTime(event.createdAt)}~종료 미기록`,
+          lines: [
+            formatEventPlayers(
+              event.playerIds,
+              event.playerNames
+            ),
+            "게임코트 확정 기록은 있지만 경기 종료 기록이 없어 정식 종료 경기로 집계되지 않은 대진입니다.",
+          ],
+          warning: true,
+        })
       );
 
-    return [
-      {
-        title: "요약",
-        lines: [
-          `참여 인원: ${report.participantCount}명`,
-          `오늘 총 경기: ${report.totalMatches}경기`,
-          `평균 경기: ${report.averageMatches}`,
-          `평균 섞임률: ${report.averageMixPercent}%`,
-        ],
-      },
-      {
-        title: "대진 운영 기록",
-        lines: operationLines,
-      },
-      {
-        title: "개인별 섞임률",
-        lines: mixingLines.length
-          ? mixingLines
-          : ["기록 없음"],
-      },
-      {
-        title: "인원별 경기 수",
-        lines: participantLines.length
-          ? participantLines
-          : ["기록 없음"],
-      },
-      {
-        title: "오늘 전체 경기",
-        lines:
-          matchLines.length ||
-          uncompletedLines.length
-            ? [
-                ...matchLines,
-                ...uncompletedLines,
-              ]
-            : ["기록 없음"],
-      },
-    ];
+    return {
+      operations: [
+        {
+          title: "게임코트 대진",
+          lines: [
+            `자동 ${report.autoGameEvents}회 · 수동 ${report.manualGameEvents}회`,
+          ],
+        },
+        {
+          title: "대기코트 대진",
+          lines: [
+            `자동 ${report.autoQueuedEvents}회 · 수동 ${report.manualQueuedEvents}회`,
+          ],
+        },
+        {
+          title: "대기코트 승격",
+          lines: [`${report.promotedEvents}회`],
+        },
+        {
+          title: "선수 교체",
+          lines: [
+            `대기자 교체 ${report.replacementEvents}회 · 코트 내 교체 ${report.swapEvents}회`,
+          ],
+        },
+        {
+          title: "종료/점수 입력",
+          lines: [
+            `${report.completedMatches}경기 종료 · ${report.scoredMatches}경기 점수 입력`,
+          ],
+        },
+      ],
+      mixing: report.mixingRows.map(
+        (row) => ({
+          title: `${row.name} · ${row.mixPercent}%`,
+          lines: [
+            `같이 쳐본 사람 ${row.metCount}/${row.possibleCount}명 · 못 쳐본 사람 ${row.missedCount}명`,
+          ],
+        })
+      ),
+      participants:
+        report.participantRows.map(
+          (row) => ({
+            title: `${row.name} · ${row.matchCount}경기`,
+            lines: [
+              `참가 시간 ${row.arrivalTimeText}`,
+            ],
+          })
+        ),
+      matches: [
+        ...matchRows,
+        ...uncompletedRows,
+      ],
+    };
   }
 
   function wrapCanvasText(
@@ -1520,13 +1530,17 @@ export default function WorkoutReportPanel({
     text: string,
     maxWidth: number
   ) {
-    const words = text.split(" ");
+    const words = text.split(/(\s+)/);
     const lines: string[] = [];
     let current = "";
 
     words.forEach((word) => {
+      if (!word) {
+        return;
+      }
+
       const next = current
-        ? `${current} ${word}`
+        ? `${current}${word}`
         : word;
 
       if (
@@ -1536,38 +1550,66 @@ export default function WorkoutReportPanel({
       ) {
         current = next;
       } else {
-        lines.push(current);
-        current = word;
+        lines.push(current.trim());
+
+        if (
+          ctx.measureText(word).width <=
+          maxWidth
+        ) {
+          current = word.trimStart();
+          return;
+        }
+
+        let chunk = "";
+        [...word].forEach((char) => {
+          const nextChunk = `${chunk}${char}`;
+
+          if (
+            ctx.measureText(nextChunk).width <=
+              maxWidth ||
+            !chunk
+          ) {
+            chunk = nextChunk;
+          } else {
+            lines.push(chunk);
+            chunk = char;
+          }
+        });
+        current = chunk;
       }
     });
 
     if (current) {
-      lines.push(current);
+      lines.push(current.trim());
     }
 
     return lines;
   }
 
-  async function exportFallbackReportImages() {
-    const width = 900;
-    const pageHeight = 2200;
-    const padding = 32;
+  async function exportReportImagesToCanvas() {
+    const width = 1080;
+    const pageHeight = 1600;
+    const pixelRatio = 2;
+    const padding = 48;
     const contentWidth =
       width - padding * 2;
-    const sections =
-      getReportFallbackSections();
+    const rows = getImageReportRows();
     const pages: HTMLCanvasElement[] = [];
     let canvas =
       document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = pageHeight;
+    canvas.width = width * pixelRatio;
+    canvas.height =
+      pageHeight * pixelRatio;
     let ctx = canvas.getContext("2d");
+    let pageIndex = 1;
 
     if (!ctx) {
       throw new Error(
         "Canvas context is unavailable."
       );
     }
+
+    ctx.scale(pixelRatio, pixelRatio);
 
     const paintBackground = () => {
       const gradient =
@@ -1596,13 +1638,69 @@ export default function WorkoutReportPanel({
         width,
         pageHeight
       );
+
+      const radial =
+        ctx!.createRadialGradient(
+          120,
+          80,
+          20,
+          120,
+          80,
+          520
+        );
+      radial.addColorStop(
+        0,
+        "rgba(34, 211, 238, 0.22)"
+      );
+      radial.addColorStop(
+        1,
+        "rgba(34, 211, 238, 0)"
+      );
+      ctx!.fillStyle = radial;
+      ctx!.fillRect(
+        0,
+        0,
+        width,
+        pageHeight
+      );
     };
+
+    const paintHeader = () => {
+      ctx!.fillStyle = "#67e8f9";
+      ctx!.font =
+        "900 22px system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+      ctx!.fillText(
+        "STEP UP MATCH",
+        padding,
+        54
+      );
+      ctx!.fillStyle = "#ffffff";
+      ctx!.font =
+        "900 34px system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+      ctx!.fillText(
+        getReportTitle(),
+        padding,
+        102
+      );
+      ctx!.fillStyle = "#94a3b8";
+      ctx!.font =
+        "700 16px system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+      ctx!.fillText(
+        `Page ${pageIndex}`,
+        width - padding - 70,
+        54
+      );
+    };
+
     const startNewPage = () => {
       pages.push(canvas);
+      pageIndex += 1;
       canvas =
         document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = pageHeight;
+      canvas.width =
+        width * pixelRatio;
+      canvas.height =
+        pageHeight * pixelRatio;
       ctx = canvas.getContext("2d");
 
       if (!ctx) {
@@ -1611,111 +1709,250 @@ export default function WorkoutReportPanel({
         );
       }
 
+      ctx.scale(
+        pixelRatio,
+        pixelRatio
+      );
       paintBackground();
-      return padding;
+      paintHeader();
+      return 142;
     };
 
     paintBackground();
-    let y = padding;
-    ctx.fillStyle = "#67e8f9";
-    ctx.font =
-      "800 22px system-ui, sans-serif";
-    ctx.fillText(
-      "STEP UP MATCH",
-      padding,
-      y
-    );
-    y += 44;
-    ctx.fillStyle = "#ffffff";
-    ctx.font =
-      "900 32px system-ui, sans-serif";
-    wrapCanvasText(
-      ctx,
-      getReportTitle(),
-      contentWidth
-    ).forEach((line) => {
-      ctx!.fillText(line, padding, y);
-      y += 40;
-    });
-    y += 12;
+    paintHeader();
+    let y = 142;
 
-    sections.forEach((section) => {
-      const sectionTitleHeight = 34;
-      const lineHeight = 27;
-      ctx!.font =
-        "600 19px system-ui, sans-serif";
-      const wrappedLines =
-        section.lines.flatMap((line) =>
-          wrapCanvasText(
-            ctx!,
-            line,
-            contentWidth - 28
-          )
-        );
-      const sectionHeight =
-        sectionTitleHeight +
-        wrappedLines.length * lineHeight +
-        34;
-
-      if (
-        y + sectionHeight >
-        pageHeight - padding
-      ) {
-        y = startNewPage();
-      }
-
-      ctx!.fillStyle =
-        "rgba(15, 23, 42, 0.86)";
-      ctx!.strokeStyle =
-        "rgba(34, 211, 238, 0.22)";
-      ctx!.lineWidth = 1;
+    const drawCard = (
+      x: number,
+      top: number,
+      cardWidth: number,
+      cardHeight: number,
+      fill = "rgba(15, 23, 42, 0.86)",
+      stroke = "rgba(34, 211, 238, 0.22)"
+    ) => {
+      ctx!.fillStyle = fill;
+      ctx!.strokeStyle = stroke;
+      ctx!.lineWidth = 1.5;
       ctx!.beginPath();
       ctx!.roundRect(
-        padding,
-        y,
-        contentWidth,
-        Math.min(
-          sectionHeight,
-          pageHeight - padding - y
-        ),
+        x,
+        top,
+        cardWidth,
+        cardHeight,
         22
       );
       ctx!.fill();
       ctx!.stroke();
-      y += 34;
+    };
+
+    const ensureSpace = (
+      requiredHeight: number
+    ) => {
+      if (
+        y + requiredHeight >
+        pageHeight - padding
+      ) {
+        y = startNewPage();
+      }
+    };
+
+    const drawSectionTitle = (
+      title: string
+    ) => {
+      ensureSpace(58);
       ctx!.fillStyle = "#67e8f9";
       ctx!.font =
-        "800 22px system-ui, sans-serif";
+        "900 24px system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
       ctx!.fillText(
-        section.title,
-        padding + 16,
+        title,
+        padding,
         y
       );
-      y += 30;
-      ctx!.fillStyle = "#dbeafe";
+      y += 28;
+    };
+
+    const drawRow = (
+      title: string,
+      lines: string[],
+      warning = false
+    ) => {
       ctx!.font =
-        "600 19px system-ui, sans-serif";
+        "900 20px system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+      const titleLines =
+        wrapCanvasText(
+          ctx!,
+          title,
+          contentWidth - 36
+        );
+      ctx!.font =
+        "650 17px system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+      const bodyLines =
+        lines.flatMap((line) =>
+          wrapCanvasText(
+            ctx!,
+            line,
+            contentWidth - 36
+          )
+        );
+      const height =
+        30 +
+        titleLines.length * 26 +
+        Math.max(0, bodyLines.length) *
+          23 +
+        22;
 
-      wrappedLines.forEach((line) => {
-        if (
-          y + lineHeight >
-          pageHeight - padding
-        ) {
-          y = startNewPage();
-          ctx!.fillStyle = "#dbeafe";
-          ctx!.font =
-            "600 19px system-ui, sans-serif";
-        }
+      ensureSpace(height + 10);
+      drawCard(
+        padding,
+        y,
+        contentWidth,
+        height,
+        warning
+          ? "rgba(120, 53, 15, 0.24)"
+          : "rgba(15, 23, 42, 0.82)",
+        warning
+          ? "rgba(252, 211, 77, 0.42)"
+          : "rgba(148, 163, 184, 0.22)"
+      );
 
+      let rowY = y + 28;
+      ctx!.fillStyle = warning
+        ? "#fef3c7"
+        : "#f8fafc";
+      ctx!.font =
+        "900 20px system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+      titleLines.forEach((line) => {
         ctx!.fillText(
           line,
-          padding + 16,
-          y
+          padding + 18,
+          rowY
         );
-        y += lineHeight;
+        rowY += 26;
       });
-      y += 26;
-    });
+      ctx!.fillStyle = "#dbeafe";
+      ctx!.font =
+        "650 17px system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+      bodyLines.forEach((line) => {
+        ctx!.fillText(
+          line,
+          padding + 18,
+          rowY
+        );
+        rowY += 23;
+      });
+      y += height + 10;
+    };
+
+    const drawSummary = () => {
+      const gap = 12;
+      const cardWidth =
+        (contentWidth - gap * 3) / 4;
+      const cards = [
+        {
+          label: "참여 인원",
+          value: `${report.participantCount}명`,
+        },
+        {
+          label: "오늘 총 경기",
+          value: `${report.totalMatches}경기`,
+        },
+        {
+          label: "평균 경기",
+          value: report.averageMatches,
+        },
+        {
+          label: "평균 섞임률",
+          value: `${report.averageMixPercent}%`,
+        },
+      ];
+
+      ensureSpace(118);
+      cards.forEach((card, index) => {
+        const x =
+          padding +
+          index * (cardWidth + gap);
+        drawCard(
+          x,
+          y,
+          cardWidth,
+          100,
+          "rgba(2, 6, 23, 0.78)",
+          "rgba(148, 163, 184, 0.20)"
+        );
+        ctx!.fillStyle = "#94a3b8";
+        ctx!.font =
+          "700 16px system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+        ctx!.fillText(
+          card.label,
+          x + 16,
+          y + 30
+        );
+        ctx!.fillStyle = "#ffffff";
+        ctx!.font =
+          "950 30px system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+        ctx!.fillText(
+          card.value,
+          x + 16,
+          y + 70
+        );
+      });
+      y += 124;
+    };
+
+    const drawSection = (
+      title: string,
+      sectionRows: {
+        title: string;
+        lines: string[];
+        warning?: boolean;
+      }[]
+    ) => {
+      drawSectionTitle(title);
+
+      if (sectionRows.length === 0) {
+        drawRow("기록 없음", []);
+        return;
+      }
+
+      sectionRows.forEach((row) =>
+        drawRow(
+          row.title,
+          row.lines,
+          row.warning
+        )
+      );
+      y += 14;
+    };
+
+    drawSummary();
+    drawSection(
+      "대진 운영 기록",
+      rows.operations
+    );
+    drawSection(
+      "섞임 지표",
+      [
+        {
+          title: `평균 섞임률 ${report.averageMixPercent}%`,
+          lines: [
+            `가장 덜 섞인 인원: ${report.leastMixedRows.map((row) => `${row.name} ${row.mixPercent}%`).join(", ") || "기록 없음"}`,
+            `전체 참가자와 한 번 이상 만난 인원: ${report.noMissRows.map((row) => row.name).join(", ") || "없음"}`,
+          ],
+        },
+      ]
+    );
+    drawSection(
+      "개인별 섞임률",
+      rows.mixing
+    );
+    drawSection(
+      "인원별 경기 수",
+      rows.participants
+    );
+    drawSection(
+      "오늘 전체 경기",
+      rows.matches
+    );
 
     pages.push(canvas);
 
@@ -1725,8 +1962,14 @@ export default function WorkoutReportPanel({
       index += 1
     ) {
       await downloadCanvasAsPng(
-        pages[index],
-        `step-up-match-report-${report.snapshotWorkoutDate ?? selectedReportDate}-${index + 1}.png`
+          pages[index],
+          `step-up-match-report-${report.snapshotWorkoutDate ?? selectedReportDate}-${index + 1}.png`
+        );
+      }
+
+    if (pages.length > 1) {
+      window.alert(
+        `리포트가 길어 ${pages.length}장의 이미지로 저장했습니다.`
       );
     }
   }
@@ -1735,117 +1978,12 @@ export default function WorkoutReportPanel({
     setExportingImage(true);
 
     try {
-      const html = createReportExportHtml({
-        includeToolbar: false,
-        imageMode: true,
-      });
-      const styleMatch =
-        html.match(
-          /<style>([\s\S]*?)<\/style>/
-        );
-      const bodyMatch =
-        html.match(
-          /<body>([\s\S]*?)<\/body>/
-        );
-      const exportStyle =
-        styleMatch?.[1] ?? "";
-      const exportBody =
-        bodyMatch?.[1] ?? html;
-      const { default: html2canvas } =
-        await import("html2canvas");
-      const exportContainer =
-        document.createElement("div");
-
-      exportContainer.style.position =
-        "absolute";
-      exportContainer.style.left = "0";
-      exportContainer.style.top = `${
-        window.scrollY +
-        window.innerHeight +
-        120
-      }px`;
-      exportContainer.style.width =
-        "900px";
-      exportContainer.style.pointerEvents =
-        "none";
-      exportContainer.style.opacity = "1";
-      exportContainer.style.zIndex =
-        "2147483647";
-      exportContainer.innerHTML = `<style>${exportStyle}</style>${exportBody}`;
-      document.body.appendChild(
-        exportContainer
-      );
-
-      try {
-        if (document.fonts?.ready) {
-          await document.fonts.ready;
-        }
-
-        const target =
-          exportContainer.querySelector(
-            ".export-root"
-          ) as HTMLElement | null;
-
-        if (!target) {
-          throw new Error(
-            "Report export target is missing."
-          );
-        }
-
-        const canvas =
-          await html2canvas(target, {
-            backgroundColor: "#020617",
-            scale: 1,
-            useCORS: true,
-            logging: false,
-            width: target.scrollWidth,
-            height: target.scrollHeight,
-            windowWidth:
-              target.scrollWidth,
-            windowHeight:
-              target.scrollHeight,
-          });
-
-        const blob =
-          await new Promise<Blob | null>(
-            (resolve) =>
-              canvas.toBlob(
-                resolve,
-                "image/png",
-                0.95
-              )
-          );
-
-        if (!blob) {
-          throw new Error(
-            "PNG export failed."
-          );
-        }
-
-        const url =
-          URL.createObjectURL(blob);
-        const link =
-          document.createElement("a");
-        link.href = url;
-        link.download = `step-up-match-report-${report.snapshotWorkoutDate ?? selectedReportDate}.png`;
-        link.click();
-        URL.revokeObjectURL(url);
-      } finally {
-        exportContainer.remove();
-      }
+      await exportReportImagesToCanvas();
     } catch (error) {
       console.error(error);
-      try {
-        await exportFallbackReportImages();
-        window.alert(
-          "기본 이미지 저장이 실패해 안전 모드로 리포트 이미지를 저장했습니다. 여러 장으로 나뉘어 저장될 수 있습니다."
-        );
-      } catch (fallbackError) {
-        console.error(fallbackError);
-        window.alert(
-          "이미지 파일 생성에 실패했습니다. PDF 저장을 이용하거나 리포트 화면을 캡처해 주세요."
-        );
-      }
+      window.alert(
+        "이미지 파일 생성에 실패했습니다. 브라우저 저장 권한 또는 다운로드 차단 설정을 확인한 뒤 다시 시도해 주세요."
+      );
     } finally {
       setExportingImage(false);
     }
@@ -2400,10 +2538,10 @@ export default function WorkoutReportPanel({
         0 && (
         <div className="mt-4 rounded-xl border border-amber-300/30 bg-amber-300/10 p-3">
           <div className="font-bold text-amber-100">
-            종료 기록 없는 대진
+            경기 종료가 기록되지 않은 대진
           </div>
           <p className="mt-1 text-xs leading-5 text-amber-100/80">
-            대진은 게임코트에 올라갔지만 경기 종료 기록이 없어 오늘 전체 경기 목록에는 종료 시각이 남지 않은 대진입니다.
+            게임코트에 확정된 기록은 있지만 종료 버튼 또는 점수 저장 기록이 없어 정식 종료 경기로 집계되지 않은 대진입니다.
           </p>
           <div className="mt-2 space-y-2 text-sm text-amber-100">
             {report.uncompletedGameEvents.map(
@@ -2419,7 +2557,7 @@ export default function WorkoutReportPanel({
                   {formatKstTime(
                     event.createdAt
                   )}
-                  ~종료 기록 없음{" "}
+                  ~종료 미기록{" "}
                   {formatEventPlayers(
                     event.playerIds,
                     event.playerNames
