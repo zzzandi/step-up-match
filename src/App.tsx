@@ -564,7 +564,7 @@ function App() {
                 criticalRebroadcastTimers.delete(
                   timer
                 );
-                publishStateSnapshot();
+                publishStateSnapshot(patch);
               }, delay);
 
             criticalRebroadcastTimers.add(
