@@ -240,10 +240,6 @@ export async function recoverOpenWorkoutDashboard() {
   const attendance =
     await getActiveWorkoutAttendanceList();
 
-  if (attendance.length === 0) {
-    return false;
-  }
-
   const state =
     useMatchStore.getState();
   const players =
