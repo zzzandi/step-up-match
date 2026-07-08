@@ -560,6 +560,16 @@ export default function AppNavigation() {
                 </NavLink>
               )}
 
+              <NavLink
+                to="/feedback"
+                onClick={() =>
+                  setIsOpen(false)
+                }
+                className="block rounded-xl bg-slate-900 px-4 py-4 font-bold"
+              >
+                앱 피드백
+              </NavLink>
+
               {session.role ===
                 "MASTER" && (
                 <>

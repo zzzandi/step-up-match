@@ -85,6 +85,8 @@ const AttendancePage =
   lazy(() => import("@/pages/AttendancePage"));
 const FixedPartnerPage =
   lazy(() => import("@/pages/FixedPartnerPage"));
+const FeedbackPage =
+  lazy(() => import("@/pages/FeedbackPage"));
 const GuestJoinPage =
   lazy(() => import("@/pages/GuestJoinPage"));
 const JoinPage =
@@ -1249,6 +1251,15 @@ function App() {
           element={
             <AuthenticatedRoute>
               <FixedPartnerPage />
+            </AuthenticatedRoute>
+          }
+        />
+
+        <Route
+          path="/feedback"
+          element={
+            <AuthenticatedRoute>
+              <FeedbackPage />
             </AuthenticatedRoute>
           }
         />
