@@ -61,6 +61,10 @@ import {
 import {
   recoverOpenWorkoutDashboard,
 } from "@/services/dashboardRecoveryService";
+import {
+  getLiveStateSnapshotFromServer,
+  saveLiveStateSnapshotToServer,
+} from "@/services/liveStateSnapshotService";
 import type {
   Player,
 } from "@/types/player";
@@ -187,13 +191,14 @@ function publishStateSnapshot(
 
   const state =
     useMatchStore.getState();
+  const snapshot =
+    createLiveStateSnapshot(
+      state
+    );
 
   publishLiveSessionEvent({
     type: "STATE_SNAPSHOT",
-    snapshot:
-      createLiveStateSnapshot(
-        state
-      ),
+    snapshot,
     sourceRole: session.role,
     sourceUserId:
       session.userId,
@@ -204,6 +209,18 @@ function publishStateSnapshot(
     patch,
     responseToRequestId,
   });
+
+  void saveLiveStateSnapshotToServer({
+    workoutDate:
+      getWorkoutDateKey(),
+    snapshot,
+    updatedById:
+      session.userId,
+    updatedByName:
+      session.userName,
+    updatedByRole:
+      session.role,
+  }).catch(console.error);
 }
 
 function normalizeLivePlayer(
@@ -452,6 +469,51 @@ function App() {
         recoverOpenWorkoutDashboard
       );
     }, []);
+  const recoverServerLiveStateLocally =
+    useCallback(async () => {
+      return runLocalOnlyMutationAsync(
+        async () => {
+          let row: Awaited<
+            ReturnType<
+              typeof getLiveStateSnapshotFromServer
+            >
+          > = null;
+
+          try {
+            row =
+              await getLiveStateSnapshotFromServer(
+                getWorkoutDateKey()
+              );
+          } catch (error) {
+            console.error(error);
+            return false;
+          }
+
+          if (!row?.snapshot) {
+            return false;
+          }
+
+          const currentSnapshot =
+            createLiveStateSnapshot(
+              useMatchStore.getState()
+            );
+          const mergedSnapshot =
+            mergeLiveStateSnapshot(
+              currentSnapshot,
+              row.snapshot,
+              row.updated_by_role ??
+                "MASTER",
+              row.updated_by_id ??
+                undefined
+            );
+
+          useMatchStore.setState(
+            mergedSnapshot
+          );
+          return true;
+        }
+      );
+    }, []);
 
   useEffect(() => {
     const todayKey =
@@ -581,6 +643,9 @@ function App() {
       }
 
       void recoverDashboardLocally()
+        .then(() =>
+          recoverServerLiveStateLocally()
+        )
         .catch(console.error);
       const session =
         getAccessSession();
@@ -1001,6 +1066,7 @@ function App() {
   }, [
     navigate,
     recoverDashboardLocally,
+    recoverServerLiveStateLocally,
   ]);
 
   useEffect(() => {
@@ -1027,6 +1093,7 @@ function App() {
           const activated =
             await activatePendingParticipant();
           await recoverDashboardLocally();
+          await recoverServerLiveStateLocally();
 
           if (activated) {
             const activeRole =
@@ -1064,6 +1131,7 @@ function App() {
     accessSession?.participationMode,
     navigate,
     recoverDashboardLocally,
+    recoverServerLiveStateLocally,
   ]);
 
   useEffect(() => {
@@ -1113,6 +1181,7 @@ function App() {
           }
 
           await recoverDashboardLocally();
+          await recoverServerLiveStateLocally();
         }
       } catch (error) {
         console.error(error);
@@ -1137,6 +1206,7 @@ function App() {
     accessSession?.participationMode,
     navigate,
     recoverDashboardLocally,
+    recoverServerLiveStateLocally,
   ]);
 
   return (
