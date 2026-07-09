@@ -25,13 +25,14 @@ interface Member {
   grade?: Grade | null;
   hidden_skill?: number | null;
   is_active?: boolean | null;
+  fixed_partner_id?: string | null;
 }
 
 interface Props {
   open: boolean;
   onClose: () => void;
   onAdd: (
-    member: Member
+    members: Member[]
   ) => Promise<void>;
 }
 
@@ -48,8 +49,12 @@ export default function MasterAddParticipantModal({
   ] = useState<Set<string>>(
     new Set()
   );
-  const [selectedId, setSelectedId] =
-    useState("");
+  const [
+    selectedIds,
+    setSelectedIds,
+  ] = useState<Set<string>>(
+    new Set()
+  );
   const [loading, setLoading] =
     useState(true);
   const [adding, setAdding] =
@@ -63,6 +68,9 @@ export default function MasterAddParticipantModal({
 
   useEffect(() => {
     if (!open) return;
+
+    setLoading(true);
+    setSelectedIds(new Set());
 
     Promise.all([
       getUsers(),
@@ -121,21 +129,63 @@ export default function MasterAddParticipantModal({
       ]
     );
 
+  const selectedMembers =
+    useMemo(
+      () =>
+        availableMembers.filter(
+          (member) =>
+            selectedIds.has(member.id)
+        ),
+      [
+        availableMembers,
+        selectedIds,
+      ]
+    );
+
   if (!open) return null;
 
-  async function handleAdd() {
-    const member =
-      availableMembers.find(
-        (item) =>
-          item.id === selectedId
-      );
+  function toggleMember(
+    memberId: string
+  ) {
+    setSelectedIds((current) => {
+      const next =
+        new Set(current);
+      if (next.has(memberId)) {
+        next.delete(memberId);
+      } else {
+        next.add(memberId);
+      }
+      return next;
+    });
+  }
 
-    if (!member) return;
+  function selectAll() {
+    setSelectedIds(
+      new Set(
+        availableMembers.map(
+          (member) => member.id
+        )
+      )
+    );
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
+
+  async function handleAdd() {
+    if (
+      selectedMembers.length === 0
+    ) {
+      return;
+    }
 
     try {
       setAdding(true);
-      await onAdd(member);
-      setSelectedId("");
+      await onAdd(
+        selectedMembers
+      );
+      setSelectedIds(new Set());
       onClose();
     } finally {
       setAdding(false);
@@ -144,57 +194,102 @@ export default function MasterAddParticipantModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-md rounded-3xl bg-slate-900 p-6 text-white">
+      <div className="w-full max-w-lg rounded-3xl bg-slate-900 p-6 text-white">
         <h2 className="text-2xl font-bold">
           오늘 참가자 대신 등록
         </h2>
-        <p className="mt-2 text-sm text-slate-400">
-          휴대폰 없이 참석한 모임원을 선택하면 오늘 출석과 대기열에 등록됩니다.
+        <p className="mt-2 text-sm leading-6 text-slate-400">
+          휴대폰이 없거나 직접 로그인하기 어려운 회원을 여러 명 선택해 오늘 출석과 대기열에 한 번에 등록합니다.
         </p>
 
-        <select
-          value={selectedId}
-          onChange={(event) =>
-            setSelectedId(
-              event.target.value
-            )
-          }
-          disabled={loading}
-          className="mt-6 w-full rounded-xl bg-slate-800 px-4 py-3"
-        >
-          <option value="">
-            {loading
-              ? "회원 목록 불러오는 중..."
-              : "모임원을 선택하세요"}
-          </option>
-          {availableMembers.map(
-            (member) => (
-              <option
-                key={member.id}
-                value={member.id}
-              >
-                {member.name}
-                {member.grade
-                  ? ` (${member.grade})`
-                  : ""}
-              </option>
-            )
-          )}
-        </select>
+        <div className="mt-5 flex items-center justify-between gap-2 text-sm">
+          <span className="font-bold text-cyan-300">
+            선택 {selectedMembers.length}명
+          </span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={selectAll}
+              disabled={
+                loading ||
+                availableMembers.length ===
+                  0
+              }
+              className="rounded-lg bg-slate-800 px-3 py-2 font-bold disabled:opacity-40"
+            >
+              전체 선택
+            </button>
+            <button
+              type="button"
+              onClick={
+                clearSelection
+              }
+              disabled={
+                selectedMembers.length ===
+                0
+              }
+              className="rounded-lg bg-slate-800 px-3 py-2 font-bold disabled:opacity-40"
+            >
+              선택 해제
+            </button>
+          </div>
+        </div>
 
-        {!loading &&
-          availableMembers.length ===
-            0 && (
-            <p className="mt-3 text-sm text-amber-300">
-              추가할 수 있는 미참가 회원이 없습니다.
-            </p>
+        <div className="mt-3 max-h-[50vh] overflow-y-auto rounded-2xl border border-slate-700 bg-slate-950 p-2">
+          {loading ? (
+            <div className="px-3 py-4 text-sm text-slate-400">
+              회원 목록을 불러오는 중...
+            </div>
+          ) : availableMembers.length ===
+            0 ? (
+            <div className="px-3 py-4 text-sm text-amber-300">
+              추가 가능한 미참가 회원이 없습니다.
+            </div>
+          ) : (
+            availableMembers.map(
+              (member) => (
+                <label
+                  key={member.id}
+                  className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-3 hover:bg-slate-800"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(
+                      member.id
+                    )}
+                    onChange={() =>
+                      toggleMember(
+                        member.id
+                      )
+                    }
+                    className="h-5 w-5 accent-cyan-400"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-bold">
+                      {member.name}
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      {member.gender ===
+                      "F"
+                        ? "여자"
+                        : "남자"}
+                      {member.grade
+                        ? ` · ${member.grade}급`
+                        : ""}
+                    </span>
+                  </span>
+                </label>
+              )
+            )
           )}
+        </div>
 
         <div className="mt-6 flex gap-3">
           <button
             type="button"
             disabled={
-              !selectedId || adding
+              selectedMembers.length ===
+                0 || adding
             }
             onClick={() =>
               void handleAdd()
@@ -203,7 +298,7 @@ export default function MasterAddParticipantModal({
           >
             {adding
               ? "등록 중..."
-              : "오늘 참가자로 등록"}
+              : `${selectedMembers.length}명 등록`}
           </button>
           <button
             type="button"

@@ -15,6 +15,7 @@ import MatchRecommendModal from "@/components/match/MatchRecommendModal";
 import AddPlayerModal from "@/components/player/AddPlayerModal";
 import MasterAddParticipantModal from "@/components/player/MasterAddParticipantModal";
 import MasterManagementPanel from "@/components/player/MasterManagementPanel";
+import WorkoutReportPanel from "@/components/report/WorkoutReportPanel";
 import FixedPartnerModal from "@/components/player/FixedPartnerModal";
 import MatchHistoryPanel from "@/components/history/MatchHistoryPanel";
 import {
@@ -164,6 +165,9 @@ export default function AdminPage() {
   const testMode =
     useTestMode();
   const isMaster =
+    session?.role === "MASTER";
+  const isManager =
+    session?.role === "ADMIN" ||
     session?.role === "MASTER";
   const isReadOnly =
     !testMode.active &&
@@ -1064,8 +1068,8 @@ export default function AdminPage() {
     }
   };
 
-  const handleMasterAddParticipant =
-    async (member: {
+  const handleMasterAddParticipants =
+    async (members: {
       id: string;
       name: string;
       gender?: "M" | "F" | null;
@@ -1074,83 +1078,107 @@ export default function AdminPage() {
         | null;
       hidden_skill?: number | null;
       fixed_partner_id?: string | null;
-    }) => {
+    }[]) => {
       try {
+        if (members.length === 0) {
+          return;
+        }
+
         if (testMode.active) {
           const userData =
             await getUsers();
-          const user =
-            userData?.find(
-              (item) =>
-                item.id === member.id
+          const missingMember =
+            members.find(
+              (member) =>
+                !userData?.some(
+                  (item) =>
+                    item.id === member.id
+                )
             );
 
-          if (!user) {
+          if (missingMember) {
             throw new Error(
               "Member not found"
             );
           }
         } else {
-        await ensureTodayCheckIn(
-          member.id
-        );
+          await Promise.all(
+            members.map((member) =>
+              ensureTodayCheckIn(
+                member.id
+              )
+            )
+          );
         }
 
         const currentPlayers =
           useMatchStore.getState()
             .players;
-        const existingPlayer =
-          currentPlayers.find(
-            (player) =>
-              player.id === member.id
+        const now = new Date();
+        const participants =
+          members.map((member) => {
+            const existingPlayer =
+              currentPlayers.find(
+                (player) =>
+                  player.id === member.id
+              );
+
+            return {
+              id: member.id,
+              name: member.name,
+              gender:
+                member.gender ?? "M",
+              grade:
+                member.grade ?? "F",
+              hiddenSkill:
+                getEffectiveHiddenSkill(
+                  member.name,
+                  member.hidden_skill ?? 35
+                ),
+              isPresent: true,
+              arrivalTime:
+                existingPlayer?.arrivalTime ??
+                now,
+              matchCount:
+                existingPlayer?.matchCount ??
+                0,
+              consecutiveMatches:
+                existingPlayer?.consecutiveMatches ??
+                0,
+              status:
+                existingPlayer?.status ===
+                "PLAYING"
+                  ? "PLAYING"
+                  : "WAITING",
+              waitingStartedAt:
+                existingPlayer?.waitingStartedAt ??
+                now,
+              lastPartners:
+                existingPlayer?.lastPartners ??
+                [],
+              lastOpponents:
+                existingPlayer?.lastOpponents ??
+                [],
+              fixedPartner:
+                member.fixed_partner_id ??
+                existingPlayer?.fixedPartner,
+            } satisfies Player;
+          });
+        const participantIds =
+          new Set(
+            participants.map(
+              (player) => player.id
+            )
           );
-        const participant: Player = {
-          id: member.id,
-          name: member.name,
-          gender:
-            member.gender ?? "M",
-          grade:
-            member.grade ?? "F",
-          hiddenSkill:
-            getEffectiveHiddenSkill(
-              member.name,
-              member.hidden_skill ?? 35
-            ),
-          isPresent: true,
-          arrivalTime:
-            existingPlayer?.arrivalTime ??
-            new Date(),
-          matchCount:
-            existingPlayer?.matchCount ??
-            0,
-          consecutiveMatches:
-            existingPlayer?.consecutiveMatches ??
-            0,
-          status:
-            existingPlayer?.status ===
-            "PLAYING"
-              ? "PLAYING"
-              : "WAITING",
-          waitingStartedAt:
-            existingPlayer?.waitingStartedAt ??
-            new Date(),
-          lastPartners:
-            existingPlayer?.lastPartners ??
-            [],
-          lastOpponents:
-            existingPlayer?.lastOpponents ??
-            [],
-          fixedPartner:
-            member.fixed_partner_id ??
-            existingPlayer?.fixedPartner,
-        };
 
         setPlayers([
           ...currentPlayers.filter(
             (player) =>
-              player.id !== member.id
+              !participantIds.has(
+                player.id
+              )
           ),
-          participant,
+          ...participants,
         ]);
         await refreshAttendance();
       } catch (error) {
@@ -1777,19 +1805,27 @@ export default function AdminPage() {
               </span>
             </button>
 
-            {isMaster && (
+            {isManager && (
               <>
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
+                    if (isReadOnly) {
+                      window.alert(
+                        "조회 전용 로그인에서는 오늘 참가자를 대신 등록할 수 없습니다."
+                      );
+                      return;
+                    }
+
                     setIsMasterParticipantModalOpen(
                       true
-                    )
-                  }
+                    );
+                  }}
                   className="rounded-2xl bg-purple-500 px-6 py-3 font-bold"
                 >
                   오늘 참가자 대신 등록
                 </button>
+                {isMaster && (
                 <button
                   type="button"
                   onClick={() =>
@@ -1801,6 +1837,7 @@ export default function AdminPage() {
                 >
                   신규 모임원 등록
                 </button>
+                )}
               </>
             )}
           </div>
@@ -2005,6 +2042,70 @@ export default function AdminPage() {
           />
         )}
 
+        {!isMaster && isManager && (
+          <section className="mt-8 rounded-3xl border border-cyan-500/30 bg-slate-900 p-6">
+            <div className="mb-4">
+              <p className="text-sm font-bold text-cyan-300">
+                ADMIN REPORT
+              </p>
+              <h2 className="mt-1 text-xl font-bold">
+                실시간 운동 리포트
+              </h2>
+            </div>
+            <WorkoutReportPanel />
+          </section>
+        )}
+
+        {!isMaster && isManager && (
+          <section className="mt-8 rounded-3xl border border-cyan-500/30 bg-slate-900 p-6">
+            <div className="mb-4">
+              <p className="text-sm font-bold text-cyan-300">
+                ADMIN
+              </p>
+              <h2 className="mt-1 text-xl font-bold">
+                오늘 참가자 경기수 현황
+              </h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[420px] text-left text-sm">
+                <thead className="text-slate-400">
+                  <tr className="border-b border-slate-800">
+                    <th className="px-3 py-3">
+                      이름
+                    </th>
+                    <th className="px-3 py-3">
+                      상태
+                    </th>
+                    <th className="px-3 py-3">
+                      총 경기수
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {players.map(
+                    (player) => (
+                      <tr
+                        key={player.id}
+                        className="border-b border-slate-800/70"
+                      >
+                        <td className="px-3 py-3 font-bold">
+                          {player.name}
+                        </td>
+                        <td className="px-3 py-3">
+                          {player.status}
+                        </td>
+                        <td className="px-3 py-3 font-bold text-cyan-300">
+                          {player.matchCount}
+                        </td>
+                      </tr>
+                    )
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
         {isMaster && (
           <div className="mt-8 rounded-3xl border border-purple-500/30 bg-slate-900 p-6">
             <div className="mb-4">
@@ -2017,7 +2118,7 @@ export default function AdminPage() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left text-sm">
+              <table className="w-full min-w-[620px] text-left text-sm">
                 <thead className="text-slate-400">
                   <tr className="border-b border-slate-800">
                     <th className="px-3 py-3">
@@ -2350,7 +2451,7 @@ export default function AdminPage() {
             )
           }
           onAdd={
-            handleMasterAddParticipant
+            handleMasterAddParticipants
           }
         />
       )}

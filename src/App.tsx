@@ -129,7 +129,7 @@ function ProtectedRoute({
   role,
   children,
 }: {
-  role: AccessRole;
+  role: AccessRole | AccessRole[];
   children: ReactElement;
 }) {
   const session =
@@ -144,7 +144,16 @@ function ProtectedRoute({
     );
   }
 
-  if (session.role !== role) {
+  const allowedRoles =
+    Array.isArray(role)
+      ? role
+      : [role];
+
+  if (
+    !allowedRoles.includes(
+      session.role
+    )
+  ) {
     return (
       <Navigate
         to={getRolePath(
@@ -1339,16 +1348,21 @@ function App() {
         <Route
           path="/records-management"
           element={
-            <AuthenticatedRoute>
+            <ProtectedRoute role="MASTER">
               <RecordsManagementPage />
-            </AuthenticatedRoute>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/workout-report"
           element={
-            <ProtectedRoute role="MASTER">
+            <ProtectedRoute
+              role={[
+                "ADMIN",
+                "MASTER",
+              ]}
+            >
               <WorkoutReportPage />
             </ProtectedRoute>
           }

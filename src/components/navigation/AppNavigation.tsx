@@ -570,8 +570,9 @@ export default function AppNavigation() {
                 앱 피드백
               </NavLink>
 
-              {session.role ===
-                "MASTER" && (
+              {canManage(
+                session.role
+              ) && (
                 <>
                   <NavLink
                     to="/workout-report"
