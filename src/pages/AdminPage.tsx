@@ -209,8 +209,6 @@ export default function AdminPage() {
     setTestRosterMessage,
   ] = useState("");
 
-  const [isAddModalOpen, setIsAddModalOpen] =
-    useState(false);
   const [
     isMasterParticipantModalOpen,
     setIsMasterParticipantModalOpen,
@@ -1744,7 +1742,7 @@ export default function AdminPage() {
                   return;
                 }
 
-                setIsAddModalOpen(
+                setIsMasterParticipantModalOpen(
                   true
                 );
               }}
@@ -2406,17 +2404,11 @@ export default function AdminPage() {
       <MatchRecommendModal />
 
       <AddPlayerModal
-        open={
-          isAddModalOpen
-        }
+        open={false}
         showGrade
         title="오늘 게스트 참가자 추가"
         submitLabel="게스트 참가 등록"
-        onClose={() =>
-          setIsAddModalOpen(
-            false
-          )
-        }
+        onClose={() => {}}
         onAdd={
           handleAddPlayer
         }
@@ -2450,6 +2442,15 @@ export default function AdminPage() {
           onAdd={
             handleMasterAddParticipants
           }
+          onAddGuests={async (
+            guests
+          ) => {
+            for (const guest of guests) {
+              await handleAddPlayer(
+                guest
+              );
+            }
+          }}
         />
       )}
 
