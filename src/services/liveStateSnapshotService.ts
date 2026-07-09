@@ -44,23 +44,23 @@ export async function saveLiveStateSnapshotToServer({
 }) {
   ensureConfigured();
 
-  const { error } = await supabase
-    .from(TABLE)
-    .upsert(
+  const updatedAt =
+    new Date().toISOString();
+  const { error } =
+    await supabase.rpc(
+      "save_live_state_snapshot",
       {
-        workout_date: workoutDate,
-        updated_at:
-          new Date().toISOString(),
-        updated_by_id:
+        p_workout_date:
+          workoutDate,
+        p_updated_at:
+          updatedAt,
+        p_updated_by_id:
           updatedById ?? null,
-        updated_by_name:
+        p_updated_by_name:
           updatedByName ?? null,
-        updated_by_role:
+        p_updated_by_role:
           updatedByRole ?? null,
-        snapshot,
-      },
-      {
-        onConflict: "workout_date",
+        p_snapshot: snapshot,
       }
     );
 
@@ -91,4 +91,3 @@ export async function getLiveStateSnapshotFromServer(
     ? (data as LiveStateSnapshotRow)
     : null;
 }
-

@@ -38,3 +38,50 @@ using (true);
 create index if not exists live_state_snapshots_updated_at_idx
 on public.live_state_snapshots (updated_at desc);
 
+create or replace function public.save_live_state_snapshot(
+  p_workout_date text,
+  p_updated_at timestamptz,
+  p_updated_by_id text,
+  p_updated_by_name text,
+  p_updated_by_role text,
+  p_snapshot jsonb
+)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  insert into public.live_state_snapshots (
+    workout_date,
+    updated_at,
+    updated_by_id,
+    updated_by_name,
+    updated_by_role,
+    snapshot
+  )
+  values (
+    p_workout_date,
+    p_updated_at,
+    p_updated_by_id,
+    p_updated_by_name,
+    p_updated_by_role,
+    p_snapshot
+  )
+  on conflict (workout_date) do update
+  set
+    updated_at = excluded.updated_at,
+    updated_by_id = excluded.updated_by_id,
+    updated_by_name = excluded.updated_by_name,
+    updated_by_role = excluded.updated_by_role,
+    snapshot = excluded.snapshot
+  where public.live_state_snapshots.updated_at <= excluded.updated_at;
+$$;
+
+grant execute on function public.save_live_state_snapshot(
+  text,
+  timestamptz,
+  text,
+  text,
+  text,
+  jsonb
+) to anon, authenticated;

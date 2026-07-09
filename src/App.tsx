@@ -649,14 +649,6 @@ function App() {
           recoverServerLiveStateLocally()
         )
         .catch(console.error);
-      const session =
-        getAccessSession();
-      if (
-        session &&
-        canManage(session.role)
-      ) {
-        publishStateSnapshot();
-      }
       requestSnapshot();
     };
     const handleVisibilityRefresh =
