@@ -375,9 +375,6 @@ export default function AdminPage() {
 
         if (!cancelled) {
           setWorkoutOpen(open);
-          if (!open) {
-            setAttendanceList([]);
-          }
         }
       } catch (error) {
         console.error(error);
@@ -2056,7 +2053,7 @@ export default function AdminPage() {
           </section>
         )}
 
-        {!isMaster && isManager && (
+        {false && !isMaster && isManager && (
           <section className="mt-8 rounded-3xl border border-cyan-500/30 bg-slate-900 p-6">
             <div className="mb-4">
               <p className="text-sm font-bold text-cyan-300">
