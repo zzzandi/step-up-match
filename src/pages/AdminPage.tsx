@@ -1649,7 +1649,6 @@ export default function AdminPage() {
   참가자 갱신
 </button>
 
-
             <button
               onClick={() => {
                 if (isReadOnly) {
@@ -1747,6 +1746,7 @@ export default function AdminPage() {
                 );
               }}
               className="
+                hidden
                 rounded-2xl
                 bg-lime-400
                 px-6
