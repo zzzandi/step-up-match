@@ -210,17 +210,19 @@ function publishStateSnapshot(
     responseToRequestId,
   });
 
-  void saveLiveStateSnapshotToServer({
-    workoutDate:
-      getWorkoutDateKey(),
-    snapshot,
-    updatedById:
-      session.userId,
-    updatedByName:
-      session.userName,
-    updatedByRole:
-      session.role,
-  }).catch(console.error);
+  if (canManage(session.role)) {
+    void saveLiveStateSnapshotToServer({
+      workoutDate:
+        getWorkoutDateKey(),
+      snapshot,
+      updatedById:
+        session.userId,
+      updatedByName:
+        session.userName,
+      updatedByRole:
+        session.role,
+    }).catch(console.error);
+  }
 }
 
 function normalizeLivePlayer(
