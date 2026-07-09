@@ -55,6 +55,10 @@ export default function MasterAddParticipantModal({
   ] = useState<Set<string>>(
     new Set()
   );
+  const [
+    searchTerm,
+    setSearchTerm,
+  ] = useState("");
   const [loading, setLoading] =
     useState(true);
   const [adding, setAdding] =
@@ -71,6 +75,7 @@ export default function MasterAddParticipantModal({
 
     setLoading(true);
     setSelectedIds(new Set());
+    setSearchTerm("");
 
     Promise.all([
       getUsers(),
@@ -142,6 +147,36 @@ export default function MasterAddParticipantModal({
       ]
     );
 
+  const filteredMembers =
+    useMemo(() => {
+      const keyword =
+        searchTerm
+          .trim()
+          .toLowerCase();
+
+      if (!keyword) {
+        return availableMembers;
+      }
+
+      return availableMembers.filter(
+        (member) =>
+          member.name
+            .toLowerCase()
+            .includes(keyword) ||
+          member.grade
+            ?.toLowerCase()
+            .includes(keyword) ||
+          (
+            member.gender === "F"
+              ? "여자"
+              : "남자"
+          ).includes(keyword)
+      );
+    }, [
+      availableMembers,
+      searchTerm,
+    ]);
+
   if (!open) return null;
 
   function toggleMember(
@@ -162,7 +197,7 @@ export default function MasterAddParticipantModal({
   function selectAll() {
     setSelectedIds(
       new Set(
-        availableMembers.map(
+        filteredMembers.map(
           (member) => member.id
         )
       )
@@ -235,6 +270,18 @@ export default function MasterAddParticipantModal({
           </div>
         </div>
 
+        <input
+          type="search"
+          value={searchTerm}
+          onChange={(event) =>
+            setSearchTerm(
+              event.target.value
+            )
+          }
+          placeholder="이름, 성별, 급수로 검색"
+          className="mt-3 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400"
+        />
+
         <div className="mt-3 max-h-[50vh] overflow-y-auto rounded-2xl border border-slate-700 bg-slate-950 p-2">
           {loading ? (
             <div className="px-3 py-4 text-sm text-slate-400">
@@ -245,8 +292,13 @@ export default function MasterAddParticipantModal({
             <div className="px-3 py-4 text-sm text-amber-300">
               추가 가능한 미참가 회원이 없습니다.
             </div>
+          ) : filteredMembers.length ===
+            0 ? (
+            <div className="px-3 py-4 text-sm text-slate-400">
+              검색 결과가 없습니다.
+            </div>
           ) : (
-            availableMembers.map(
+            filteredMembers.map(
               (member) => (
                 <label
                   key={member.id}

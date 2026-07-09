@@ -111,94 +111,97 @@ export default function WaitingList({
       const leftAt =
         new Date();
 
-      useMatchStore.setState(
-        (state) => {
-          const affectedCourtPlayerIds =
-            new Set<string>();
+      const state =
+        useMatchStore.getState();
+      const affectedCourtPlayerIds =
+        new Set<string>();
 
-          [
-            ...state.courts,
-            ...state.queuedCourts,
-          ].forEach((court) => {
-            const assigned = [
-              ...(court.teamA ?? []),
-              ...(court.teamB ?? []),
-            ];
+      [
+        ...state.courts,
+        ...state.queuedCourts,
+      ].forEach((court) => {
+        const assigned = [
+          ...(court.teamA ?? []),
+          ...(court.teamB ?? []),
+        ];
 
-            if (
-              assigned.some(
-                (player) =>
-                  player.id ===
-                  targetPlayer.id
+        if (
+          assigned.some(
+            (player) =>
+              player.id ===
+              targetPlayer.id
+          )
+        ) {
+          assigned.forEach(
+            (player) =>
+              affectedCourtPlayerIds.add(
+                player.id
               )
-            ) {
-              assigned.forEach(
-                (player) =>
-                  affectedCourtPlayerIds.add(
-                    player.id
-                  )
-              );
-            }
-          });
-
-          const updatedPlayers =
-            state.players.map(
-              (player) => {
-                if (
-                  player.id ===
-                  targetPlayer.id
-                ) {
-                  return {
-                    ...player,
-                    status:
-                      "LEFT" as const,
-                    isPresent: false,
-                    waitingStartedAt:
-                      undefined,
-                    playingStartedAt:
-                      undefined,
-                    consecutiveMatches: 0,
-                  };
-                }
-
-                if (
-                  affectedCourtPlayerIds.has(
-                    player.id
-                  ) &&
-                  player.status ===
-                    "PLAYING"
-                ) {
-                  return {
-                    ...player,
-                    status:
-                      "WAITING" as const,
-                    waitingStartedAt:
-                      leftAt,
-                    playingStartedAt:
-                      undefined,
-                    consecutiveMatches: 0,
-                  };
-                }
-
-                return player;
-              }
-            );
-
-          return {
-            players: updatedPlayers,
-            courts:
-              clearCourtIfIncludesPlayer(
-                state.courts,
-                targetPlayer.id
-              ),
-            queuedCourts:
-              clearCourtIfIncludesPlayer(
-                state.queuedCourts,
-                targetPlayer.id
-              ),
-          };
+          );
         }
+      });
+
+      const updatedPlayers =
+        state.players.map((player) => {
+          if (
+            player.id ===
+            targetPlayer.id
+          ) {
+            return {
+              ...player,
+              status:
+                "LEFT" as const,
+              isPresent: false,
+              waitingStartedAt:
+                undefined,
+              playingStartedAt:
+                undefined,
+              consecutiveMatches: 0,
+            };
+          }
+
+          if (
+            affectedCourtPlayerIds.has(
+              player.id
+            ) &&
+            player.status ===
+              "PLAYING"
+          ) {
+            return {
+              ...player,
+              status:
+                "WAITING" as const,
+              waitingStartedAt:
+                leftAt,
+              playingStartedAt:
+                undefined,
+              consecutiveMatches: 0,
+            };
+          }
+
+          return player;
+        });
+      const updatedCourts =
+        clearCourtIfIncludesPlayer(
+          state.courts,
+          targetPlayer.id
+        );
+      const updatedQueuedCourts =
+        clearCourtIfIncludesPlayer(
+          state.queuedCourts,
+          targetPlayer.id
+        );
+
+      state.setPlayers(
+        updatedPlayers
       );
+      state.setCourts(
+        updatedCourts
+      );
+      useMatchStore.setState({
+        queuedCourts:
+          updatedQueuedCourts,
+      });
 
       publishLiveSessionEvent({
         type: "FORCE_LOGOUT",
