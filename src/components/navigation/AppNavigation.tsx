@@ -584,6 +584,8 @@ export default function AppNavigation() {
                     운동 리포트
                   </NavLink>
 
+                  {session.role ===
+                    "MASTER" && (
                 <NavLink
                   to="/records-management"
                   onClick={() =>
@@ -593,6 +595,7 @@ export default function AppNavigation() {
                 >
                   날짜별 참가이력 관리
                 </NavLink>
+                  )}
                 </>
               )}
 
