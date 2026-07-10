@@ -205,10 +205,21 @@ function createWorkoutReportSnapshot({
 
 function appendWorkoutReportSnapshot(
   snapshots: WorkoutReportSnapshot[],
-  snapshot: WorkoutReportSnapshot | null
+  snapshot: WorkoutReportSnapshot | null,
+  deletedSnapshotIds: string[] = []
 ) {
   if (!snapshot) {
     return snapshots;
+  }
+
+  if (
+    deletedSnapshotIds.includes(
+      snapshot.id
+    )
+  ) {
+    return snapshots.filter(
+      (item) => item.id !== snapshot.id
+    );
   }
 
   const activityCount = (
@@ -561,6 +572,9 @@ export interface MatchStore {
   workoutReportSnapshots:
     WorkoutReportSnapshot[];
 
+  deletedWorkoutReportSnapshotIds:
+    string[];
+
   recommendations:
     MatchRecommendation[];
 
@@ -752,6 +766,9 @@ export const useMatchStore =
       workoutReportEvents: [],
 
       workoutReportSnapshots: [],
+
+      deletedWorkoutReportSnapshotIds:
+        [],
 
       recommendations: [],
 
@@ -1265,6 +1282,7 @@ export const useMatchStore =
           matchHistory,
           workoutReportEvents,
           workoutReportSnapshots,
+          deletedWorkoutReportSnapshotIds,
         } = get();
         const snapshot =
           createWorkoutReportSnapshot({
@@ -1305,7 +1323,8 @@ export const useMatchStore =
           workoutReportSnapshots:
             appendWorkoutReportSnapshot(
               workoutReportSnapshots,
-              snapshot
+              snapshot,
+              deletedWorkoutReportSnapshotIds
             ),
         });
       },
@@ -1317,6 +1336,7 @@ export const useMatchStore =
             matchHistory,
             workoutReportEvents,
             workoutReportSnapshots,
+            deletedWorkoutReportSnapshotIds,
           } = get();
           const snapshot =
             createWorkoutReportSnapshot({
@@ -1333,7 +1353,8 @@ export const useMatchStore =
             workoutReportSnapshots:
               appendWorkoutReportSnapshot(
                 workoutReportSnapshots,
-                snapshot
+                snapshot,
+                deletedWorkoutReportSnapshotIds
               ),
           });
 
@@ -1350,16 +1371,34 @@ export const useMatchStore =
             return;
           }
 
+          const deletedIds =
+            get()
+              .deletedWorkoutReportSnapshotIds;
+          const allowedSnapshots =
+            snapshots.filter(
+              (snapshot) =>
+                !deletedIds.includes(
+                  snapshot.id
+                )
+            );
+
+          if (
+            allowedSnapshots.length === 0
+          ) {
+            return;
+          }
+
           set({
             workoutReportSnapshots:
-              snapshots.reduce(
+              allowedSnapshots.reduce(
                 (
                   current,
                   snapshot
                 ) =>
                   appendWorkoutReportSnapshot(
                     current,
-                    snapshot
+                    snapshot,
+                    deletedIds
                   ),
                 get()
                   .workoutReportSnapshots
@@ -1369,7 +1408,20 @@ export const useMatchStore =
 
       deleteWorkoutReportSnapshot:
         (snapshotId) => {
+          const deletedIds =
+            get()
+              .deletedWorkoutReportSnapshotIds;
+
           set({
+            deletedWorkoutReportSnapshotIds:
+              deletedIds.includes(
+                snapshotId
+              )
+                ? deletedIds
+                : [
+                    ...deletedIds,
+                    snapshotId,
+                  ].slice(-200),
             workoutReportSnapshots:
               get().workoutReportSnapshots.filter(
                 (snapshot) =>

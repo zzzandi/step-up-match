@@ -19,6 +19,7 @@ export type LiveStateSnapshot = Pick<
   | "matchHistory"
   | "workoutReportEvents"
   | "workoutReportSnapshots"
+  | "deletedWorkoutReportSnapshotIds"
   | "womenDoublesPriority"
   | "excludedMatchPairs"
 >;
@@ -110,6 +111,8 @@ export function createLiveStateSnapshot(
       state.workoutReportEvents,
     workoutReportSnapshots:
       state.workoutReportSnapshots,
+    deletedWorkoutReportSnapshotIds:
+      state.deletedWorkoutReportSnapshotIds,
     womenDoublesPriority:
       state.womenDoublesPriority,
     excludedMatchPairs:
@@ -235,6 +238,7 @@ const liveStateKeys: LiveStateKey[] =
     "matchHistory",
     "workoutReportEvents",
     "workoutReportSnapshots",
+    "deletedWorkoutReportSnapshotIds",
     "womenDoublesPriority",
     "excludedMatchPairs",
   ];
@@ -403,6 +407,20 @@ function filterDismissedNotifications(
   return notifications.filter(
     (notification) =>
       !dismissed.has(notification.id)
+    );
+}
+
+function filterDeletedWorkoutReportSnapshots(
+  snapshots:
+    LiveStateSnapshot["workoutReportSnapshots"],
+  deletedIds:
+    LiveStateSnapshot["deletedWorkoutReportSnapshotIds"]
+) {
+  const deleted = new Set(deletedIds);
+
+  return snapshots.filter(
+    (snapshot) =>
+      !deleted.has(snapshot.id)
   );
 }
 
@@ -1388,11 +1406,24 @@ function mergeBootstrapSnapshots(
         current.workoutReportEvents,
         true
       ),
+    deletedWorkoutReportSnapshotIds:
+      Array.from(
+        new Set([
+          ...incoming.deletedWorkoutReportSnapshotIds,
+          ...current.deletedWorkoutReportSnapshotIds,
+        ])
+      ),
     workoutReportSnapshots:
-      mergeById(
-        incoming.workoutReportSnapshots,
-        current.workoutReportSnapshots,
-        true
+      filterDeletedWorkoutReportSnapshots(
+        mergeById(
+          incoming.workoutReportSnapshots,
+          current.workoutReportSnapshots,
+          true
+        ),
+        [
+          ...incoming.deletedWorkoutReportSnapshotIds,
+          ...current.deletedWorkoutReportSnapshotIds,
+        ]
       ),
     womenDoublesPriority:
       current.womenDoublesPriority ||
@@ -2016,17 +2047,34 @@ export function mergeLiveStateSnapshot(
 
     if (
       changed.has(
+        "deletedWorkoutReportSnapshotIds"
+      )
+    ) {
+      next.deletedWorkoutReportSnapshotIds =
+        Array.from(
+          new Set([
+            ...current.deletedWorkoutReportSnapshotIds,
+            ...incoming.deletedWorkoutReportSnapshotIds,
+          ])
+        );
+    }
+
+    if (
+      changed.has(
         "workoutReportSnapshots"
       )
     ) {
       next.workoutReportSnapshots =
-        mergeChangedEntities(
-          current.workoutReportSnapshots,
-          incoming.workoutReportSnapshots,
-          patch.changedEntityIds
-            ?.workoutReportSnapshots,
-          patch.removedEntityIds
-            ?.workoutReportSnapshots
+        filterDeletedWorkoutReportSnapshots(
+          mergeChangedEntities(
+            current.workoutReportSnapshots,
+            incoming.workoutReportSnapshots,
+            patch.changedEntityIds
+              ?.workoutReportSnapshots,
+            patch.removedEntityIds
+              ?.workoutReportSnapshots
+          ),
+          next.deletedWorkoutReportSnapshotIds
         );
     }
 
@@ -2353,11 +2401,24 @@ export function mergeLiveStateSnapshot(
           incoming.workoutReportEvents,
           true
         ),
+      deletedWorkoutReportSnapshotIds:
+        Array.from(
+          new Set([
+            ...current.deletedWorkoutReportSnapshotIds,
+            ...incoming.deletedWorkoutReportSnapshotIds,
+          ])
+        ),
       workoutReportSnapshots:
-        mergeById(
-          current.workoutReportSnapshots,
-          incoming.workoutReportSnapshots,
-          true
+        filterDeletedWorkoutReportSnapshots(
+          mergeById(
+            current.workoutReportSnapshots,
+            incoming.workoutReportSnapshots,
+            true
+          ),
+          [
+            ...current.deletedWorkoutReportSnapshotIds,
+            ...incoming.deletedWorkoutReportSnapshotIds,
+          ]
         )
       })
     )

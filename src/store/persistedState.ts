@@ -10,6 +10,7 @@ const ARRAY_FIELDS = [
   "matchHistory",
   "workoutReportEvents",
   "workoutReportSnapshots",
+  "deletedWorkoutReportSnapshotIds",
   "excludedMatchPairs",
 ] as const;
 

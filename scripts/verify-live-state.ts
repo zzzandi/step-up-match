@@ -687,6 +687,54 @@ assert.deepEqual(
   "추천 모달 상태는 다른 기기로 방송되면 안 됩니다."
 );
 
+const deletedReportId =
+  "deleted-report-1";
+const oldReportSnapshot =
+  snapshot({
+    workoutReportSnapshots: [
+      {
+        id: deletedReportId,
+        workoutDate:
+          "2026-07-09",
+        createdAt:
+          "2026-07-09T13:28:00Z",
+        players: [],
+        matchHistory: [],
+        workoutReportEvents:
+          [],
+      },
+    ],
+    deletedWorkoutReportSnapshotIds:
+      [],
+  });
+const reportDeletedSnapshot =
+  snapshot({
+    workoutReportSnapshots:
+      [],
+    deletedWorkoutReportSnapshotIds:
+      [deletedReportId],
+  });
+const reportDeleteMergeResult =
+  mergeLiveStateSnapshot(
+    reportDeletedSnapshot,
+    oldReportSnapshot,
+    "MASTER"
+  );
+
+assert.equal(
+  reportDeleteMergeResult.workoutReportSnapshots.some(
+    (item) =>
+      item.id === deletedReportId
+  ),
+  false,
+  "Deleted workout reports must not be restored from stale snapshots."
+);
+assert.deepEqual(
+  reportDeleteMergeResult.deletedWorkoutReportSnapshotIds,
+  [deletedReportId],
+  "Deleted workout report tombstones must survive live-state merges."
+);
+
 console.log(
-  "live-state regression scenarios: PASS (34)"
+  "live-state regression scenarios: PASS (35)"
 );
