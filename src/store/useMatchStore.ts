@@ -670,6 +670,10 @@ export interface MatchStore {
     snapshotId: string
   ) => void;
 
+  deleteWorkoutReportSnapshots: (
+    snapshotIds: string[]
+  ) => void;
+
   resetTodayWorkoutData: (
     workoutDate?: string
   ) => void;
@@ -1469,6 +1473,42 @@ export const useMatchStore =
               get().workoutReportSnapshots.filter(
                 (snapshot) =>
                   snapshot.id !== snapshotId
+              ),
+          });
+        },
+
+      deleteWorkoutReportSnapshots:
+        (snapshotIds) => {
+          const targetIds = Array.from(
+            new Set(snapshotIds)
+          );
+
+          if (targetIds.length === 0) {
+            return;
+          }
+
+          const deletedIds =
+            get()
+              .deletedWorkoutReportSnapshotIds;
+          const nextDeletedIds =
+            Array.from(
+              new Set([
+                ...deletedIds,
+                ...targetIds,
+              ])
+            ).slice(-300);
+          const targetIdSet =
+            new Set(targetIds);
+
+          set({
+            deletedWorkoutReportSnapshotIds:
+              nextDeletedIds,
+            workoutReportSnapshots:
+              get().workoutReportSnapshots.filter(
+                (snapshot) =>
+                  !targetIdSet.has(
+                    snapshot.id
+                  )
               ),
           });
         },

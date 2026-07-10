@@ -17,6 +17,7 @@ import type {
   WorkoutReportEvent,
 } from "@/types/workoutReport";
 import {
+  deleteWorkoutReportSnapshotsByDateFromServer,
   deleteWorkoutReportSnapshotFromServer,
   getWorkoutReportSnapshotsFromServer,
   saveWorkoutReportSnapshotToServer,
@@ -455,6 +456,11 @@ export default function WorkoutReportPanel({
     useMatchStore(
       (state) =>
         state.deleteWorkoutReportSnapshot
+    );
+  const deleteWorkoutReportSnapshots =
+    useMatchStore(
+      (state) =>
+        state.deleteWorkoutReportSnapshots
     );
   const [
     copied,
@@ -2148,6 +2154,63 @@ export default function WorkoutReportPanel({
     }
   }
 
+  async function deleteSelectedDateReports() {
+    if (
+      selectedDateSnapshots.length === 0
+    ) {
+      setServerMessage(
+        "삭제할 저장 리포트가 없습니다."
+      );
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `${selectedReportDate} 날짜의 저장 리포트 ${selectedDateSnapshots.length}개를 모두 삭제하시겠습니까? 오늘 실제 운동 전 테스트 리포트 정리에 사용하세요.`
+      )
+    ) {
+      return;
+    }
+
+    setDeleting(true);
+
+    try {
+      const localIds =
+        selectedDateSnapshots.map(
+          (snapshot) => snapshot.id
+        );
+      const serverDeletedIds =
+        await deleteWorkoutReportSnapshotsByDateFromServer(
+          selectedReportDate
+        );
+      const deletedIds = Array.from(
+        new Set([
+          ...localIds,
+          ...serverDeletedIds,
+        ])
+      );
+
+      deleteWorkoutReportSnapshots(
+        deletedIds
+      );
+      replaceWorkoutReportSnapshotsForDate(
+        selectedReportDate,
+        []
+      );
+      setSelectedSnapshotId("");
+      setServerMessage(
+        `${selectedReportDate} 저장 리포트 ${deletedIds.length}개를 모두 삭제했습니다.`
+      );
+    } catch (error) {
+      console.error(error);
+      setServerMessage(
+        "선택 날짜 저장 리포트 전체 삭제에 실패했습니다. Supabase 삭제 정책을 확인해 주세요."
+      );
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <div className="rounded-2xl border border-cyan-400/30 bg-cyan-400/5 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -2272,6 +2335,7 @@ export default function WorkoutReportPanel({
         )}
         {selectedReportDateHasSnapshot &&
           canDeleteReport && (
+          <div>
           <button
             type="button"
             onClick={() =>
@@ -2284,6 +2348,19 @@ export default function WorkoutReportPanel({
               ? "삭제 중..."
               : "선택한 리포트 삭제"}
           </button>
+          <button
+            type="button"
+            onClick={() =>
+              void deleteSelectedDateReports()
+            }
+            disabled={deleting}
+            className="mt-2 w-full rounded-xl border border-red-400/60 bg-red-600/25 px-4 py-3 text-sm font-bold text-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {deleting
+              ? "삭제 중..."
+              : "선택 날짜 리포트 전체 삭제"}
+          </button>
+          </div>
         )}
       </div>
 

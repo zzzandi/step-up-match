@@ -139,3 +139,59 @@ export async function deleteWorkoutReportSnapshotFromServer(
     );
   }
 }
+
+export async function deleteWorkoutReportSnapshotsByDateFromServer(
+  workoutDate: string
+) {
+  ensureConfigured();
+
+  const {
+    data: existingRows,
+    error: fetchError,
+  } = await supabase
+    .from(TABLE)
+    .select("id")
+    .eq("workout_date", workoutDate);
+
+  if (fetchError) {
+    throw fetchError;
+  }
+
+  const deletedIds = (
+    existingRows ?? []
+  ).map((row) => row.id as string);
+
+  if (deletedIds.length === 0) {
+    return deletedIds;
+  }
+
+  const { error } = await supabase
+    .from(TABLE)
+    .delete()
+    .eq("workout_date", workoutDate);
+
+  if (error) {
+    throw error;
+  }
+
+  const {
+    data: remaining,
+    error: verifyError,
+  } = await supabase
+    .from(TABLE)
+    .select("id")
+    .eq("workout_date", workoutDate)
+    .limit(1);
+
+  if (verifyError) {
+    throw verifyError;
+  }
+
+  if ((remaining ?? []).length > 0) {
+    throw new Error(
+      "Workout reports were not deleted. Check Supabase delete policy."
+    );
+  }
+
+  return deletedIds;
+}
