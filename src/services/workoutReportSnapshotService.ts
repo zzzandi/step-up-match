@@ -111,12 +111,19 @@ export async function deleteWorkoutReportSnapshotFromServer(
 ) {
   ensureConfigured();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from(TABLE)
     .delete()
-    .eq("id", snapshotId);
+    .eq("id", snapshotId)
+    .select("id");
 
   if (error) {
     throw error;
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error(
+      "Workout report was not deleted. Check Supabase delete policy."
+    );
   }
 }

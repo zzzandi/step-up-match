@@ -124,6 +124,24 @@ function normalizeLiveStateSnapshot(
     normalizePersistedMatchState(
       snapshot
     );
+  delete (
+    normalized as Record<
+      string,
+      unknown
+    >
+  ).recommendations;
+  delete (
+    normalized as Record<
+      string,
+      unknown
+    >
+  ).selectedRecommendation;
+  delete (
+    normalized as Record<
+      string,
+      unknown
+    >
+  ).recommendationTarget;
   const removeUndefinedOptionalDates = <
     T extends Record<string, unknown>,
   >(

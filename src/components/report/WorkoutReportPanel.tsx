@@ -2126,7 +2126,14 @@ export default function WorkoutReportPanel({
       deleteWorkoutReportSnapshot(
         snapshot.id
       );
-      setSelectedSnapshotId("");
+      const nextSnapshot =
+        selectedDateSnapshots.find(
+          (item) =>
+            item.id !== snapshot.id
+        );
+      setSelectedSnapshotId(
+        nextSnapshot?.id ?? ""
+      );
       setServerMessage(
         "운동 리포트를 삭제했습니다."
       );
