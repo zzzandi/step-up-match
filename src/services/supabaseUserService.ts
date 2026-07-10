@@ -412,7 +412,9 @@ export async function ensureTodayCheckIn(
     return pending;
   }
 
-  return pending;
+  return queuePendingCheckIn(
+    userId
+  );
 }
 
 export async function queuePendingCheckIn(

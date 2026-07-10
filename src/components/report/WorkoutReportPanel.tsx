@@ -7,6 +7,9 @@ import {
 import {
   useMatchStore,
 } from "@/store/useMatchStore";
+import {
+  useAccessSession,
+} from "@/auth/access";
 import type {
   MatchHistory,
 } from "@/types/matchHistory";
@@ -415,6 +418,10 @@ function escapeHtml(value: string) {
 export default function WorkoutReportPanel({
   preferSnapshot = false,
 }: WorkoutReportPanelProps) {
+  const session =
+    useAccessSession();
+  const canDeleteReport =
+    session?.role === "MASTER";
   const players =
     useMatchStore(
       (state) => state.players
@@ -2255,7 +2262,8 @@ export default function WorkoutReportPanel({
             ))}
           </select>
         )}
-        {selectedReportDateHasSnapshot && (
+        {selectedReportDateHasSnapshot &&
+          canDeleteReport && (
           <button
             type="button"
             onClick={() =>
