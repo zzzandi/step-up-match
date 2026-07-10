@@ -446,10 +446,10 @@ export default function WorkoutReportPanel({
       (state) =>
         state.saveWorkoutReportSnapshot
     );
-  const mergeWorkoutReportSnapshots =
+  const replaceWorkoutReportSnapshotsForDate =
     useMatchStore(
       (state) =>
-        state.mergeWorkoutReportSnapshots
+        state.replaceWorkoutReportSnapshotsForDate
     );
   const deleteWorkoutReportSnapshot =
     useMatchStore(
@@ -562,7 +562,8 @@ export default function WorkoutReportPanel({
           return;
         }
 
-        mergeWorkoutReportSnapshots(
+        replaceWorkoutReportSnapshotsForDate(
+          selectedReportDate,
           snapshots
         );
         if (snapshots.length > 0) {
@@ -601,7 +602,7 @@ export default function WorkoutReportPanel({
       cancelled = true;
     };
   }, [
-    mergeWorkoutReportSnapshots,
+    replaceWorkoutReportSnapshotsForDate,
     selectedReportDate,
   ]);
 

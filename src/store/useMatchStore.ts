@@ -661,6 +661,11 @@ export interface MatchStore {
     snapshots: WorkoutReportSnapshot[]
   ) => void;
 
+  replaceWorkoutReportSnapshotsForDate: (
+    workoutDate: string,
+    snapshots: WorkoutReportSnapshot[]
+  ) => void;
+
   deleteWorkoutReportSnapshot: (
     snapshotId: string
   ) => void;
@@ -1402,6 +1407,44 @@ export const useMatchStore =
                   ),
                 get()
                   .workoutReportSnapshots
+              ),
+          });
+        },
+
+      replaceWorkoutReportSnapshotsForDate:
+        (workoutDate, snapshots) => {
+          const deletedIds =
+            get()
+              .deletedWorkoutReportSnapshotIds;
+          const allowedSnapshots =
+            snapshots.filter(
+              (snapshot) =>
+                snapshot.workoutDate ===
+                  workoutDate &&
+                !deletedIds.includes(
+                  snapshot.id
+                )
+            );
+          const otherDateSnapshots =
+            get().workoutReportSnapshots.filter(
+              (snapshot) =>
+                snapshot.workoutDate !==
+                workoutDate
+            );
+
+          set({
+            workoutReportSnapshots:
+              allowedSnapshots.reduce(
+                (
+                  current,
+                  snapshot
+                ) =>
+                  appendWorkoutReportSnapshot(
+                    current,
+                    snapshot,
+                    deletedIds
+                  ),
+                otherDateSnapshots
               ),
           });
         },

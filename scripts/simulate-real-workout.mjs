@@ -7460,6 +7460,91 @@ try {
   );
 
   run(
+    "server report date refresh removes stale deleted local reports",
+    () => {
+      resetStore(8, 1);
+      useMatchStore.setState({
+        workoutReportSnapshots: [
+          {
+            id: "server-kept-report",
+            workoutDate:
+              "2026-07-09",
+            createdAt:
+              "2026-07-09T13:00:00.000Z",
+            players: [],
+            matchHistory: [],
+            workoutReportEvents:
+              [],
+          },
+          {
+            id: "deleted-on-master",
+            workoutDate:
+              "2026-07-09",
+            createdAt:
+              "2026-07-09T13:30:00.000Z",
+            players: [],
+            matchHistory: [],
+            workoutReportEvents:
+              [],
+          },
+          {
+            id: "other-date-report",
+            workoutDate:
+              "2026-07-08",
+            createdAt:
+              "2026-07-08T13:00:00.000Z",
+            players: [],
+            matchHistory: [],
+            workoutReportEvents:
+              [],
+          },
+        ],
+      });
+
+      useMatchStore
+        .getState()
+        .replaceWorkoutReportSnapshotsForDate(
+          "2026-07-09",
+          [
+            {
+              id: "server-kept-report",
+              workoutDate:
+                "2026-07-09",
+              createdAt:
+                "2026-07-09T13:00:00.000Z",
+              players: [],
+              matchHistory: [],
+              workoutReportEvents:
+                [],
+            },
+          ]
+        );
+
+      const snapshots =
+        useMatchStore.getState()
+          .workoutReportSnapshots;
+
+      assert.deepEqual(
+        snapshots
+          .filter(
+            (snapshot) =>
+              snapshot.workoutDate ===
+              "2026-07-09"
+          )
+          .map((snapshot) => snapshot.id),
+        ["server-kept-report"]
+      );
+      assert.ok(
+        snapshots.some(
+          (snapshot) =>
+            snapshot.id ===
+            "other-date-report"
+        )
+      );
+    }
+  );
+
+  run(
     "stale full snapshot cannot rewind a just-finished player's rest timer",
     () => {
       resetStore(8, 1);
