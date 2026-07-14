@@ -415,31 +415,6 @@ function normalizeQueuedCourtOrder(
         court.teamA &&
         court.teamB
     )
-    .sort((a, b) => {
-      const aCreatedAt =
-        a.startedAt
-          ? new Date(
-              a.startedAt
-            ).getTime()
-          : 0;
-      const bCreatedAt =
-        b.startedAt
-          ? new Date(
-              b.startedAt
-            ).getTime()
-          : 0;
-
-      if (
-        aCreatedAt !== bCreatedAt
-      ) {
-        return (
-          aCreatedAt -
-          bCreatedAt
-        );
-      }
-
-      return a.id - b.id;
-    })
     .map((court, index) => ({
       ...court,
       id: index + 1,
@@ -466,39 +441,24 @@ function normalizeQueuedCourtOrder(
 }
 
 function getNextQueuedCourt(
-  queuedCourts: Court[]
+  queuedCourts: Court[],
+  unavailablePlayerIds =
+    new Set<string>()
 ) {
   return queuedCourts
     .filter(
       (court) =>
         court.teamA &&
-        court.teamB
-    )
-    .sort((a, b) => {
-      const aCreatedAt =
-        a.startedAt
-          ? new Date(
-              a.startedAt
-            ).getTime()
-          : 0;
-      const bCreatedAt =
-        b.startedAt
-          ? new Date(
-              b.startedAt
-            ).getTime()
-          : 0;
-
-      if (
-        aCreatedAt !== bCreatedAt
-      ) {
-        return (
-          aCreatedAt -
-          bCreatedAt
-        );
-      }
-
-      return a.id - b.id;
-    })[0];
+        court.teamB &&
+        ![
+          ...court.teamA,
+          ...court.teamB,
+        ].some((player) =>
+          unavailablePlayerIds.has(
+            player.id
+          )
+        )
+    )[0];
 }
 
 function compactNotifications(
@@ -695,6 +655,17 @@ export interface MatchStore {
   removeQueuedCourt: (
     courtId: number
   ) => void;
+
+  moveQueuedCourt: (
+    courtId: number,
+    direction: -1 | 1
+  ) => void;
+
+  swapGameCourts: (
+    firstCourtId: number,
+    secondCourtId: number,
+    operator?: WorkoutReportOperator
+  ) => boolean;
 
   finishCourtMatch: (
     courtId: number,
@@ -1808,6 +1779,159 @@ export const useMatchStore =
         });
       },
 
+      moveQueuedCourt: (
+        courtId,
+        direction
+      ) => {
+        const {
+          queuedCourts,
+        } = get();
+        const index =
+          queuedCourts.findIndex(
+            (court) =>
+              court.id === courtId
+          );
+        const nextIndex =
+          index + direction;
+
+        if (
+          index < 0 ||
+          nextIndex < 0 ||
+          nextIndex >=
+            queuedCourts.length
+        ) {
+          return;
+        }
+
+        const reordered = [
+          ...queuedCourts,
+        ];
+        [
+          reordered[index],
+          reordered[nextIndex],
+        ] = [
+          reordered[nextIndex],
+          reordered[index],
+        ];
+
+        set({
+          queuedCourts:
+            normalizeQueuedCourtOrder(
+              reordered
+            ),
+        });
+      },
+
+      swapGameCourts: (
+        firstCourtId,
+        secondCourtId,
+        operator
+      ) => {
+        if (
+          firstCourtId ===
+          secondCourtId
+        ) {
+          return false;
+        }
+
+        const {
+          courts,
+          workoutReportEvents,
+        } = get();
+        const firstCourt =
+          courts.find(
+            (court) =>
+              court.id ===
+              firstCourtId
+          );
+        const secondCourt =
+          courts.find(
+            (court) =>
+              court.id ===
+              secondCourtId
+          );
+
+        if (
+          !firstCourt ||
+          !secondCourt
+        ) {
+          return false;
+        }
+
+        const swappedAt =
+          new Date();
+        const firstPlayers = [
+          ...(firstCourt.teamA ?? []),
+          ...(firstCourt.teamB ?? []),
+        ];
+        const secondPlayers = [
+          ...(secondCourt.teamA ?? []),
+          ...(secondCourt.teamB ?? []),
+        ];
+        const reportEvent =
+          createWorkoutReportEvent({
+            type: "MANUAL_MATCH",
+            courtId: firstCourtId,
+            target: "GAME",
+            players: [
+              ...firstPlayers,
+              ...secondPlayers,
+            ],
+            createdAt: swappedAt,
+            operator,
+            description:
+              `Court ${firstCourtId} and Court ${secondCourtId} assignments swapped.`,
+          });
+
+        set({
+          courts: courts.map(
+            (court) => {
+              if (
+                court.id ===
+                firstCourtId
+              ) {
+                return {
+                  ...court,
+                  status:
+                    secondCourt.status,
+                  teamA:
+                    secondCourt.teamA,
+                  teamB:
+                    secondCourt.teamB,
+                  startedAt:
+                    secondCourt.startedAt,
+                };
+              }
+
+              if (
+                court.id ===
+                secondCourtId
+              ) {
+                return {
+                  ...court,
+                  status:
+                    firstCourt.status,
+                  teamA:
+                    firstCourt.teamA,
+                  teamB:
+                    firstCourt.teamB,
+                  startedAt:
+                    firstCourt.startedAt,
+                };
+              }
+
+              return court;
+            }
+          ),
+          workoutReportEvents: [
+            reportEvent,
+            ...workoutReportEvents,
+          ],
+        });
+
+        return true;
+      },
+
       clearRecommendation:
         () =>
           set({
@@ -1838,7 +1962,13 @@ export const useMatchStore =
               courtId
           );
 
-        if (!targetCourt) {
+        if (
+          !targetCourt ||
+          targetCourt.status !==
+            "PLAYING" ||
+          !targetCourt.teamA ||
+          !targetCourt.teamB
+        ) {
           return;
         }
 
@@ -1864,9 +1994,31 @@ export const useMatchStore =
               player.id
           );
 
+        const unavailablePlayerIds =
+          new Set(
+            courts
+              .filter(
+                (court) =>
+                  court.id !==
+                    courtId &&
+                  court.status ===
+                    "PLAYING"
+              )
+              .flatMap(
+                (court) => [
+                  ...(court.teamA ?? []),
+                  ...(court.teamB ?? []),
+                ]
+              )
+              .map(
+                (player) =>
+                  player.id
+              )
+          );
         const nextQueuedCourt =
           getNextQueuedCourt(
-            queuedCourts
+            queuedCourts,
+            unavailablePlayerIds
           );
         const promotedTeamA =
           nextQueuedCourt?.teamA ?? null;
@@ -1919,13 +2071,21 @@ export const useMatchStore =
                   ...player,
 
                   status:
-                    "WAITING" as const,
+                    promotedIds.has(
+                      player.id
+                    )
+                      ? "PLAYING" as const
+                      : "WAITING" as const,
 
                   waitingStartedAt:
                     finishedAt,
 
                   playingStartedAt:
-                    undefined,
+                    promotedIds.has(
+                      player.id
+                    )
+                      ? promotedAt
+                      : undefined,
 
                   matchCount:
                     player.matchCount +
@@ -1997,6 +2157,9 @@ export const useMatchStore =
             updatedPlayers.filter(
               (player) =>
                 finishedIds.includes(
+                  player.id
+                ) ||
+                promotedIds.has(
                   player.id
                 )
             )
@@ -2535,6 +2698,11 @@ export const useMatchStore =
           const candidatePlayers =
             players.filter(
               (player) =>
+                (target ===
+                  "QUEUE" ||
+                  player.status ===
+                    "WAITING") &&
+                player.isPresent &&
                 !queuedPlayerIds.has(
                   player.id
                 )
@@ -2550,7 +2718,8 @@ export const useMatchStore =
               ),
               get().courts.length,
               womenDoublesPriority,
-              excludedMatchPairs
+              excludedMatchPairs,
+              target === "QUEUE"
             );
 
           if (
@@ -2662,8 +2831,10 @@ export const useMatchStore =
                   (player) =>
                     player.id ===
                       playerId &&
-                    player.status ===
-                      "WAITING" &&
+                    (activeTarget ===
+                      "QUEUE" ||
+                      player.status ===
+                        "WAITING") &&
                     player.isPresent
                 )
             );
@@ -2952,8 +3123,10 @@ export const useMatchStore =
                 (player) =>
                   player.id ===
                     playerId &&
-                  player.status ===
-                    "WAITING" &&
+                  (target ===
+                    "QUEUE" ||
+                    player.status ===
+                      "WAITING") &&
                   player.isPresent
               )
           );

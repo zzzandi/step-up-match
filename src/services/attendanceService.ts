@@ -170,6 +170,9 @@ export async function syncActiveAttendanceStats(
     | "id"
     | "matchCount"
     | "consecutiveMatches"
+    | "status"
+    | "waitingStartedAt"
+    | "playingStartedAt"
   >[]
 ) {
   if (
@@ -190,6 +193,13 @@ export async function syncActiveAttendanceStats(
             player.matchCount,
           consecutive_matches:
             player.consecutiveMatches,
+          status: player.status,
+          waiting_started_at:
+            player.waitingStartedAt
+              ? new Date(
+                  player.waitingStartedAt
+                ).toISOString()
+              : null,
         })
         .eq("attendance_date", today)
         .eq("user_id", player.id)

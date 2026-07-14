@@ -1303,6 +1303,352 @@ try {
   );
 
   run(
+    "finished players return with zero rest only after game court finish",
+    () => {
+      resetStore(12, 1);
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-02"],
+          ["player-03", "player-04"]
+        );
+
+      useMatchStore
+        .getState()
+        .finishCourtMatch(1);
+      const next =
+        useMatchStore.getState();
+
+      [
+        "player-01",
+        "player-02",
+        "player-03",
+        "player-04",
+      ].forEach((id) => {
+        const player =
+          next.players.find(
+            (item) => item.id === id
+          );
+
+        assert.equal(
+          player.status,
+          "WAITING"
+        );
+        assert.equal(
+          player.matchCount,
+          1
+        );
+        assert.equal(
+          getRestMinutes(
+            player.waitingStartedAt
+          ),
+          0
+        );
+      });
+    }
+  );
+
+  run(
+    "queued court edits never increase match count or reset rest",
+    () => {
+      resetStore(12, 1);
+      const before =
+        useMatchStore
+          .getState()
+          .players.map((player) => ({
+            id: player.id,
+            matchCount:
+              player.matchCount,
+            waitingStartedAt:
+              player.waitingStartedAt,
+          }));
+
+      useMatchStore.getState().addQueuedCourt();
+      assert.equal(
+        useMatchStore
+          .getState()
+          .assignManualMatch(
+            1,
+            ["player-01", "player-02"],
+            ["player-03", "player-04"],
+            "QUEUE"
+          ),
+        true
+      );
+      useMatchStore
+        .getState()
+        .replaceCourtPlayer(
+          1,
+          "player-01",
+          "player-05",
+          "QUEUE"
+        );
+      assert.equal(
+        useMatchStore
+          .getState()
+          .swapCourtPlayers(
+            1,
+            "player-02",
+            "player-03",
+            "QUEUE"
+          ),
+        true
+      );
+
+      const after =
+        useMatchStore.getState()
+          .players;
+
+      before.forEach((snapshot) => {
+        const player =
+          after.find(
+            (item) =>
+              item.id === snapshot.id
+          );
+
+        assert.equal(
+          player.matchCount,
+          snapshot.matchCount
+        );
+        assert.equal(
+          new Date(
+            player.waitingStartedAt
+          ).getTime(),
+          new Date(
+            snapshot.waitingStartedAt
+          ).getTime()
+        );
+      });
+    }
+  );
+
+  run(
+    "queued court order can be moved and controls promotion order",
+    () => {
+      resetStore(16, 1);
+      const state =
+        useMatchStore.getState();
+      state.addQueuedCourt();
+      state.addQueuedCourt();
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-02"],
+          ["player-03", "player-04"],
+          "QUEUE"
+        );
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          2,
+          ["player-05", "player-06"],
+          ["player-07", "player-08"],
+          "QUEUE"
+        );
+
+      useMatchStore
+        .getState()
+        .moveQueuedCourt(2, -1);
+      const reordered =
+        useMatchStore.getState()
+          .queuedCourts;
+      assert.deepEqual(
+        [
+          ...reordered[0].teamA,
+          ...reordered[0].teamB,
+        ].map((player) => player.id),
+        [
+          "player-05",
+          "player-06",
+          "player-07",
+          "player-08",
+        ]
+      );
+
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-09", "player-10"],
+          ["player-11", "player-12"]
+        );
+      useMatchStore
+        .getState()
+        .finishCourtMatch(1);
+
+      const promotedIds = [
+        ...useMatchStore.getState()
+          .courts[0].teamA,
+        ...useMatchStore.getState()
+          .courts[0].teamB,
+      ].map((player) => player.id);
+
+      assert.deepEqual(
+        promotedIds,
+        [
+          "player-05",
+          "player-06",
+          "player-07",
+          "player-08",
+        ]
+      );
+    }
+  );
+
+  run(
+    "game court assignments can be swapped without changing stats",
+    () => {
+      resetStore(12, 2);
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-02"],
+          ["player-03", "player-04"]
+        );
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          2,
+          ["player-05", "player-06"],
+          ["player-07", "player-08"]
+        );
+      const before =
+        useMatchStore
+          .getState()
+          .players.map((player) => ({
+            id: player.id,
+            matchCount:
+              player.matchCount,
+            waitingStartedAt:
+              player.waitingStartedAt,
+          }));
+
+      assert.equal(
+        useMatchStore
+          .getState()
+          .swapGameCourts(1, 2),
+        true
+      );
+
+      const stateAfter =
+        useMatchStore.getState();
+      assert.deepEqual(
+        [
+          ...stateAfter.courts[0].teamA,
+          ...stateAfter.courts[0].teamB,
+        ].map((player) => player.id),
+        [
+          "player-05",
+          "player-06",
+          "player-07",
+          "player-08",
+        ]
+      );
+      before.forEach((snapshot) => {
+        const player =
+          stateAfter.players.find(
+            (item) =>
+              item.id === snapshot.id
+          );
+        assert.equal(
+          player.matchCount,
+          snapshot.matchCount
+        );
+        assert.equal(
+          new Date(
+            player.waitingStartedAt
+          ).getTime(),
+          new Date(
+            snapshot.waitingStartedAt
+          ).getTime()
+        );
+      });
+    }
+  );
+
+  run(
+    "queued match containing still-playing players is skipped on promotion",
+    () => {
+      resetStore(20, 2);
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-02"],
+          ["player-03", "player-04"]
+        );
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          2,
+          ["player-05", "player-06"],
+          ["player-07", "player-08"]
+        );
+      useMatchStore.getState().addQueuedCourt();
+      useMatchStore.getState().addQueuedCourt();
+      assert.equal(
+        useMatchStore
+          .getState()
+          .assignManualMatch(
+            1,
+            ["player-01", "player-09"],
+            ["player-10", "player-11"],
+            "QUEUE"
+          ),
+        true
+      );
+      assert.equal(
+        useMatchStore
+          .getState()
+          .assignManualMatch(
+            2,
+            ["player-12", "player-13"],
+            ["player-14", "player-15"],
+            "QUEUE"
+          ),
+        true
+      );
+
+      useMatchStore
+        .getState()
+        .finishCourtMatch(2);
+      const afterFinish =
+        useMatchStore.getState();
+      const promotedIds = [
+        ...afterFinish.courts[1].teamA,
+        ...afterFinish.courts[1].teamB,
+      ].map((player) => player.id);
+
+      assert.deepEqual(
+        promotedIds,
+        [
+          "player-12",
+          "player-13",
+          "player-14",
+          "player-15",
+        ]
+      );
+      assert.equal(
+        afterFinish.queuedCourts.some(
+          (court) =>
+            [
+              ...(court.teamA ?? []),
+              ...(court.teamB ?? []),
+            ].some(
+              (player) =>
+                player.id ===
+                "player-01"
+            )
+        ),
+        true
+      );
+    }
+  );
+
+  run(
     "2 game courts with 1 queued court promote without losing the other active court",
     () => {
       resetStore(20, 2);

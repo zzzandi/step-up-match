@@ -109,14 +109,28 @@ export function selectCandidates(
   excludedMatchPairs: [
     string,
     string,
-  ][] = []
+  ][] = [],
+  includePlayingPlayers = false
 ): Player[] {
   const waitingPlayers =
     players.filter(
       (player) =>
-        player.status ===
-          "WAITING" &&
+        (player.status ===
+          "WAITING" ||
+          (includePlayingPlayers &&
+            player.status ===
+              "PLAYING")) &&
         player.isPresent
+    )
+    .map((player) =>
+      player.status === "PLAYING"
+        ? {
+            ...player,
+            waitingStartedAt:
+              player.playingStartedAt ??
+              new Date(),
+          }
+        : player
     );
   const waitingWomenCount =
     waitingPlayers.filter(

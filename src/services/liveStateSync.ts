@@ -488,8 +488,7 @@ function reconcileQueuedCourts(
         activeCourtKeys.has(queuedKey)
         ? emptyCourtLike(court)
         : court;
-    })
-    .sort((a, b) => a.id - b.id);
+    });
 
   const occupiedCourts = reconciled
     .filter(
@@ -497,31 +496,6 @@ function reconcileQueuedCourts(
         court.teamA &&
         court.teamB
     )
-    .sort((a, b) => {
-      const aCreatedAt =
-        a.startedAt
-          ? new Date(
-              a.startedAt
-            ).getTime()
-          : 0;
-      const bCreatedAt =
-        b.startedAt
-          ? new Date(
-              b.startedAt
-            ).getTime()
-          : 0;
-
-      if (
-        aCreatedAt !== bCreatedAt
-      ) {
-        return (
-          aCreatedAt -
-          bCreatedAt
-        );
-      }
-
-      return a.id - b.id;
-    })
     .map((court, index) => ({
       ...court,
       id: index + 1,
@@ -549,39 +523,24 @@ function reconcileQueuedCourts(
 }
 
 function getOldestQueuedCourt(
-  queuedCourts: LiveStateSnapshot["queuedCourts"]
+  queuedCourts: LiveStateSnapshot["queuedCourts"],
+  unavailablePlayerIds =
+    new Set<string>()
 ) {
   return queuedCourts
     .filter(
       (court) =>
         court.teamA &&
-        court.teamB
-    )
-    .sort((a, b) => {
-      const aCreatedAt =
-        a.startedAt
-          ? new Date(
-              a.startedAt
-            ).getTime()
-          : 0;
-      const bCreatedAt =
-        b.startedAt
-          ? new Date(
-              b.startedAt
-            ).getTime()
-          : 0;
-
-      if (
-        aCreatedAt !== bCreatedAt
-      ) {
-        return (
-          aCreatedAt -
-          bCreatedAt
-        );
-      }
-
-      return a.id - b.id;
-    })[0];
+        court.teamB &&
+        ![
+          ...court.teamA,
+          ...court.teamB,
+        ].some((player) =>
+          unavailablePlayerIds.has(
+            player.id
+          )
+        )
+    )[0];
 }
 
 function getLatestEndedAtForCourt(
@@ -675,9 +634,31 @@ function promoteQueuedCourtsAfterStaleFinish(
         return;
       }
 
+      const unavailablePlayerIds =
+        new Set(
+          courts
+            .filter(
+              (court) =>
+                court.id !==
+                  courtId &&
+                court.status ===
+                  "PLAYING"
+            )
+            .flatMap(
+              (court) => [
+                ...(court.teamA ?? []),
+                ...(court.teamB ?? []),
+              ]
+            )
+            .map(
+              (player) =>
+                player.id
+            )
+        );
       const queuedCourt =
         getOldestQueuedCourt(
-          queuedCourts
+          queuedCourts,
+          unavailablePlayerIds
         );
 
       if (

@@ -49,14 +49,16 @@ export function generateRecommendations(
   excludedMatchPairs: [
     string,
     string,
-  ][] = []
+  ][] = [],
+  includePlayingPlayers = false
 ): MatchRecommendation[] {
   const candidates =
     selectCandidates(
       players,
       courtCount,
       womenDoublesPriority,
-      excludedMatchPairs
+      excludedMatchPairs,
+      includePlayingPlayers
     );
 
   if (

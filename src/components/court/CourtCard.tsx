@@ -37,6 +37,8 @@ const text = {
     "\uB300\uAE30\uC790\uB97C \uC120\uD0DD\uD574 \uC8FC\uC138\uC694",
   noWaiting:
     "\uAD50\uCCB4 \uAC00\uB2A5\uD55C \uB300\uAE30\uC790\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
+  playingBadge:
+    "\uACBD\uAE30\uC911",
   applyReplace: "\uAD50\uCCB4 \uC801\uC6A9",
   close: "\uB2EB\uAE30",
   swap: "\uCF54\uD2B8 \uC548 \uC120\uC218 \uC790\uB9AC \uAD50\uD658",
@@ -62,6 +64,16 @@ const text = {
     "\uB300\uAE30 \uB300\uC9C4 \uD655\uC815",
   deleteQueueCourt:
     "\uB300\uAE30\uCF54\uD2B8 \uC0AD\uC81C",
+  moveQueueUp: "\uC55E\uC73C\uB85C",
+  moveQueueDown: "\uB4A4\uB85C",
+  swapGameCourt:
+    "\uB2E4\uB978 \uCF54\uD2B8\uC640 \uB300\uC9C4 \uAD50\uD658",
+  swapGameCourtHelp:
+    "\uC2E4\uC81C \uCF54\uD2B8\uC640 \uC571\uC758 \uCF54\uD2B8 \uBC88\uD638\uAC00 \uBC14\uB00C \uACBD\uC6B0 \uB450 \uAC8C\uC784\uCF54\uD2B8\uC758 \uB300\uC9C4\uC744 \uADF8\uB300\uB85C \uBC14\uAFC9\uB2C8\uB2E4.",
+  targetCourt:
+    "\uBC14\uAFC0 \uCF54\uD2B8",
+  applyGameCourtSwap:
+    "\uCF54\uD2B8 \uB300\uC9C4 \uAD50\uD658",
   deleteQueueCourtConfirm:
     "\uC774 \uB300\uAE30\uCF54\uD2B8\uB97C \uC0AD\uC81C\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C? \uC900\uBE44\uB41C \uB300\uC9C4\uC774 \uC788\uC73C\uBA74 \uD568\uAED8 \uC0AD\uC81C\uB429\uB2C8\uB2E4.",
   startGame: "\uACBD\uAE30 \uC2DC\uC791",
@@ -148,6 +160,16 @@ export default function CourtCard({
       (state) =>
         state.removeQueuedCourt
     );
+  const moveQueuedCourt =
+    useMatchStore(
+      (state) =>
+        state.moveQueuedCourt
+    );
+  const swapGameCourts =
+    useMatchStore(
+      (state) =>
+        state.swapGameCourts
+    );
   const swapCourtPlayers =
     useMatchStore(
       (state) =>
@@ -157,6 +179,11 @@ export default function CourtCard({
     useMatchStore(
       (state) =>
         state.players
+    );
+  const courts =
+    useMatchStore(
+      (state) =>
+        state.courts
     );
   const queuedCourts =
     useMatchStore(
@@ -213,6 +240,29 @@ export default function CourtCard({
             assigned.id === player.id
         )
     );
+  const manualCandidatePlayers =
+    players.filter(
+      (player) =>
+        (isQueueCourt
+          ? player.status ===
+              "WAITING" ||
+            player.status ===
+              "PLAYING"
+          : player.status ===
+            "WAITING") &&
+        player.isPresent &&
+        !otherQueuedPlayerIds.has(
+          player.id
+        ) &&
+        !assignedPlayers.some(
+          (assigned) =>
+            assigned.id === player.id
+        )
+    );
+  const otherGameCourts =
+    courts.filter(
+      (item) => item.id !== court.id
+    );
 
   const [
     isReplacementOpen,
@@ -243,6 +293,14 @@ export default function CourtCard({
     isCourtSwapOpen,
     setIsCourtSwapOpen,
   ] = useState(false);
+  const [
+    isGameCourtSwapOpen,
+    setIsGameCourtSwapOpen,
+  ] = useState(false);
+  const [
+    targetSwapCourtId,
+    setTargetSwapCourtId,
+  ] = useState("");
   const [
     firstSwapPlayerId,
     setFirstSwapPlayerId,
@@ -378,6 +436,31 @@ export default function CourtCard({
               : text.empty}
           </span>
           {!readOnly && isQueueCourt && (
+            <>
+            <button
+              type="button"
+              onClick={() =>
+                moveQueuedCourt(
+                  court.id,
+                  -1
+                )
+              }
+              className="rounded-full bg-slate-700 px-3 py-1 text-xs font-bold text-slate-100 hover:bg-slate-600"
+            >
+              {text.moveQueueUp}
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                moveQueuedCourt(
+                  court.id,
+                  1
+                )
+              }
+              className="rounded-full bg-slate-700 px-3 py-1 text-xs font-bold text-slate-100 hover:bg-slate-600"
+            >
+              {text.moveQueueDown}
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -395,6 +478,7 @@ export default function CourtCard({
             >
               {text.deleteQueueCourt}
             </button>
+            </>
           )}
         </div>
       </div>
@@ -708,6 +792,108 @@ export default function CourtCard({
           )}
 
           {!isQueueCourt && (
+            <>
+              <button
+                type="button"
+                onClick={() =>
+                  setIsGameCourtSwapOpen(
+                    (current) => !current
+                  )
+                }
+                className="w-full rounded-xl bg-violet-500 py-3 font-bold text-white hover:bg-violet-400"
+              >
+                {text.swapGameCourt}
+              </button>
+              {isGameCourtSwapOpen && (
+                <div className="rounded-2xl border border-violet-500/30 bg-slate-950 p-4">
+                  <div className="mb-4 text-sm text-slate-400">
+                    {text.swapGameCourtHelp}
+                  </div>
+                  <label className="block">
+                    <span className="mb-2 block text-sm text-slate-400">
+                      {text.targetCourt}
+                    </span>
+                    <select
+                      value={targetSwapCourtId}
+                      onChange={(event) =>
+                        setTargetSwapCourtId(
+                          event.target.value
+                        )
+                      }
+                      className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-3 text-white"
+                    >
+                      <option value="">
+                        {text.targetCourt}
+                      </option>
+                      {otherGameCourts.map(
+                        (item) => (
+                          <option
+                            key={item.id}
+                            value={item.id}
+                          >
+                            Court {item.id}
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </label>
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      type="button"
+                      disabled={
+                        !targetSwapCourtId
+                      }
+                      onClick={() => {
+                        const targetCourtId =
+                          Number(
+                            targetSwapCourtId
+                          );
+
+                        if (
+                          !swapGameCourts(
+                            court.id,
+                            targetCourtId,
+                            operator
+                          )
+                        ) {
+                          window.alert(
+                            text.swapFailed
+                          );
+                          return;
+                        }
+
+                        setTargetSwapCourtId(
+                          ""
+                        );
+                        setIsGameCourtSwapOpen(
+                          false
+                        );
+                      }}
+                      className="flex-1 rounded-xl bg-violet-500 py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {text.applyGameCourtSwap}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTargetSwapCourtId(
+                          ""
+                        );
+                        setIsGameCourtSwapOpen(
+                          false
+                        );
+                      }}
+                      className="rounded-xl bg-slate-800 px-4 py-3 font-bold"
+                    >
+                      {text.close}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {!isQueueCourt && (
             <button
               type="button"
               onClick={() => {
@@ -783,7 +969,7 @@ export default function CourtCard({
                         <option value="">
                           {text.selectPlayer}
                         </option>
-                        {waitingPlayers.map(
+                        {manualCandidatePlayers.map(
                           (player) => (
                             <option
                               key={player.id}
@@ -800,6 +986,10 @@ export default function CourtCard({
                               )}
                             >
                               {player.name}
+                              {player.status ===
+                                "PLAYING"
+                                ? ` (${text.playingBadge})`
+                                : ""}
                             </option>
                           )
                         )}
@@ -808,7 +998,7 @@ export default function CourtCard({
                   )
                 )}
               </div>
-              {waitingPlayers.length < 4 && (
+              {manualCandidatePlayers.length < 4 && (
                 <div className="mt-4 text-sm text-amber-300">
                   {text.needFour}
                 </div>
