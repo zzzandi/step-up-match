@@ -15,6 +15,7 @@
     "test:dashboard-date": "node --experimental-strip-types scripts/verify-dashboard-date-rollover.ts",
     "test:local-state-guard": "node --experimental-strip-types scripts/verify-local-state-mutation-guard.ts",
     "test:sync-sqa": "node --experimental-strip-types scripts/verify-sync-sqa.ts",
+    "test:queue-court-sqa": "node scripts/verify-queue-court-sqa.mjs",
     "test:real-workout": "node scripts/simulate-real-workout.mjs",
     "preview": "vite preview"
   },

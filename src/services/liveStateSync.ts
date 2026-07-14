@@ -802,6 +802,45 @@ function hasFinishedMatchForCourt(
   });
 }
 
+function isCourtAssignmentMove(
+  incomingCourt:
+    | LiveStateSnapshot["courts"][number]
+    | undefined,
+  currentCourts:
+    LiveStateSnapshot["courts"],
+  changedCourtIds: Set<string>
+) {
+  if (
+    !incomingCourt ||
+    !hasActiveCourtAssignment(
+      incomingCourt
+    )
+  ) {
+    return false;
+  }
+
+  const incomingKey =
+    courtPlayerKey(incomingCourt);
+
+  if (!incomingKey) {
+    return false;
+  }
+
+  return currentCourts.some(
+    (currentCourt) =>
+      currentCourt.id !==
+        incomingCourt.id &&
+      changedCourtIds.has(
+        String(currentCourt.id)
+      ) &&
+      hasActiveCourtAssignment(
+        currentCourt
+      ) &&
+      courtPlayerKey(currentCourt) ===
+        incomingKey
+  );
+}
+
 function mergeBootstrapCourt(
   current:
     | LiveStateSnapshot["courts"][number]
@@ -990,14 +1029,20 @@ function mergeChangedCourts(
     }
 
     const nextCourt =
-      mergeBootstrapCourt(
-        merged.get(
-          String(court.id)
-        ),
+      isCourtAssignmentMove(
         court,
-        currentHistory,
-        incomingHistory
-      );
+        current,
+        changed
+      )
+        ? court
+        : mergeBootstrapCourt(
+            merged.get(
+              String(court.id)
+            ),
+            court,
+            currentHistory,
+            incomingHistory
+          );
 
     if (nextCourt) {
       merged.set(

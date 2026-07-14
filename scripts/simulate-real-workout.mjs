@@ -1679,7 +1679,7 @@ try {
       const before =
         useMatchStore.getState();
       assert.equal(before.courts.length, 2);
-      assert.equal(before.queuedCourts.length, 1);
+      assert.equal(before.queuedCourts.length, 2);
       assert.equal(before.courts[0].status, "PLAYING");
       assert.equal(before.courts[1].status, "PLAYING");
       assert.equal(before.queuedCourts[0].status, "QUEUED");
@@ -1770,7 +1770,7 @@ try {
       const before =
         useMatchStore.getState();
       assert.equal(before.courts.length, 4);
-      assert.equal(before.queuedCourts.length, 1);
+      assert.equal(before.queuedCourts.length, 2);
 
       useMatchStore.getState().finishCourtMatch(2);
       const next =

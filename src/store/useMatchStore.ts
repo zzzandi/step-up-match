@@ -1868,6 +1868,43 @@ export const useMatchStore =
           ...(secondCourt.teamA ?? []),
           ...(secondCourt.teamB ?? []),
         ];
+        const swappedPlayerIds =
+          new Set(
+            [
+              ...firstPlayers,
+              ...secondPlayers,
+            ].map((player) => player.id)
+          );
+        const playingStartedAtByPlayerId =
+          new Map<string, Date>();
+
+        if (
+          secondCourt.status ===
+          "PLAYING"
+        ) {
+          secondPlayers.forEach(
+            (player) =>
+              playingStartedAtByPlayerId.set(
+                player.id,
+                secondCourt.startedAt ??
+                  swappedAt
+              )
+          );
+        }
+
+        if (
+          firstCourt.status ===
+          "PLAYING"
+        ) {
+          firstPlayers.forEach(
+            (player) =>
+              playingStartedAtByPlayerId.set(
+                player.id,
+                firstCourt.startedAt ??
+                  swappedAt
+              )
+          );
+        }
         const reportEvent =
           createWorkoutReportEvent({
             type: "MANUAL_MATCH",
@@ -1884,6 +1921,40 @@ export const useMatchStore =
           });
 
         set({
+          players: get().players.map(
+            (player) => {
+              if (
+                !swappedPlayerIds.has(
+                  player.id
+                )
+              ) {
+                return player;
+              }
+
+              const playingStartedAt =
+                playingStartedAtByPlayerId.get(
+                  player.id
+                );
+
+              return playingStartedAt
+                ? {
+                    ...player,
+                    status:
+                      "PLAYING" as const,
+                    playingStartedAt,
+                  }
+                : {
+                    ...player,
+                    status:
+                      "WAITING" as const,
+                    playingStartedAt:
+                      undefined,
+                    waitingStartedAt:
+                      player.waitingStartedAt ??
+                      swappedAt,
+                  };
+            }
+          ),
           courts: courts.map(
             (court) => {
               if (
@@ -2615,7 +2686,9 @@ export const useMatchStore =
               : courts,
           queuedCourts:
             target === "QUEUE"
-              ? updatedSourceCourts
+              ? normalizeQueuedCourtOrder(
+                  updatedSourceCourts
+                )
               : queuedCourts,
           workoutReportEvents:
             [
@@ -3002,12 +3075,14 @@ export const useMatchStore =
                 : courts,
             queuedCourts:
               activeTarget === "QUEUE"
-                ? queuedCourts.map(
-                    (court) =>
-                      court.id ===
-                      selectedRecommendation.courtId
-                        ? updatedCourt
-                        : court
+                ? normalizeQueuedCourtOrder(
+                    queuedCourts.map(
+                      (court) =>
+                        court.id ===
+                        selectedRecommendation.courtId
+                          ? updatedCourt
+                          : court
+                    )
                   )
                 : queuedCourts,
             recommendations:
@@ -3255,10 +3330,12 @@ export const useMatchStore =
               : courts,
           queuedCourts:
             target === "QUEUE"
-              ? queuedCourts.map((item) =>
-                  item.id === courtId
-                    ? updatedCourt
-                    : item
+              ? normalizeQueuedCourtOrder(
+                  queuedCourts.map((item) =>
+                    item.id === courtId
+                      ? updatedCourt
+                      : item
+                  )
                 )
               : queuedCourts,
           workoutReportEvents:
