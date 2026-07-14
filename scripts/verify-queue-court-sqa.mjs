@@ -394,7 +394,8 @@ try {
     previousCanonical,
     nextCanonical,
     clients,
-    label
+    label,
+    sourceRole = "MASTER"
   ) {
     const patch =
       createLiveStatePatch(
@@ -420,7 +421,7 @@ try {
           mergeLiveStateSnapshot(
             current,
             nextCanonical,
-            "MASTER",
+            sourceRole,
             undefined,
             patch
           );
@@ -430,7 +431,7 @@ try {
             mergeLiveStateSnapshot(
               current,
               nextCanonical,
-              "MASTER",
+              sourceRole,
               undefined
             );
         }
@@ -486,9 +487,9 @@ try {
     );
   }
 
-  run(
-    "3 game courts + 4 queued courts survive blocked promotion, delete, rebuild, move, and swap",
-    () => {
+  function runManagerQueueWorkflow(
+    sourceRole
+  ) {
       resetStore(36, 3);
       assignGame(1, [
         "player-01",
@@ -601,7 +602,8 @@ try {
         previous,
         canonical,
         clients,
-        "after blocked promotion"
+        `${sourceRole} after blocked promotion`,
+        sourceRole
       );
 
       previous = canonical;
@@ -629,7 +631,8 @@ try {
         previous,
         canonical,
         clients,
-        "after queue delete rebuild"
+        `${sourceRole} after queue delete rebuild`,
+        sourceRole
       );
 
       previous = canonical;
@@ -659,7 +662,8 @@ try {
         previous,
         canonical,
         clients,
-        "after queue reorder"
+        `${sourceRole} after queue reorder`,
+        sourceRole
       );
 
       previous = canonical;
@@ -686,7 +690,8 @@ try {
         previous,
         canonical,
         clients,
-        "after queued replacement"
+        `${sourceRole} after queued replacement`,
+        sourceRole
       );
 
       previous = canonical;
@@ -702,7 +707,8 @@ try {
         previous,
         canonical,
         clients,
-        "after game court swap"
+        `${sourceRole} after game court swap`,
+        sourceRole
       );
 
       previous = canonical;
@@ -735,9 +741,19 @@ try {
         previous,
         canonical,
         clients,
-        "after finish swapped court"
+        `${sourceRole} after finish swapped court`,
+        sourceRole
       );
-    }
+  }
+
+  run(
+    "MASTER can operate queued courts and game court swaps with all clients converged",
+    () => runManagerQueueWorkflow("MASTER")
+  );
+
+  run(
+    "ADMIN can operate queued courts and game court swaps with all clients converged",
+    () => runManagerQueueWorkflow("ADMIN")
   );
 
   run(
