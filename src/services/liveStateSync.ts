@@ -572,12 +572,19 @@ function promoteQueuedCourtsAfterStaleFinish(
   const changedCourtIds =
     patch.changedEntityIds?.courts ??
     [];
+  const incomingHasQueuedMatch =
+    incoming.queuedCourts.some(
+      (court) =>
+        Boolean(court.teamA) &&
+        Boolean(court.teamB)
+    );
 
   if (
     changedCourtIds.length === 0 ||
-    patch.changedKeys.includes(
+    (patch.changedKeys.includes(
       "queuedCourts"
-    )
+    ) &&
+      incomingHasQueuedMatch)
   ) {
     return snapshot;
   }
@@ -606,7 +613,12 @@ function promoteQueuedCourtsAfterStaleFinish(
   let courts =
     snapshot.courts;
   let queuedCourts =
-    snapshot.queuedCourts;
+    incomingHasQueuedMatch
+      ? snapshot.queuedCourts
+      : reconcileQueuedCourts(
+          courts,
+          current.queuedCourts
+        );
   let changed = false;
 
   changedCourtIds

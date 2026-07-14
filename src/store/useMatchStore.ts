@@ -667,6 +667,12 @@ export interface MatchStore {
     operator?: WorkoutReportOperator
   ) => boolean;
 
+  promoteQueuedCourtToGameCourt: (
+    queuedCourtId: number,
+    gameCourtId: number,
+    operator?: WorkoutReportOperator
+  ) => boolean;
+
   finishCourtMatch: (
     courtId: number,
     operator?: WorkoutReportOperator
@@ -2016,6 +2022,210 @@ export const useMatchStore =
         return true;
       },
 
+      promoteQueuedCourtToGameCourt: (
+        queuedCourtId,
+        gameCourtId,
+        operator
+      ) => {
+        const {
+          courts,
+          queuedCourts,
+          players,
+          workoutReportEvents,
+        } = get();
+        const gameCourt =
+          courts.find(
+            (court) =>
+              court.id === gameCourtId
+          );
+        const queuedCourt =
+          queuedCourts.find(
+            (court) =>
+              court.id === queuedCourtId
+          );
+
+        if (
+          !gameCourt ||
+          gameCourt.status !==
+            "EMPTY" ||
+          gameCourt.teamA ||
+          gameCourt.teamB ||
+          !queuedCourt?.teamA ||
+          !queuedCourt.teamB
+        ) {
+          return false;
+        }
+
+        const queuedPlayers = [
+          ...queuedCourt.teamA,
+          ...queuedCourt.teamB,
+        ];
+        const queuedPlayerIds =
+          new Set(
+            queuedPlayers.map(
+              (player) => player.id
+            )
+          );
+        const unavailablePlayerIds =
+          new Set(
+            courts
+              .filter(
+                (court) =>
+                  court.status ===
+                    "PLAYING"
+              )
+              .flatMap(
+                (court) => [
+                  ...(court.teamA ?? []),
+                  ...(court.teamB ?? []),
+                ]
+              )
+              .map(
+                (player) =>
+                  player.id
+              )
+          );
+
+        if (
+          queuedPlayers.some((player) =>
+            unavailablePlayerIds.has(
+              player.id
+            )
+          )
+        ) {
+          return false;
+        }
+
+        const promotedAt =
+          new Date();
+        const updatedPlayers =
+          players.map((player) =>
+            queuedPlayerIds.has(
+              player.id
+            )
+              ? {
+                  ...player,
+                  status:
+                    "PLAYING" as const,
+                  playingStartedAt:
+                    promotedAt,
+                }
+              : player
+          );
+        const playerById =
+          new Map(
+            updatedPlayers.map(
+              (player) => [
+                player.id,
+                player,
+              ]
+            )
+          );
+        const promotedCourt: Court = {
+          ...gameCourt,
+          status: "PLAYING",
+          teamA:
+            queuedCourt.teamA.map(
+              (player) =>
+                playerById.get(
+                  player.id
+                ) ?? player
+            ) as [Player, Player],
+          teamB:
+            queuedCourt.teamB.map(
+              (player) =>
+                playerById.get(
+                  player.id
+                ) ?? player
+            ) as [Player, Player],
+          startedAt:
+            promotedAt,
+        };
+        const teamAText =
+          promotedCourt.teamA!
+            .map(
+              (player) =>
+                player.name
+            )
+            .join(" + ");
+        const teamBText =
+          promotedCourt.teamB!
+            .map(
+              (player) =>
+                player.name
+            )
+            .join(" + ");
+        const reportEvent =
+          createWorkoutReportEvent({
+            type:
+              "QUEUED_PROMOTED",
+            courtId:
+              gameCourtId,
+            target: "GAME",
+            players:
+              queuedPlayers,
+            createdAt:
+              promotedAt,
+            operator,
+            description:
+              `대기 코트 ${queuedCourtId} 대진을 Court ${gameCourtId}로 강제 승격: ${teamAText} vs ${teamBText}`,
+          });
+        const promoteNotification =
+          createNotification(
+            {
+              audience: "ADMIN",
+              message:
+                `대기 코트 ${queuedCourtId} 대진이 Court ${gameCourtId}로 배정되었습니다.`,
+            },
+            promotedAt
+          );
+
+        set({
+          players: updatedPlayers,
+          courts: courts.map(
+            (court) =>
+              court.id === gameCourtId
+                ? promotedCourt
+                : court
+          ),
+          queuedCourts:
+            normalizeQueuedCourtOrder(
+              queuedCourts.filter(
+                (court) =>
+                  court.id !==
+                  queuedCourtId
+              )
+            ),
+          workoutReportEvents: [
+            reportEvent,
+            ...workoutReportEvents,
+          ],
+          notifications:
+            compactNotifications(
+              [
+                ...get().notifications,
+                ...[
+                  promoteNotification,
+                ].filter(
+                  Boolean
+                ) as AppNotification[],
+              ],
+              get()
+                .dismissedNotificationIds
+            ),
+        });
+
+        void syncActiveAttendanceStats(
+          updatedPlayers.filter((player) =>
+            queuedPlayerIds.has(
+              player.id
+            )
+          )
+        ).catch(console.error);
+
+        return true;
+      },
+
       clearRecommendation:
         () =>
           set({
@@ -2078,52 +2288,10 @@ export const useMatchStore =
               player.id
           );
 
-        const unavailablePlayerIds =
-          new Set(
-            courts
-              .filter(
-                (court) =>
-                  court.id !==
-                    courtId &&
-                  court.status ===
-                    "PLAYING"
-              )
-              .flatMap(
-                (court) => [
-                  ...(court.teamA ?? []),
-                  ...(court.teamB ?? []),
-                ]
-              )
-              .map(
-                (player) =>
-                  player.id
-              )
-          );
-        const nextQueuedCourt =
-          getNextQueuedCourt(
-            queuedCourts,
-            unavailablePlayerIds
-          );
-        const promotedTeamA =
-          nextQueuedCourt?.teamA ?? null;
-        const promotedTeamB =
-          nextQueuedCourt?.teamB ?? null;
-        const promotedIds =
-          new Set(
-            [
-              ...(promotedTeamA ?? []),
-              ...(promotedTeamB ?? []),
-            ].map(
-              (player) =>
-                player.id
-            )
-          );
         const finishedAt =
           new Date();
-        const promotedAt =
-          finishedAt;
 
-        const updatedPlayers =
+        let updatedPlayers =
           players.map(
             (player) => {
               const played =
@@ -2155,21 +2323,13 @@ export const useMatchStore =
                   ...player,
 
                   status:
-                    promotedIds.has(
-                      player.id
-                    )
-                      ? "PLAYING" as const
-                      : "WAITING" as const,
+                    "WAITING" as const,
 
                   waitingStartedAt:
                     finishedAt,
 
                   playingStartedAt:
-                    promotedIds.has(
-                      player.id
-                    )
-                      ? promotedAt
-                      : undefined,
+                    undefined,
 
                   matchCount:
                     player.matchCount +
@@ -2209,20 +2369,6 @@ export const useMatchStore =
               }
 
               if (
-                promotedIds.has(
-                  player.id
-                )
-              ) {
-                return {
-                  ...player,
-                  status:
-                    "PLAYING" as const,
-                  playingStartedAt:
-                    promotedAt,
-                };
-              }
-
-              if (
                 player.status ===
                 "WAITING"
               ) {
@@ -2236,6 +2382,137 @@ export const useMatchStore =
               return player;
             }
           );
+
+          let nextCourts =
+            courts.map((court) =>
+              court.id === courtId
+                ? {
+                    ...court,
+                    status:
+                      "EMPTY" as const,
+                    teamA: null,
+                    teamB: null,
+                    startedAt: null,
+                  }
+                : court
+            );
+          let nextQueuedCourts = [
+            ...queuedCourts,
+          ];
+          const promotionPlans: {
+            gameCourtId: number;
+            queuedCourt: Court;
+            promotedAt: Date;
+          }[] = [];
+          const unavailablePlayerIds =
+            new Set(
+              nextCourts
+                .filter(
+                  (court) =>
+                    court.status ===
+                    "PLAYING"
+                )
+                .flatMap(
+                  (court) => [
+                    ...(court.teamA ?? []),
+                    ...(court.teamB ?? []),
+                  ]
+                )
+                .map(
+                  (player) =>
+                    player.id
+                )
+            );
+
+          nextCourts
+            .filter(
+              (court) =>
+                court.status ===
+                  "EMPTY" &&
+                !court.teamA &&
+                !court.teamB
+            )
+            .sort(
+              (a, b) => a.id - b.id
+            )
+            .forEach((emptyCourt) => {
+              const queuedCourt =
+                getNextQueuedCourt(
+                  nextQueuedCourts,
+                  unavailablePlayerIds
+                );
+
+              if (
+                !queuedCourt?.teamA ||
+                !queuedCourt.teamB
+              ) {
+                return;
+              }
+
+              [
+                ...queuedCourt.teamA,
+                ...queuedCourt.teamB,
+              ].forEach((player) =>
+                unavailablePlayerIds.add(
+                  player.id
+                )
+              );
+              promotionPlans.push({
+                gameCourtId:
+                  emptyCourt.id,
+                queuedCourt,
+                promotedAt:
+                  finishedAt,
+              });
+              nextQueuedCourts =
+                nextQueuedCourts.filter(
+                  (court) =>
+                    court.id !==
+                    queuedCourt.id
+                );
+            });
+
+          const promotedIds =
+            new Set(
+              promotionPlans.flatMap(
+                (plan) => [
+                  ...(plan.queuedCourt
+                    .teamA ?? []),
+                  ...(plan.queuedCourt
+                    .teamB ?? []),
+                ].map(
+                  (player) =>
+                    player.id
+                )
+              )
+            );
+
+          updatedPlayers =
+            updatedPlayers.map(
+              (player) =>
+                promotedIds.has(
+                  player.id
+                )
+                  ? {
+                      ...player,
+                      status:
+                        "PLAYING" as const,
+                      playingStartedAt:
+                        finishedAt,
+                    }
+                  : player
+            );
+          const nextQueuedCourt =
+            promotionPlans[0]
+              ?.queuedCourt ?? null;
+          const promotedTeamA =
+            nextQueuedCourt?.teamA ??
+            null;
+          const promotedTeamB =
+            nextQueuedCourt?.teamB ??
+            null;
+          const promotedAt =
+            finishedAt;
 
           void syncActiveAttendanceStats(
             updatedPlayers.filter(
@@ -2287,6 +2564,44 @@ export const useMatchStore =
                     promotedAt,
                 }
               : null;
+          const promotedCourtsById =
+            new Map<number, Court>();
+          promotionPlans.forEach(
+            (plan) => {
+              if (
+                !plan.queuedCourt.teamA ||
+                !plan.queuedCourt.teamB
+              ) {
+                return;
+              }
+
+              promotedCourtsById.set(
+                plan.gameCourtId,
+                {
+                  id:
+                    plan.gameCourtId,
+                  status:
+                    "PLAYING",
+                  teamA:
+                    plan.queuedCourt.teamA.map(
+                      (player) =>
+                        promotedPlayerById.get(
+                          player.id
+                        ) ?? player
+                    ) as [Player, Player],
+                  teamB:
+                    plan.queuedCourt.teamB.map(
+                      (player) =>
+                        promotedPlayerById.get(
+                          player.id
+                        ) ?? player
+                    ) as [Player, Player],
+                  startedAt:
+                    plan.promotedAt,
+                }
+              );
+            }
+          );
           const finishNotification =
             createNotification(
               {
@@ -2400,37 +2715,16 @@ export const useMatchStore =
                 : workoutReportEvents,
           
             courts:
-              courts.map(
+              nextCourts.map(
                 (court) =>
-                  court.id ===
-                  courtId
-                    ? promotedCourt ?? {
-                        ...court,
-           
-                        status:
-                          "EMPTY",
-          
-                        teamA:
-                          null,
-          
-                        teamB:
-                          null,
-          
-                        startedAt:
-                          null,
-                      }
-                    : court
+                  promotedCourtsById.get(
+                    court.id
+                  ) ?? court
               ),
             queuedCourts:
-              nextQueuedCourt
-                ? normalizeQueuedCourtOrder(
-                    queuedCourts.filter(
-                      (court) =>
-                        court.id !==
-                        nextQueuedCourt.id
-                    )
-                  )
-                : queuedCourts,
+              normalizeQueuedCourtOrder(
+                nextQueuedCourts
+              ),
             notifications:
               nextNotifications,
           });

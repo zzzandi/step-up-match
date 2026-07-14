@@ -74,6 +74,16 @@ const text = {
     "\uBC14\uAFC0 \uCF54\uD2B8",
   applyGameCourtSwap:
     "\uCF54\uD2B8 \uB300\uC9C4 \uAD50\uD658",
+  promoteQueue:
+    "\uAC8C\uC784\uCF54\uD2B8\uB85C \uC62C\uB9AC\uAE30",
+  promoteQueueHelp:
+    "\uBE44\uC5B4 \uC788\uB294 \uAC8C\uC784\uCF54\uD2B8\uB97C \uC120\uD0DD\uD574 \uC774 \uB300\uAE30 \uB300\uC9C4\uC744 \uBC14\uB85C \uC62C\uB9BD\uB2C8\uB2E4. \uB300\uC9C4 \uC548\uC758 \uC120\uC218\uAC00 \uC544\uC9C1 \uB2E4\uB978 \uCF54\uD2B8\uC5D0\uC11C \uACBD\uAE30 \uC911\uC774\uBA74 \uC2B9\uACA9\uB418\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.",
+  targetGameCourt:
+    "\uC62C\uB9B4 \uAC8C\uC784\uCF54\uD2B8",
+  applyQueuePromotion:
+    "\uB300\uAE30 \uB300\uC9C4 \uC2B9\uACA9",
+  noEmptyGameCourt:
+    "\uBE44\uC5B4 \uC788\uB294 \uAC8C\uC784\uCF54\uD2B8\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
   deleteQueueCourtConfirm:
     "\uC774 \uB300\uAE30\uCF54\uD2B8\uB97C \uC0AD\uC81C\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C? \uC900\uBE44\uB41C \uB300\uC9C4\uC774 \uC788\uC73C\uBA74 \uD568\uAED8 \uC0AD\uC81C\uB429\uB2C8\uB2E4.",
   startGame: "\uACBD\uAE30 \uC2DC\uC791",
@@ -169,6 +179,11 @@ export default function CourtCard({
     useMatchStore(
       (state) =>
         state.swapGameCourts
+    );
+  const promoteQueuedCourtToGameCourt =
+    useMatchStore(
+      (state) =>
+        state.promoteQueuedCourtToGameCourt
     );
   const swapCourtPlayers =
     useMatchStore(
@@ -267,6 +282,13 @@ export default function CourtCard({
         item.teamA &&
         item.teamB
     );
+  const emptyGameCourts =
+    courts.filter(
+      (item) =>
+        item.status === "EMPTY" &&
+        !item.teamA &&
+        !item.teamB
+    );
 
   const [
     isReplacementOpen,
@@ -304,6 +326,14 @@ export default function CourtCard({
   const [
     targetSwapCourtId,
     setTargetSwapCourtId,
+  ] = useState("");
+  const [
+    isQueuePromotionOpen,
+    setIsQueuePromotionOpen,
+  ] = useState(false);
+  const [
+    targetPromotionCourtId,
+    setTargetPromotionCourtId,
   ] = useState("");
   const [
     firstSwapPlayerId,
@@ -793,6 +823,119 @@ export default function CourtCard({
                 </button>
               </div>
             </div>
+          )}
+
+          {isQueueCourt && (
+            <>
+              <button
+                type="button"
+                onClick={() =>
+                  setIsQueuePromotionOpen(
+                    (current) => !current
+                  )
+                }
+                className="w-full rounded-xl bg-emerald-500 py-3 font-bold text-slate-950 hover:bg-emerald-400"
+              >
+                {text.promoteQueue}
+              </button>
+              {isQueuePromotionOpen && (
+                <div className="rounded-2xl border border-emerald-500/30 bg-slate-950 p-4">
+                  <div className="mb-4 text-sm text-slate-400">
+                    {text.promoteQueueHelp}
+                  </div>
+                  {emptyGameCourts.length ===
+                  0 ? (
+                    <div className="text-sm text-amber-300">
+                      {text.noEmptyGameCourt}
+                    </div>
+                  ) : (
+                    <>
+                      <label className="block">
+                        <span className="mb-2 block text-sm text-slate-400">
+                          {text.targetGameCourt}
+                        </span>
+                        <select
+                          value={
+                            targetPromotionCourtId
+                          }
+                          onChange={(event) =>
+                            setTargetPromotionCourtId(
+                              event.target.value
+                            )
+                          }
+                          className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-3 text-white"
+                        >
+                          <option value="">
+                            {text.targetGameCourt}
+                          </option>
+                          {emptyGameCourts.map(
+                            (item) => (
+                              <option
+                                key={item.id}
+                                value={item.id}
+                              >
+                                Court {item.id}
+                              </option>
+                            )
+                          )}
+                        </select>
+                      </label>
+                      <div className="mt-4 flex gap-2">
+                        <button
+                          type="button"
+                          disabled={
+                            !targetPromotionCourtId
+                          }
+                          onClick={() => {
+                            const targetCourtId =
+                              Number(
+                                targetPromotionCourtId
+                              );
+
+                            if (
+                              !promoteQueuedCourtToGameCourt(
+                                court.id,
+                                targetCourtId,
+                                operator
+                              )
+                            ) {
+                              window.alert(
+                                text.swapFailed
+                              );
+                              return;
+                            }
+
+                            setTargetPromotionCourtId(
+                              ""
+                            );
+                            setIsQueuePromotionOpen(
+                              false
+                            );
+                          }}
+                          className="flex-1 rounded-xl bg-emerald-500 py-3 font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {text.applyQueuePromotion}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTargetPromotionCourtId(
+                              ""
+                            );
+                            setIsQueuePromotionOpen(
+                              false
+                            );
+                          }}
+                          className="rounded-xl bg-slate-800 px-4 py-3 font-bold"
+                        >
+                          {text.close}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </>
           )}
 
           {!isQueueCourt && (

@@ -1713,6 +1713,168 @@ try {
   );
 
   run(
+    "empty game court is backfilled when a later finish releases queued players",
+    () => {
+      resetStore(24, 3);
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-02"],
+          ["player-03", "player-04"]
+        );
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          2,
+          ["player-05", "player-06"],
+          ["player-07", "player-08"]
+        );
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          3,
+          ["player-09", "player-10"],
+          ["player-11", "player-12"]
+        );
+      useMatchStore.getState().addQueuedCourt();
+      useMatchStore.getState().addQueuedCourt();
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-05", "player-13"],
+          ["player-14", "player-15"],
+          "QUEUE"
+        );
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          2,
+          ["player-09", "player-16"],
+          ["player-17", "player-18"],
+          "QUEUE"
+        );
+
+      useMatchStore
+        .getState()
+        .finishCourtMatch(1);
+      const afterFirstFinish =
+        useMatchStore.getState();
+      assert.equal(
+        afterFirstFinish.courts[0].status,
+        "EMPTY"
+      );
+      assert.equal(
+        afterFirstFinish.queuedCourts.some(
+          (court) =>
+            [
+              ...(court.teamA ?? []),
+              ...(court.teamB ?? []),
+            ].some(
+              (player) =>
+                player.id ===
+                "player-05"
+            )
+        ),
+        true
+      );
+
+      useMatchStore
+        .getState()
+        .finishCourtMatch(2);
+      const afterSecondFinish =
+        useMatchStore.getState();
+      assert.equal(
+        afterSecondFinish.courts[0].status,
+        "PLAYING"
+      );
+      assert.deepEqual(
+        [
+          ...afterSecondFinish.courts[0].teamA,
+          ...afterSecondFinish.courts[0].teamB,
+        ].map((player) => player.id),
+        [
+          "player-05",
+          "player-13",
+          "player-14",
+          "player-15",
+        ]
+      );
+      assert.equal(
+        afterSecondFinish.courts[1].status,
+        "EMPTY"
+      );
+    }
+  );
+
+  run(
+    "queued court can be manually promoted only to an empty non-conflicting game court",
+    () => {
+      resetStore(20, 2);
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-02"],
+          ["player-03", "player-04"]
+        );
+      useMatchStore.getState().addQueuedCourt();
+      useMatchStore.getState().addQueuedCourt();
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-09"],
+          ["player-10", "player-11"],
+          "QUEUE"
+        );
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          2,
+          ["player-12", "player-13"],
+          ["player-14", "player-15"],
+          "QUEUE"
+        );
+
+      assert.equal(
+        useMatchStore
+          .getState()
+          .promoteQueuedCourtToGameCourt(
+            1,
+            2
+          ),
+        false
+      );
+      assert.equal(
+        useMatchStore
+          .getState()
+          .promoteQueuedCourtToGameCourt(
+            2,
+            2
+          ),
+        true
+      );
+
+      const next =
+        useMatchStore.getState();
+      assert.deepEqual(
+        [
+          ...next.courts[1].teamA,
+          ...next.courts[1].teamB,
+        ].map((player) => player.id),
+        [
+          "player-12",
+          "player-13",
+          "player-14",
+          "player-15",
+        ]
+      );
+    }
+  );
+
+  run(
     "2 game courts with 1 queued court promote without losing the other active court",
     () => {
       resetStore(20, 2);
