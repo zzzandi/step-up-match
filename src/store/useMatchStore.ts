@@ -1858,6 +1858,19 @@ export const useMatchStore =
           return false;
         }
 
+        if (
+          firstCourt.status !==
+            "PLAYING" ||
+          secondCourt.status !==
+            "PLAYING" ||
+          !firstCourt.teamA ||
+          !firstCourt.teamB ||
+          !secondCourt.teamA ||
+          !secondCourt.teamB
+        ) {
+          return false;
+        }
+
         const swappedAt =
           new Date();
         const firstPlayers = [

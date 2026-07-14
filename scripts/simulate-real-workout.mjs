@@ -1570,6 +1570,70 @@ try {
   );
 
   run(
+    "game court assignment swap refuses an empty target court",
+    () => {
+      resetStore(12, 2);
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-02"],
+          ["player-03", "player-04"]
+        );
+      const before =
+        useMatchStore.getState();
+
+      assert.equal(
+        useMatchStore
+          .getState()
+          .swapGameCourts(1, 2),
+        false
+      );
+
+      const after =
+        useMatchStore.getState();
+      assert.deepEqual(
+        [
+          ...after.courts[0].teamA,
+          ...after.courts[0].teamB,
+        ].map((player) => player.id),
+        [
+          "player-01",
+          "player-02",
+          "player-03",
+          "player-04",
+        ]
+      );
+      assert.equal(
+        after.courts[1].status,
+        "EMPTY"
+      );
+      before.players.forEach(
+        (snapshot) => {
+          const player =
+            after.players.find(
+              (item) =>
+                item.id ===
+                snapshot.id
+            );
+          assert.equal(
+            player.matchCount,
+            snapshot.matchCount
+          );
+          assert.equal(
+            new Date(
+              player.waitingStartedAt
+            ).getTime(),
+            new Date(
+              snapshot.waitingStartedAt
+            ).getTime()
+          );
+        }
+      );
+    }
+  );
+
+  run(
     "queued match containing still-playing players is skipped on promotion",
     () => {
       resetStore(20, 2);

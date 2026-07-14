@@ -261,7 +261,11 @@ export default function CourtCard({
     );
   const otherGameCourts =
     courts.filter(
-      (item) => item.id !== court.id
+      (item) =>
+        item.id !== court.id &&
+        item.status === "PLAYING" &&
+        item.teamA &&
+        item.teamB
     );
 
   const [
