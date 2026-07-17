@@ -1246,7 +1246,7 @@ try {
       useMatchStore.getState().finishCourtMatch(1);
       const next = useMatchStore.getState();
 
-      assert.equal(next.queuedCourts.length, 2);
+      assert.equal(next.queuedCourts.length, 4);
       assert.equal(next.queuedCourts[0].status, "EMPTY");
       assert.equal(next.courts[0].status, "PLAYING");
       assert.deepEqual(
@@ -1905,7 +1905,7 @@ try {
       const before =
         useMatchStore.getState();
       assert.equal(before.courts.length, 2);
-      assert.equal(before.queuedCourts.length, 2);
+      assert.equal(before.queuedCourts.length, 4);
       assert.equal(before.courts[0].status, "PLAYING");
       assert.equal(before.courts[1].status, "PLAYING");
       assert.equal(before.queuedCourts[0].status, "QUEUED");
@@ -1996,7 +1996,7 @@ try {
       const before =
         useMatchStore.getState();
       assert.equal(before.courts.length, 4);
-      assert.equal(before.queuedCourts.length, 2);
+      assert.equal(before.queuedCourts.length, 4);
 
       useMatchStore.getState().finishCourtMatch(2);
       const next =
@@ -4989,6 +4989,8 @@ try {
         [
           1,
           2,
+          3,
+          4,
         ]
       );
       assert.equal(
@@ -5020,6 +5022,7 @@ try {
           1,
           2,
           3,
+          4,
         ]
       );
       assert.equal(
@@ -5027,7 +5030,7 @@ try {
         "QUEUED"
       );
       assert.equal(
-        afterAdd.queuedCourts[2].status,
+        afterAdd.queuedCourts[3].status,
         "EMPTY"
       );
     }
@@ -8168,6 +8171,301 @@ try {
       assert.equal(
         mergedPlayer.waitingStartedAt.getTime(),
         finishedPlayer.waitingStartedAt.getTime()
+      );
+    }
+  );
+
+  run(
+    "workout opening initializes 3 game courts and 4 queued courts without overwriting active matches",
+    () => {
+      resetStore(24, 0);
+      useMatchStore
+        .getState()
+        .initializeWorkoutCourts();
+
+      let state =
+        useMatchStore.getState();
+
+      assert.deepEqual(
+        state.courts.map(
+          (court) => court.id
+        ),
+        [1, 2, 3]
+      );
+      assert.deepEqual(
+        state.queuedCourts.map(
+          (court) => court.id
+        ),
+        [1, 2, 3, 4]
+      );
+      assert.ok(
+        state.queuedCourts.every(
+          (court) =>
+            court.status ===
+              "EMPTY" &&
+            !court.teamA &&
+            !court.teamB
+        )
+      );
+
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-02"],
+          ["player-03", "player-04"]
+        );
+      const before =
+        useMatchStore.getState()
+          .courts[0];
+
+      useMatchStore
+        .getState()
+        .initializeWorkoutCourts();
+
+      state =
+        useMatchStore.getState();
+
+      assert.deepEqual(
+        state.courts[0].teamA.map(
+          (player) => player.id
+        ),
+        before.teamA.map(
+          (player) => player.id
+        )
+      );
+      assert.equal(
+        state.queuedCourts.length,
+        4
+      );
+    }
+  );
+
+  run(
+    "4 game courts and 4 queued courts backfill old empty courts as players become available",
+    () => {
+      resetStore(32, 0);
+      useMatchStore
+        .getState()
+        .initializeWorkoutCourts(4, 4);
+
+      const store =
+        useMatchStore.getState();
+
+      store.assignManualMatch(
+        1,
+        ["player-01", "player-02"],
+        ["player-03", "player-04"]
+      );
+      store.assignManualMatch(
+        2,
+        ["player-05", "player-06"],
+        ["player-07", "player-08"]
+      );
+      store.assignManualMatch(
+        3,
+        ["player-09", "player-10"],
+        ["player-11", "player-12"]
+      );
+      store.assignManualMatch(
+        4,
+        ["player-13", "player-14"],
+        ["player-15", "player-16"]
+      );
+
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-05", "player-17"],
+          ["player-18", "player-19"],
+          "QUEUE"
+        );
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          2,
+          ["player-09", "player-20"],
+          ["player-21", "player-22"],
+          "QUEUE"
+        );
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          3,
+          ["player-13", "player-23"],
+          ["player-24", "player-25"],
+          "QUEUE"
+        );
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          4,
+          ["player-06", "player-26"],
+          ["player-27", "player-28"],
+          "QUEUE"
+        );
+
+      useMatchStore
+        .getState()
+        .finishCourtMatch(1);
+
+      let state =
+        useMatchStore.getState();
+
+      assert.equal(
+        state.courts.find(
+          (court) => court.id === 1
+        ).status,
+        "EMPTY"
+      );
+      assert.equal(
+        state.queuedCourts.filter(
+          (court) =>
+            court.teamA && court.teamB
+        ).length,
+        4
+      );
+
+      useMatchStore
+        .getState()
+        .finishCourtMatch(2);
+
+      state =
+        useMatchStore.getState();
+
+      assert.deepEqual(
+        state.courts
+          .find(
+            (court) => court.id === 1
+          )
+          .teamA.map(
+            (player) => player.id
+          ),
+        ["player-05", "player-17"]
+      );
+      assert.deepEqual(
+        state.courts
+          .find(
+            (court) => court.id === 2
+          )
+          .teamA.map(
+            (player) => player.id
+          ),
+        ["player-06", "player-26"]
+      );
+      assert.equal(
+        state.queuedCourts.filter(
+          (court) =>
+            court.teamA && court.teamB
+        ).length,
+        2
+      );
+
+      useMatchStore
+        .getState()
+        .finishCourtMatch(3);
+
+      state =
+        useMatchStore.getState();
+
+      assert.deepEqual(
+        state.courts
+          .find(
+            (court) => court.id === 3
+          )
+          .teamA.map(
+            (player) => player.id
+          ),
+        ["player-09", "player-20"]
+      );
+      assert.equal(
+        state.queuedCourts.filter(
+          (court) =>
+            court.teamA && court.teamB
+        ).length,
+        1
+      );
+    }
+  );
+
+  run(
+    "bulk participant registration during operation does not replace or remove active court players",
+    () => {
+      resetStore(20, 0);
+      useMatchStore
+        .getState()
+        .initializeWorkoutCourts(4, 4);
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-02"],
+          ["player-03", "player-04"]
+        );
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-05", "player-06"],
+          ["player-07", "player-08"],
+          "QUEUE"
+        );
+
+      const before =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const addedPlayers =
+        Array.from(
+          { length: 6 },
+          (_, index) =>
+            makePlayer(
+              40 + index,
+              1000 + index
+            )
+        );
+
+      useMatchStore
+        .getState()
+        .setPlayers([
+          ...useMatchStore.getState()
+            .players,
+          ...addedPlayers,
+        ]);
+
+      const after =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+
+      assert.deepEqual(
+        after.courts[0].teamA.map(
+          (player) => player.id
+        ),
+        before.courts[0].teamA.map(
+          (player) => player.id
+        )
+      );
+      assert.deepEqual(
+        after.courts[0].teamB.map(
+          (player) => player.id
+        ),
+        before.courts[0].teamB.map(
+          (player) => player.id
+        )
+      );
+      assert.deepEqual(
+        after.queuedCourts[0].teamA.map(
+          (player) => player.id
+        ),
+        before.queuedCourts[0].teamA.map(
+          (player) => player.id
+        )
+      );
+      assert.equal(
+        after.players.length,
+        before.players.length + 6
       );
     }
   );

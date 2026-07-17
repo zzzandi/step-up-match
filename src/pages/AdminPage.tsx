@@ -249,11 +249,6 @@ export default function AdminPage() {
       (state) => state.setPlayers
     );
 
-  const setCourts =
-    useMatchStore(
-      (state) => state.setCourts
-    );
-
   const womenDoublesPriority =
     useMatchStore(
       (state) =>
@@ -335,6 +330,12 @@ export default function AdminPage() {
     useMatchStore(
       (state) =>
         state.addQueuedCourt
+    );
+
+  const initializeWorkoutCourts =
+    useMatchStore(
+      (state) =>
+        state.initializeWorkoutCourts
     );
 
   const removeCourt =
@@ -438,6 +439,7 @@ export default function AdminPage() {
 
     try {
       setOpeningWorkout(true);
+      initializeWorkoutCourts();
       const workoutMarker =
         await openWorkout(
         workoutDate,
@@ -591,6 +593,16 @@ export default function AdminPage() {
             startedAt: null,
           },
         ],
+        queuedCourts: Array.from(
+          { length: 4 },
+          (_, index) => ({
+            id: index + 1,
+            status: "EMPTY" as const,
+            teamA: null,
+            teamB: null,
+            startedAt: null,
+          })
+        ),
         fixedPartnerRequests: [],
         notifications: [],
         matchHistory: [],
@@ -830,35 +842,13 @@ export default function AdminPage() {
                 .courts.length === 0
             ) {
               runLocalOnlyMutation(() => {
-                setCourts([
-                  {
-                    id: 1,
-                    status: "EMPTY",
-                    teamA: null,
-                    teamB: null,
-                    startedAt: null,
-                  },
-                  {
-                    id: 2,
-                    status: "EMPTY",
-                    teamA: null,
-                    teamB: null,
-                    startedAt: null,
-                  },
-                  {
-                    id: 3,
-                    status: "EMPTY",
-                    teamA: null,
-                    teamB: null,
-                    startedAt: null,
-                  },
-                ]);
+                initializeWorkoutCourts();
               });
             }
           })
           .catch(console.error);
       }, [
-        setCourts,
+        initializeWorkoutCourts,
         setPlayers,
       ]);
 

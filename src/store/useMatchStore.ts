@@ -357,7 +357,8 @@ function createNotification(
   };
 }
 
-const DEFAULT_QUEUED_COURT_COUNT = 2;
+const DEFAULT_GAME_COURT_COUNT = 3;
+const DEFAULT_QUEUED_COURT_COUNT = 4;
 
 function createEmptyCourt(id: number): Court {
   return {
@@ -461,6 +462,16 @@ function getNextQueuedCourt(
     )[0];
 }
 
+function createDefaultGameCourts() {
+  return Array.from(
+    {
+      length: DEFAULT_GAME_COURT_COUNT,
+    },
+    (_, index) =>
+      createEmptyCourt(index + 1)
+  );
+}
+
 function compactNotifications(
   notifications: AppNotification[],
   dismissedNotificationIds: string[]
@@ -556,6 +567,11 @@ export interface MatchStore {
 
   setCourts: (
     courts: Court[]
+  ) => void;
+
+  initializeWorkoutCourts: (
+    gameCourtCount?: number,
+    queuedCourtCount?: number
   ) => void;
 
   setWomenDoublesPriority: (
@@ -847,6 +863,51 @@ export const useMatchStore =
         set({
           courts,
         }),
+
+      initializeWorkoutCourts: (
+        gameCourtCount =
+          DEFAULT_GAME_COURT_COUNT,
+        queuedCourtCount =
+          DEFAULT_QUEUED_COURT_COUNT
+      ) => {
+        const {
+          courts,
+          queuedCourts,
+        } = get();
+        const hasActiveGameCourt =
+          courts.some(
+            (court) =>
+              court.status ===
+                "PLAYING" ||
+              Boolean(court.teamA) ||
+              Boolean(court.teamB)
+          );
+        const nextCourts =
+          hasActiveGameCourt
+            ? courts
+            : gameCourtCount ===
+                DEFAULT_GAME_COURT_COUNT
+              ? createDefaultGameCourts()
+              : Array.from(
+                  {
+                    length:
+                      gameCourtCount,
+                  },
+                  (_, index) =>
+                    createEmptyCourt(
+                      index + 1
+                    )
+                );
+
+        set({
+          courts: nextCourts,
+          queuedCourts:
+            normalizeQueuedCourtOrder(
+              queuedCourts,
+              queuedCourtCount
+            ),
+        });
+      },
 
       setWomenDoublesPriority:
         (enabled) =>
@@ -1701,6 +1762,20 @@ export const useMatchStore =
               : DEFAULT_QUEUED_COURT_COUNT
           );
 
+        if (
+          normalizedQueuedCourts.some(
+            (court) =>
+              !court.teamA &&
+              !court.teamB
+          )
+        ) {
+          set({
+            queuedCourts:
+              normalizedQueuedCourts,
+          });
+          return;
+        }
+
         const nextId =
           Math.max(
             0,
@@ -2537,33 +2612,6 @@ export const useMatchStore =
                 ]
               )
             );
-          const promotedCourt:
-            | Court
-            | null =
-            promotedTeamA &&
-            promotedTeamB
-              ? {
-                  id: courtId,
-                  status:
-                    "PLAYING",
-                  teamA:
-                    promotedTeamA.map(
-                      (player) =>
-                        promotedPlayerById.get(
-                          player.id
-                        ) ?? player
-                    ) as [Player, Player],
-                  teamB:
-                    promotedTeamB.map(
-                      (player) =>
-                        promotedPlayerById.get(
-                          player.id
-                        ) ?? player
-                    ) as [Player, Player],
-                  startedAt:
-                    promotedAt,
-                }
-              : null;
           const promotedCourtsById =
             new Map<number, Court>();
           promotionPlans.forEach(
@@ -2610,23 +2658,23 @@ export const useMatchStore =
               },
               promotedAt
             );
-          const promoteNotification =
-            promotedCourt
-              ? createNotification(
-                  {
-                    audience: "ADMIN",
-                    message: `\ub300\uae30 \ucf54\ud2b8 ${nextQueuedCourt?.id} \ub300\uc9c4\uc774 Court ${courtId}\ub85c \uc790\ub3d9 \ubc30\uc815\ub418\uc5c8\uc2b5\ub2c8\ub2e4.`,
-                  },
-                  promotedAt
-                )
-              : null;
+          const promoteNotifications =
+            promotionPlans.map((plan) =>
+              createNotification(
+                {
+                  audience: "ADMIN",
+                  message: `대기 코트 ${plan.queuedCourt.id} 대진이 Court ${plan.gameCourtId}로 자동 배정되었습니다.`,
+                },
+                promotedAt
+              )
+            );
           const nextNotifications =
             compactNotifications(
               [
                 ...get().notifications,
                 ...[
                   finishNotification,
-                  promoteNotification,
+                  ...promoteNotifications,
                 ].filter(
                   Boolean
                 ) as AppNotification[],

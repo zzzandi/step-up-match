@@ -35,6 +35,7 @@ interface ActiveAttendanceRow {
 }
 
 export const DEFAULT_COURT_COUNT = 3;
+export const DEFAULT_QUEUED_COURT_COUNT = 4;
 
 function getAttendanceUser(
   row: ActiveAttendanceRow
@@ -214,7 +215,7 @@ export function createDefaultCourts() {
 function createDefaultQueuedCourts(): Court[] {
   return Array.from(
     {
-      length: 2,
+      length: DEFAULT_QUEUED_COURT_COUNT,
     },
     (_, index) => ({
       id: index + 1,
@@ -257,7 +258,7 @@ export async function recoverOpenWorkoutDashboard() {
   const needsDefaultCourts =
     state.courts.length === 0;
   const needsDefaultQueuedCourts =
-    false;
+    state.queuedCourts.length === 0;
 
   if (
     playersChanged ||

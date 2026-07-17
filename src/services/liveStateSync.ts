@@ -621,10 +621,11 @@ function promoteQueuedCourtsAfterStaleFinish(
         );
   let changed = false;
 
-  changedCourtIds
-    .map(Number)
-    .sort((a, b) => a - b)
-    .forEach((courtId) => {
+  const finishedCourtIds =
+    changedCourtIds
+      .map(Number)
+      .sort((a, b) => a - b)
+      .filter((courtId) => {
       const currentCourt =
         currentCourtById.get(courtId);
       const incomingCourt =
@@ -635,24 +636,50 @@ function promoteQueuedCourtsAfterStaleFinish(
             court.id === courtId
         );
 
-      if (
-        !currentCourt?.teamA ||
-        !currentCourt.teamB ||
-        incomingCourt?.teamA ||
-        incomingCourt?.teamB ||
-        mergedCourt?.teamA ||
-        mergedCourt?.teamB
-      ) {
-        return;
-      }
+        return Boolean(
+          currentCourt?.teamA &&
+            currentCourt.teamB &&
+            !incomingCourt?.teamA &&
+            !incomingCourt?.teamB &&
+            !mergedCourt?.teamA &&
+            !mergedCourt?.teamB
+        );
+      });
+
+  if (finishedCourtIds.length === 0) {
+    return snapshot;
+  }
+
+  const latestPromotedAt =
+    new Date(
+      finishedCourtIds
+        .map((courtId) =>
+          getLatestEndedAtForCourt(
+            incoming.matchHistory,
+            courtId
+          )
+        )
+        .filter(Boolean)
+        .sort()
+        .at(-1) ?? new Date()
+    );
+
+  courts
+    .filter(
+      (court) =>
+        court.status === "EMPTY" &&
+        !court.teamA &&
+        !court.teamB
+    )
+    .sort((a, b) => a.id - b.id)
+    .forEach((emptyCourt) => {
+      const courtId = emptyCourt.id;
 
       const unavailablePlayerIds =
         new Set(
           courts
             .filter(
               (court) =>
-                court.id !==
-                  courtId &&
                 court.status ===
                   "PLAYING"
             )
@@ -681,12 +708,7 @@ function promoteQueuedCourtsAfterStaleFinish(
       }
 
       const promotedAt =
-        new Date(
-          getLatestEndedAtForCourt(
-            incoming.matchHistory,
-            courtId
-          ) ?? new Date()
-        );
+        latestPromotedAt;
       const promotedIds =
         new Set(
           [
