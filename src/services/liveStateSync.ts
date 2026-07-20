@@ -1328,12 +1328,27 @@ function mergeBootstrapSnapshots(
 
   incoming.courts.forEach(
     (incomingCourt) => {
+      const currentCourt =
+        courtById.get(
+          incomingCourt.id
+        );
+      const hasLiveAssignment =
+        incomingCourt.status ===
+          "PLAYING" ||
+        Boolean(incomingCourt.teamA) ||
+        Boolean(incomingCourt.teamB);
+
+      if (
+        !currentCourt &&
+        !hasLiveAssignment
+      ) {
+        return;
+      }
+
       courtById.set(
         incomingCourt.id,
         mergeBootstrapCourt(
-          courtById.get(
-            incomingCourt.id
-          ),
+          currentCourt,
           incomingCourt,
           current.matchHistory,
           incoming.matchHistory

@@ -5143,6 +5143,40 @@ try {
   );
 
   run(
+    "stale full snapshot cannot restore an explicitly deleted empty game court",
+    () => {
+      resetStore(24, 3);
+      useMatchStore.getState().addCourt();
+      const staleFourCourts =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+
+      useMatchStore
+        .getState()
+        .removeCourt(4);
+      const afterDelete =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+
+      const merged =
+        mergeLiveStateSnapshot(
+          afterDelete,
+          staleFourCourts,
+          "ADMIN"
+        );
+
+      assert.deepEqual(
+        merged.courts.map(
+          (court) => court.id
+        ),
+        [1, 2, 3]
+      );
+    }
+  );
+
+  run(
     "queued court add and delete patches synchronize for stale clients",
     () => {
       resetStore(16, 2);
