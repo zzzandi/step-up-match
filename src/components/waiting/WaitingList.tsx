@@ -192,13 +192,9 @@ export default function WaitingList({
           targetPlayer.id
         );
 
-      state.setPlayers(
-        updatedPlayers
-      );
-      state.setCourts(
-        updatedCourts
-      );
       useMatchStore.setState({
+        players: updatedPlayers,
+        courts: updatedCourts,
         queuedCourts:
           updatedQueuedCourts,
       });

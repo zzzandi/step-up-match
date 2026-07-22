@@ -1606,6 +1606,36 @@ function mergePlayerState(
     return current;
   }
 
+  if (incoming.status === "LEFT") {
+    return {
+      ...current,
+      ...incoming,
+      status: "LEFT" as const,
+      isPresent: false,
+      playingStartedAt: undefined,
+      waitingStartedAt: undefined,
+      consecutiveMatches: 0,
+      fixedPartner:
+        incoming.fixedPartner ??
+        current.fixedPartner,
+    };
+  }
+
+  if (current.status === "LEFT") {
+    return {
+      ...incoming,
+      ...current,
+      status: "LEFT" as const,
+      isPresent: false,
+      playingStartedAt: undefined,
+      waitingStartedAt: undefined,
+      consecutiveMatches: 0,
+      fixedPartner:
+        incoming.fixedPartner ??
+        current.fixedPartner,
+    };
+  }
+
   if (
     shouldPreserveCurrentPlayerTiming(
       current,
@@ -2376,6 +2406,22 @@ export function mergeLiveStateSnapshot(
               : court
         )
       : current.courts;
+  const queuedCourts =
+    sourceLeft
+      ? current.queuedCourts.map(
+          (court) =>
+            [
+              ...(court.teamA ?? []),
+              ...(court.teamB ?? []),
+            ].some(
+              (player) =>
+                player.id ===
+                sourcePlayer.id
+            )
+              ? emptyCourtLike(court)
+              : court
+        )
+      : current.queuedCourts;
   const normalizedPlayers =
     affectedCourtIds.size > 0
       ? players.map((player) => {
@@ -2427,7 +2473,10 @@ export function mergeLiveStateSnapshot(
         normalizedPlayers,
       courts,
       queuedCourts:
-        current.queuedCourts,
+        reconcileQueuedCourts(
+          courts,
+          queuedCourts
+        ),
       fixedPartnerRequests:
         dedupeFixedPartnerRequests(
           mergeById(

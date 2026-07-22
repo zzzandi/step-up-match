@@ -4118,8 +4118,11 @@ try {
         "PLAYING"
       );
       assert.equal(
-        merged.queuedCourts[0].status,
-        "EMPTY"
+        merged.queuedCourts.filter(
+          (court) =>
+            court.teamA && court.teamB
+        ).length,
+        0
       );
       assert.equal(
         merged.queuedCourts[0].teamA,
@@ -4614,8 +4617,11 @@ try {
         ]
       );
       assert.equal(
-        merged.queuedCourts[0].status,
-        "EMPTY"
+        merged.queuedCourts.filter(
+          (court) =>
+            court.teamA && court.teamB
+        ).length,
+        0
       );
       assert.ok(
         merged.players
@@ -5275,6 +5281,161 @@ try {
           (player) => player.id
         ),
         ["player-01"]
+      );
+    }
+  );
+
+  run(
+    "left player state cannot be restored by stale waiting or playing timing",
+    () => {
+      resetStore(12, 2);
+      const before =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const leftPlayer = {
+        ...before.players.find(
+          (player) =>
+            player.id === "player-01"
+        ),
+        status: "LEFT",
+        isPresent: false,
+        waitingStartedAt:
+          undefined,
+        playingStartedAt:
+          undefined,
+        lastMatchAt:
+          new Date(
+            "2026-07-22T10:30:00.000Z"
+          ),
+      };
+      const afterLeft = {
+        ...before,
+        players: before.players.map(
+          (player) =>
+            player.id === "player-01"
+              ? leftPlayer
+              : player
+        ),
+      };
+      const staleWaiting = {
+        ...before,
+        players: before.players.map(
+          (player) =>
+            player.id === "player-01"
+              ? {
+                  ...player,
+                  status: "WAITING",
+                  isPresent: true,
+                  lastMatchAt:
+                    new Date(
+                      "2026-07-22T10:40:00.000Z"
+                    ),
+                }
+              : player
+        ),
+      };
+
+      const mergedFromPatch =
+        mergeLiveStateSnapshot(
+          staleWaiting,
+          afterLeft,
+          "MASTER",
+          "master-a",
+          createLiveStatePatch(
+            before,
+            afterLeft
+          )
+        );
+      const mergedFromBootstrap =
+        mergeLiveStateSnapshot(
+          afterLeft,
+          staleWaiting,
+          "ADMIN"
+        );
+
+      assert.equal(
+        mergedFromPatch.players.find(
+          (player) =>
+            player.id === "player-01"
+        ).status,
+        "LEFT"
+      );
+      assert.equal(
+        mergedFromBootstrap.players.find(
+          (player) =>
+            player.id === "player-01"
+        ).status,
+        "LEFT"
+      );
+    }
+  );
+
+  run(
+    "leaving player is removed from queued courts on every client",
+    () => {
+      resetStore(16, 2);
+      useMatchStore
+        .getState()
+        .assignManualMatch(
+          1,
+          ["player-01", "player-02"],
+          ["player-03", "player-04"],
+          "QUEUE"
+        );
+      const live =
+        createLiveStateSnapshot(
+          useMatchStore.getState()
+        );
+      const leavingPlayer = {
+        ...live.players.find(
+          (player) =>
+            player.id === "player-01"
+        ),
+        status: "LEFT",
+        isPresent: false,
+      };
+
+      const merged =
+        mergeLiveStateSnapshot(
+          live,
+          {
+            ...live,
+            players: [
+              leavingPlayer,
+            ],
+          },
+          "PLAYER",
+          "player-01"
+        );
+
+      assert.equal(
+        merged.players.find(
+          (player) =>
+            player.id === "player-01"
+        ).status,
+        "LEFT"
+      );
+      assert.equal(
+        merged.queuedCourts.some(
+          (court) =>
+            [
+              ...(court.teamA ?? []),
+              ...(court.teamB ?? []),
+            ].some(
+              (player) =>
+                player.id ===
+                "player-01"
+            )
+        ),
+        false
+      );
+      assert.equal(
+        merged.queuedCourts.filter(
+          (court) =>
+            court.teamA && court.teamB
+        ).length,
+        0
       );
     }
   );
